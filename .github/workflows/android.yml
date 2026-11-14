@@ -46,6 +46,12 @@ jobs:
           buildMethod: AtlasBuild.BuildAndroid
           buildName: ATLAS3D
           androidExportType: androidPackage
+          # Same signing key on every build: each APK installs over the last.
+          androidKeystoreName: atlas3d.keystore
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          androidKeyaliasName: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
           versioning: None
 
       - uses: actions/upload-artifact@v4
