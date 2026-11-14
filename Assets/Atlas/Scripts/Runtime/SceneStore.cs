@@ -35,9 +35,13 @@ namespace Atlas
         public bool visible = true;
         public bool locked;
         public string clip = "";
+        public List<BonePose> pose = new List<BonePose>();
 
         public void FixOld()
         {
+            if (pose == null) pose = new List<BonePose>();
+            if (keys == null) keys = new List<KeyData>();
+            foreach (var k in keys) if (k.bones == null) k.bones = new List<BonePose>();
             if (v >= 3) return;
             v = 3;
             metallic = 0f;
@@ -249,9 +253,17 @@ namespace Atlas
                     visible = it.visible,
                     locked = it.locked,
                     clip = it.clip ?? "",
+                    pose = CopyPose(it.pose),
                 });
             }
             return d;
+        }
+
+        static List<BonePose> CopyPose(List<BonePose> src)
+        {
+            var l = new List<BonePose>();
+            if (src != null) foreach (var b in src) l.Add(b.Copy());
+            return l;
         }
 
         /// Records the state after a change (clears what was undone).

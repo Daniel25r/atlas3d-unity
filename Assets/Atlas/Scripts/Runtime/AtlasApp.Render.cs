@@ -66,6 +66,7 @@ namespace Atlas
         {
             bool g = gizmo.gameObject.activeSelf;
             gizmo.gameObject.SetActive(false);
+            highlighter.SetVisible(false);
             bool gr = ground.activeSelf;
             ground.SetActive(showGround && gr);
             int aa = (long)w * h > 4000000L ? 1 : 4;
@@ -85,6 +86,7 @@ namespace Atlas
             RenderTexture.ReleaseTemporary(rt);
             ground.SetActive(gr);
             gizmo.gameObject.SetActive(g);
+            highlighter.SetVisible(true);
             return tex;
         }
 

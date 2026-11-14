@@ -106,6 +106,7 @@ namespace Atlas
             inspectorDirty = false;
             AtlasTheme.Clear(inspector);
             for (int i = 0; i < tf.Length; i++) tf[i] = null;
+            for (int i = 0; i < boneTf.Length; i++) boneTf[i] = null;
             nameField = null;
             if (selected == null)
             {
@@ -171,7 +172,11 @@ namespace Atlas
 
             BuildTransformSection(it);
             if (it.IsLight) BuildLightSection(it);
-            else if (it.kind == "model") BuildModelSection(it);
+            else if (it.kind == "model")
+            {
+                if (it.HasBones) BuildSkeletonSection(it);
+                BuildModelSection(it);
+            }
             else BuildMaterialSection(it);
             BuildKeysSection(it);
             BuildInfoSection(it);

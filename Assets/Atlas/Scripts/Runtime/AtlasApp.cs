@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "3.0.0";
+        public const string Version = "3.1.0";
 
         Camera cam;
         Light sunLight;
@@ -48,6 +48,8 @@ namespace Atlas
             litTemplate = Resources.Load<Material>("AtlasLit");
             unlitTemplate = Resources.Load<Material>("AtlasUnlit");
             BuildWorld();
+            highlighter = new GameObject("Resaltado").AddComponent<Highlighter>();
+            highlighter.Init(unlitTemplate);
             Ambience.Init(cam);
             ApplyEnv();
             BuildUi();
@@ -187,12 +189,32 @@ namespace Atlas
                     break;
                 default: go = new GameObject(); break;
             }
-            go.name = string.IsNullOrEmpty(d.name) ? DisplayName(d.kind) : d.name;
             var it = go.AddComponent<AtlasItem>();
             it.id = string.IsNullOrEmpty(d.id) ? SceneStore.NewId() : d.id;
             it.kind = d.kind;
             it.modelFile = d.modelFile;
-            it.keys = d.keys != null ? new List<KeyData>(d.keys) : new List<KeyData>();
+            ApplyData(it, d);
+            items.Add(it);
+            if (d.kind == "model") LoadModel(it);
+            else ApplyLook(it);
+            return it;
+        }
+
+        /// Puts saved settings on an object that already exists (undo and
+        /// redo reuse the objects: a model is not loaded again).
+        void ApplyData(AtlasItem it, ItemData d)
+        {
+            it.gameObject.name = string.IsNullOrEmpty(d.name) ? DisplayName(d.kind) : d.name;
+            it.keys = new List<KeyData>();
+            if (d.keys != null)
+                foreach (var k in d.keys)
+                {
+                    var kc = JsonUtility.FromJson<KeyData>(JsonUtility.ToJson(k));
+                    if (kc.bones == null) kc.bones = new List<BonePose>();
+                    it.keys.Add(kc);
+                }
+            it.pose = new List<BonePose>();
+            if (d.pose != null) foreach (var b in d.pose) it.pose.Add(b.Copy());
             it.color = d.color;
             it.metallic = d.metallic;
             it.smoothness = d.smoothness;
@@ -206,13 +228,22 @@ namespace Atlas
             it.visible = d.visible;
             it.locked = d.locked;
             it.clip = d.clip ?? "";
-            go.transform.position = d.position;
-            go.transform.eulerAngles = d.rotation;
-            go.transform.localScale = d.scale;
-            items.Add(it);
-            if (d.kind == "model") LoadModel(it);
-            else ApplyLook(it);
-            return it;
+            it.transform.position = d.position;
+            it.transform.eulerAngles = d.rotation;
+            it.transform.localScale = d.scale;
+            if (it.loaded && it.HasBones)
+            {
+                it.ResetPose();
+                foreach (var b in d.pose) it.pose.Add(b.Copy());
+                it.Evaluate(frame, fps);
+                if (it.keys.Count > 0)
+                {
+                    // Keys must not move the object away from what was restored.
+                    it.transform.position = d.position;
+                    it.transform.eulerAngles = d.rotation;
+                    it.transform.localScale = d.scale;
+                }
+            }
         }
 
         /// Lamp: a small glowing ball with the light inside; a spotlight
@@ -260,9 +291,19 @@ namespace Atlas
                 Toast(err, true);
             else
             {
+                it.loaded = true;
+                it.BuildBones();
+                it.Evaluate(frame, fps);
                 ApplyLook(it);
-                if (!string.IsNullOrEmpty(it.clip)) it.SampleClip(frame / fps);
-                if (selected == it) { ShowGizmo(); RefreshProps(); }
+                if (selected == it)
+                {
+                    if (!poseMode) highlighter.Show(it);
+                    ShowGizmo();
+                    RefreshMode();
+                    RefreshProps();
+                }
+                if (it.HasBones && selected == it)
+                    Toast("Modelo con " + it.BoneOrder.Count + " huesos: pulsa el botón del hueso para posarlo");
             }
         }
 
@@ -437,7 +478,15 @@ namespace Atlas
 
         void Select(AtlasItem it)
         {
+            if (poseMode && it != selected)
+            {
+                poseMode = false;
+                activeBone = "";
+                HideBoneOverlay();
+            }
             selected = it;
+            if (poseMode) highlighter.Clear();
+            else highlighter.Show(it);
             ShowGizmo();
             RefreshMode();
             RefreshProps();
@@ -446,12 +495,19 @@ namespace Atlas
 
         void ShowGizmo()
         {
+            if (poseMode)
+            {
+                var bone = selected != null && activeBone != "" ? selected.Bone(activeBone) : null;
+                gizmo.Show(bone != null && tool != Tool.Select && !playing ? bone : null);
+                return;
+            }
             gizmo.Show(selected != null && !selected.locked && tool != Tool.Select && !playing ? selected.transform : null);
         }
 
         void DeleteSelected()
         {
             if (selected == null) { Toast("Selecciona algo para borrarlo"); return; }
+            ExitPose();
             items.Remove(selected);
             Destroy(selected.gameObject);
             Select(null);
@@ -477,6 +533,10 @@ namespace Atlas
             foreach (var it in items) if (it != null) Destroy(it.gameObject);
             items.Clear();
             selected = null;
+            poseMode = false;
+            activeBone = "";
+            HideBoneOverlay();
+            highlighter.Clear();
             gizmo.Show(null);
             foreach (var t in textures.Values) if (t != null) Destroy(t);
             textures.Clear();
@@ -531,15 +591,27 @@ namespace Atlas
         void Restore(SceneData d)
         {
             string keep = selected != null ? selected.id : null;
+            var old = new Dictionary<string, AtlasItem>();
             foreach (var it in items)
-                if (it != null) Destroy(it.gameObject);
+                if (it != null && !old.ContainsKey(it.id)) old[it.id] = it;
             items.Clear();
             AtlasItem sel = null;
             foreach (var data in d.items)
             {
-                var it = Create(data);
+                AtlasItem it;
+                if (old.TryGetValue(data.id, out it) && it.kind == data.kind && it.modelFile == data.modelFile)
+                {
+                    old.Remove(data.id);
+                    items.Add(it);
+                    ApplyData(it, data);
+                    ApplyLook(it);
+                }
+                else it = Create(data);
                 if (data.id == keep) sel = it;
             }
+            foreach (var it in old.Values) if (it != null) Destroy(it.gameObject);
+            bool keepPose = poseMode && sel != null && sel == selected;
+            string keepBone = activeBone;
             count = items.Count;
             target.position = d.cameraTarget;
             yaw = d.cameraYaw;
@@ -551,9 +623,17 @@ namespace Atlas
             AtlasTheme.SetButtonIcon(eyeBtn, ground.activeSelf ? "eye" : "eye_off");
             env = d.env != null ? JsonUtility.FromJson<EnvData>(JsonUtility.ToJson(d.env)) : new EnvData();
             ApplyEnv();
+            frame = Mathf.Min(frame, endFrame);
             UpdateCamera();
-            SetFrame(Mathf.Min(frame, endFrame));
             Select(sel);
+            if (keepPose && sel.HasBones)
+            {
+                poseMode = true;
+                activeBone = keepBone;
+                highlighter.Clear();
+                ShowGizmo();
+                RefreshMode();
+            }
             RefreshTimeline();
         }
 
@@ -600,8 +680,7 @@ namespace Atlas
             foreach (var it in items)
             {
                 if (it == null) continue;
-                if (it.Animated) it.Evaluate(frame);
-                if (!string.IsNullOrEmpty(it.clip)) it.SampleClip(frame / fps);
+                it.Evaluate(frame, fps);
             }
             RefreshTimeline();
         }
@@ -684,7 +763,7 @@ namespace Atlas
             }
             else if (Input.touchCount >= 2)
             {
-                if (draggingGizmo) { gizmo.End(); draggingGizmo = false; AutoKey(); Commit(true); }
+                if (draggingGizmo) { gizmo.End(); draggingGizmo = false; BoneEdited(); AutoKey(); Commit(true); }
                 moved = 99f;   // not a tap any more
                 Touch a = Input.GetTouch(0), b = Input.GetTouch(1);
                 Vector2 pa = a.position - a.deltaPosition, pb = b.position - b.deltaPosition;
@@ -724,6 +803,8 @@ namespace Atlas
                 BuildInspector();
             }
             if (selected != null && propsPanel != null && propsPanel.activeSelf && tf[0] != null) FillTransformFields();
+            if (poseMode && propsPanel != null && propsPanel.activeSelf) FillBoneFields();
+            UpdateBoneOverlay();
         }
 
         /// Android «back»: closes a dialog or a menu, or goes to the projects.
@@ -770,25 +851,28 @@ namespace Atlas
             {
                 gizmo.End();
                 draggingGizmo = false;
+                BoneEdited();
                 AutoKey();
                 Commit(true);
                 moved = -1f;
                 return;
             }
-            bool tap = (pos - downPos).magnitude < 14f && moved < 24f;
+            // A fingertip wobbles: the tap tolerance follows the screen density.
+            float tol = Mathf.Max(14f, (Screen.dpi > 0f ? Screen.dpi : 320f) * 0.09f);
+            bool tap = (pos - downPos).magnitude < tol && moved < tol * 2.2f;
             orbiting = false;
             moved = -1f;
             if (!tap) return;
             CloseMenus();
-            AtlasItem it = null;
-            // The nearest object that is not locked.
-            var hits = Physics.RaycastAll(cam.ScreenPointToRay(pos), 2000f);
-            float best = float.MaxValue;
-            foreach (var h in hits)
+            if (poseMode)
             {
-                var hi = h.collider.GetComponentInParent<AtlasItem>();
-                if (hi == null || hi.locked) continue;
-                if (h.distance < best) { best = h.distance; it = hi; }
+                string bone = PickBone(pos);
+                if (bone != "") { SetActiveBone(bone); return; }
+            }
+            AtlasItem it = PickItem(pos);
+            if (poseMode)
+            {
+                if (it == null || it == selected) { if (activeBone != "") SetActiveBone(""); return; }
             }
             Select(it);
         }
@@ -833,7 +917,13 @@ namespace Atlas
             Toast("Exportando a " + format + "…");
             try
             {
-                string path = await Exporter.Export(format, items, store != null ? store.name : "atlas3d");
+                var opt = new GltfSceneWriter.Options { setFrame = SetFrame, endFrame = endFrame, fps = fps, currentFrame = frame };
+                bool anyAnim = false;
+                foreach (var it in items)
+                    if (it != null && (it.Animated || !string.IsNullOrEmpty(it.clip))) anyAnim = true;
+                if (!anyAnim) opt.setFrame = null;
+                if (playing) TogglePlay();
+                string path = await Exporter.Export(format, items, store != null ? store.name : "atlas3d", opt);
                 Share(path, format);
             }
             catch (System.Exception e)

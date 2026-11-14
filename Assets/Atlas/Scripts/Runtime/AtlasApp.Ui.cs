@@ -12,7 +12,8 @@ namespace Atlas
         RectTransform canvasRoot, safeRoot, viewArea;
         Button selectBtn, moveBtn, rotateBtn, scaleBtn, undoBtn, redoBtn, animBtn, propsBtn, eyeBtn, renderBtn;
         GameObject addMenu, mainMenu, timeline;
-        Text modeText;
+        Text modeText, badgeText;
+        Image badge;
         RectTransform toastHolder;
         UnityEngine.Rect lastSafe;
         // Timeline
@@ -45,8 +46,24 @@ namespace Atlas
         {
             if (modeText == null) return;
             string toolName = tool == Tool.Select ? "Seleccionar" : tool == Tool.Move ? "Mover" : tool == Tool.Rotate ? "Girar" : "Escalar";
-            string what = selected != null ? selected.gameObject.name + (selected.locked ? " (bloqueado)" : "") : "Nada seleccionado";
-            modeText.text = toolName + " · " + what;
+            if (poseMode)
+            {
+                badgeText.text = "POSE";
+                badge.color = AtlasTheme.AccentButton;
+                modeText.text = activeBone != "" ? toolName + " · " + BoneNames.Display(BoneNames.Leaf(activeBone)) : "Toca una articulación";
+            }
+            else
+            {
+                badgeText.text = "OBJETO";
+                badge.color = AtlasTheme.Badge;
+                string what = selected != null ? selected.gameObject.name + (selected.locked ? " (bloqueado)" : "") : "Nada seleccionado";
+                modeText.text = toolName + " · " + what;
+            }
+            if (boneBtn != null)
+            {
+                boneBtn.gameObject.SetActive(poseMode || (selected != null && selected.HasBones));
+                AtlasTheme.SetActive(boneBtn, poseMode);
+            }
         }
 
         void BuildUi()
@@ -81,6 +98,7 @@ namespace Atlas
             BuildRail();
             viewArea = AtlasTheme.Rect(safeRoot, "Visor");
             AtlasTheme.Fill(viewArea, RailWidth);
+            BuildBoneOverlay();
             BuildModePill();
             BuildNav();
             BuildTimeline();
@@ -120,6 +138,8 @@ namespace Atlas
             moveBtn = AtlasTheme.IconButton(rail.transform, "move", () => SetTool(Tool.Move));
             rotateBtn = AtlasTheme.IconButton(rail.transform, "rotate", () => SetTool(Tool.Rotate));
             scaleBtn = AtlasTheme.IconButton(rail.transform, "scale", () => SetTool(Tool.Scale));
+            boneBtn = AtlasTheme.IconButton(rail.transform, "bone", TogglePose);
+            boneBtn.gameObject.SetActive(false);
             AtlasTheme.Separator(rail.transform, false);
             AtlasTheme.IconButton(rail.transform, "add", () => ToggleMenu(addMenu));
             AtlasTheme.IconButton(rail.transform, "duplicate", DuplicateSelected);
@@ -157,12 +177,12 @@ namespace Atlas
             var fit = pill.gameObject.AddComponent<ContentSizeFitter>();
             fit.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             pill.raycastTarget = false;
-            var badge = AtlasTheme.Box(pill.transform, "Insignia", AtlasTheme.Badge, 14);
+            badge = AtlasTheme.Box(pill.transform, "Insignia", AtlasTheme.Badge, 14);
             badge.raycastTarget = false;
             var ble = badge.gameObject.AddComponent<LayoutElement>();
             ble.preferredWidth = 92f;
             ble.preferredHeight = 30f;
-            var badgeText = AtlasTheme.Label(badge.transform, "OBJETO", 15, Color.white, true, TextAnchor.MiddleCenter);
+            badgeText = AtlasTheme.Label(badge.transform, "OBJETO", 15, Color.white, true, TextAnchor.MiddleCenter);
             AtlasTheme.Fill(badgeText.rectTransform);
             modeText = AtlasTheme.Label(pill.transform, "Mover · Nada seleccionado", 19, AtlasTheme.TextColor, true);
             modeText.horizontalOverflow = HorizontalWrapMode.Overflow;

@@ -121,6 +121,15 @@ public static class AtlasBuild
         MakeMaterial("AtlasUnlit", "Universal Render Pipeline/Unlit");
         MakeMaterial("AtlasLitTransparent", "Universal Render Pipeline/Lit");
         MakeMaterial("AtlasSky", "Skybox/Procedural");
+        MakeMaterial("AtlasUnlitTransparent", "Universal Render Pipeline/Unlit");
+        try
+        {
+            MakeMaterial("AtlasHighlight", "Atlas/Highlight");
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("ATLAS: resaltado sin shader propio: " + e.Message);
+        }
 
         // --- The one scene: an empty one with the app object.
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -133,7 +142,7 @@ public static class AtlasBuild
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "3.0.0";
+        PlayerSettings.bundleVersion = "3.1.0";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;
@@ -178,6 +187,15 @@ public static class AtlasBuild
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
             Atlas.MatUtil.SetTransparent(m, true);
             m.SetColor("_BaseColor", new Color(1f, 1f, 1f, 0.5f));
+        }
+        else if (name == "AtlasUnlitTransparent")
+        {
+            Atlas.MatUtil.SetTransparent(m, true);
+            m.SetColor("_BaseColor", new Color(1f, 0.65f, 0.25f, 0.3f));
+        }
+        else if (name == "AtlasHighlight")
+        {
+            m.SetColor("_Color", new Color(0.94f, 0.65f, 0.25f, 1f));
         }
         else if (name == "AtlasSky")
         {
