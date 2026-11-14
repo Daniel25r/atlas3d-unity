@@ -5,6 +5,7 @@
 //   OBJ  (+ MTL and its textures)               - ufbx (simple reader if it fails)
 //   3DS  (3D Studio)                            - ThreeDsImport
 //   BLEND (Blender 2.8 - 4.x, base meshes)      - BlendImport
+//   PRISMA (Prisma3D projects, rigs and skin)   - PrismaImport
 using System;
 using System.IO;
 
@@ -12,7 +13,7 @@ namespace Atlas.Import
 {
     public static class ModelConverter
     {
-        public static readonly string[] Convertible = { ".fbx", ".obj", ".3ds", ".blend" };
+        public static readonly string[] Convertible = { ".fbx", ".obj", ".3ds", ".blend", ".prisma", ".proj", ".pobject" };
 
         /// Converts `path` (inside the project) to a .glb next to it and
         /// returns the GLB's path, or null to keep the file as it is.
@@ -33,6 +34,11 @@ namespace Atlas.Import
                     break;
                 case ".blend":
                     m = BlendImport.Load(path);
+                    break;
+                case ".prisma":
+                case ".proj":
+                case ".pobject":
+                    m = PrismaImport.Load(path);
                     break;
                 default:
                     return null;
@@ -74,6 +80,8 @@ namespace Atlas.Import
             if (text.Contains("FBXHeaderExtension") || text.StartsWith("; FBX")) return ".fbx";
             if (n >= 10 && ThreeDsImport.Is3ds(head)) return ".3ds";
             if (BlendImport.IsBlend(head)) return ".blend";
+            if (PrismaImport.IsAlteredZip(head)) return ".prisma";
+            if (PrismaImport.IsProjectFile(head)) return ".proj";
             return "";
         }
     }

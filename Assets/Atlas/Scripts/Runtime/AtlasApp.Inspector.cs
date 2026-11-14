@@ -37,6 +37,7 @@ namespace Atlas
             public string name;
             public bool keepColor;
             public Color color;
+            public string shader = "";
             public float metallic, roughness, emission = 0f, opacity = 1f;
         }
 
@@ -52,6 +53,9 @@ namespace Atlas
             new MatPreset { name = "Arcilla", color = new Color(0.78f, 0.6f, 0.5f), metallic = 0f, roughness = 0.85f },
             new MatPreset { name = "Neón", keepColor = true, metallic = 0f, roughness = 0.5f, emission = 4f },
             new MatPreset { name = "Mate", keepColor = true, metallic = 0f, roughness = 1f },
+            new MatPreset { name = "Cristal Aero", shader = "aero", keepColor = true, roughness = 0.04f, opacity = 0.35f, emission = 2f },
+            new MatPreset { name = "Burbuja", shader = "aero", color = new Color(0.75f, 0.9f, 1f), roughness = 0.02f, opacity = 0.1f, emission = 0f },
+            new MatPreset { name = "Gel brillante", shader = "aero", keepColor = true, roughness = 0.08f, opacity = 0.7f, emission = 1f },
         };
 
         void BuildProps()
@@ -293,6 +297,7 @@ namespace Atlas
                 AtlasTheme.Chip(g, p.name, () =>
                 {
                     if (!p.keepColor) it.color = p.color;
+                    it.shader = p.shader;
                     it.metallic = p.metallic;
                     it.smoothness = 1f - p.roughness;
                     it.emission = p.emission;

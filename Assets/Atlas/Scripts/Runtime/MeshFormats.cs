@@ -18,7 +18,7 @@ namespace Atlas
 {
     public static class MeshFormats
     {
-        public static readonly string[] Importable = { ".glb", ".gltf", ".fbx", ".obj", ".3ds", ".blend", ".stl", ".ply", ".zip" };
+        public static readonly string[] Importable = { ".glb", ".gltf", ".fbx", ".obj", ".3ds", ".blend", ".prisma", ".proj", ".pobject", ".stl", ".ply", ".zip" };
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
         // ------------------------------------------------------------------
@@ -65,7 +65,7 @@ namespace Atlas
             Directory.CreateDirectory(dest);
             string best = null;
             int bestRank = 99;
-            string[] order = { ".glb", ".gltf", ".fbx", ".obj", ".3ds", ".blend", ".ply", ".stl" };
+            string[] order = { ".glb", ".gltf", ".prisma", ".fbx", ".obj", ".3ds", ".blend", ".proj", ".ply", ".stl" };
             using (var zip = new ZipArchive(File.OpenRead(zipPath), ZipArchiveMode.Read))
             {
                 foreach (var e in zip.Entries)

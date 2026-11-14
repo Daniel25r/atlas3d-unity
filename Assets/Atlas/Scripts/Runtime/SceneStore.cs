@@ -38,6 +38,7 @@ namespace Atlas
         public List<BonePose> pose = new List<BonePose>();
         public float fov = 50f;
         public bool renderCam;
+        public string shader = "";
 
         public void FixOld()
         {
@@ -258,6 +259,7 @@ namespace Atlas
                     clip = it.clip ?? "",
                     pose = CopyPose(it.pose),
                     fov = it.fov,
+                    shader = it.shader ?? "",
                     renderCam = it.renderCam,
                 });
             }

@@ -11,7 +11,10 @@ namespace Atlas
     public class AmbiencePreset
     {
         public string id, name;
-        public string sky = "";          // "" plain colour, or day / sunset / night
+        public string sky = "";          // "" plain colour, or day / sunset / night / clouds
+        // Cloud sky
+        public Color skyTop = new Color(0.16f, 0.42f, 0.88f), skyHorizon = new Color(0.72f, 0.86f, 1f);
+        public float cloudCover = 0.5f, skyExposure = 1f;
         public Color background;
         public Color ambSky, ambEquator, ambGround;
         public Color sun = Color.white;
@@ -34,11 +37,22 @@ namespace Atlas
             new AmbiencePreset { id = "studio", name = "Estudio ATLAS", background = AtlasTheme.Viewport,
                 ambSky = C(0.55f, 0.58f, 0.66f), ambEquator = C(0.38f, 0.39f, 0.43f), ambGround = C(0.16f, 0.16f, 0.18f),
                 sun = C(1f, 0.97f, 0.92f), sunIntensity = 1.25f, bloom = 0.1f },
-            new AmbiencePreset { id = "realistic", name = "Realista cine", sky = "day", aces = true,
+            // Frutiger Aero: bright optimistic sky, soft clouds, glossy glow.
+            new AmbiencePreset { id = "aero", name = "Frutiger Aero", sky = "clouds",
+                skyTop = C(0.12f, 0.42f, 0.95f), skyHorizon = C(0.78f, 0.92f, 1f), cloudCover = 0.55f, skyExposure = 1.1f,
+                ambSky = C(0.7f, 0.85f, 1f), ambEquator = C(0.55f, 0.68f, 0.82f), ambGround = C(0.3f, 0.42f, 0.38f),
+                sun = C(1f, 0.97f, 0.9f), sunIntensity = 1.45f, sunEuler = new Vector3(52f, -30f, 0f), fogColor = C(0.75f, 0.88f, 1f),
+                exposure = 0.2f, contrast = 6f, saturation = 22f, bloom = 0.55f, fog = 0.003f },
+            new AmbiencePreset { id = "clouds", name = "Cielo con nubes", sky = "clouds",
+                skyTop = C(0.2f, 0.45f, 0.82f), skyHorizon = C(0.7f, 0.8f, 0.92f), cloudCover = 0.45f,
+                ambSky = C(0.62f, 0.72f, 0.88f), ambEquator = C(0.48f, 0.52f, 0.58f), ambGround = C(0.24f, 0.24f, 0.22f),
+                sun = K(5800f), sunIntensity = 1.35f, sunEuler = new Vector3(45f, -40f, 0f), fogColor = C(0.72f, 0.8f, 0.9f),
+                contrast = 6f, saturation = 5f, bloom = 0.2f, vignette = 0.12f, fog = 0.004f },
+            new AmbiencePreset { id = "realistic", name = "Realista cine", sky = "clouds", aces = true, cloudCover = 0.4f,
                 ambSky = C(0.62f, 0.7f, 0.86f), ambEquator = C(0.45f, 0.47f, 0.5f), ambGround = C(0.2f, 0.18f, 0.16f),
                 sun = K(5600f), sunIntensity = 1.7f, sunEuler = new Vector3(38f, -40f, 0f), fogColor = C(0.72f, 0.8f, 0.9f),
                 exposure = 0.15f, contrast = 12f, saturation = 5f, bloom = 0.3f, vignette = 0.2f, fog = 0.006f },
-            new AmbiencePreset { id = "natural", name = "Natural suave", sky = "day",
+            new AmbiencePreset { id = "natural", name = "Natural suave", sky = "clouds", cloudCover = 0.35f,
                 ambSky = C(0.62f, 0.7f, 0.85f), ambEquator = C(0.48f, 0.5f, 0.55f), ambGround = C(0.25f, 0.23f, 0.2f),
                 sun = K(5600f), sunIntensity = 1.1f, sunEuler = new Vector3(45f, -60f, 0f), fogColor = C(0.75f, 0.82f, 0.92f),
                 contrast = 6f, saturation = -5f, bloom = 0.08f, vignette = 0.15f, fog = 0.004f },
@@ -70,7 +84,7 @@ namespace Atlas
                 ambSky = C(0.4f, 0.3f, 0.5f), ambEquator = C(0.15f, 0.12f, 0.2f), ambGround = C(0.03f, 0.03f, 0.04f),
                 sun = C(1f, 0.4f, 0.85f), sunIntensity = 1.1f, sunEuler = new Vector3(55f, 150f, 0f), fogColor = C(0.1f, 0.08f, 0.15f),
                 contrast = 15f, saturation = 25f, bloom = 0.6f, vignette = 0.4f, grain = 0.05f, fog = 0.04f },
-            new AmbiencePreset { id = "anime", name = "Anime", sky = "day",
+            new AmbiencePreset { id = "anime", name = "Anime", sky = "clouds", skyTop = C(0.1f, 0.4f, 0.95f), skyHorizon = C(0.65f, 0.85f, 1f), cloudCover = 0.5f,
                 ambSky = C(0.75f, 0.8f, 0.95f), ambEquator = C(0.6f, 0.62f, 0.7f), ambGround = C(0.35f, 0.33f, 0.35f),
                 sun = K(6000f), sunIntensity = 1.4f, sunEuler = new Vector3(50f, -30f, 0f),
                 contrast = 5f, saturation = 20f, bloom = 0.15f },
@@ -113,7 +127,7 @@ namespace Atlas
         static URP.ColorAdjustments color;
         static URP.Vignette vignette;
         static URP.FilmGrain grain;
-        static Material skyMat;
+        static Material skyMat, cloudMat;
 
         /// Global post-processing volume and the camera's post switch.
         public static void Init(Camera cam)
@@ -140,6 +154,8 @@ namespace Atlas
             }
             var tmpl = Resources.Load<Material>("AtlasSky");
             if (tmpl != null) skyMat = new Material(tmpl);
+            var ct = Resources.Load<Material>("AtlasClouds");
+            if (ct != null && ct.shader != null && ct.shader.isSupported) cloudMat = new Material(ct);
         }
 
         public static void Apply(EnvData e, Camera cam, Light sun)
@@ -147,12 +163,29 @@ namespace Atlas
             if (!e.set) Reset(e, string.IsNullOrEmpty(e.preset) ? "studio" : e.preset);
             var p = Find(e.preset);
 
-            // Background: procedural sky or a plain colour.
-            if (p.sky != "" && skyMat != null)
+            // Background: cloud sky, procedural sky or a plain colour.
+            if (p.sky == "clouds" && cloudMat != null)
+            {
+                cam.clearFlags = CameraClearFlags.Skybox;
+                RenderSettings.skybox = cloudMat;
+                cloudMat.SetColor("_TopColor", p.skyTop);
+                cloudMat.SetColor("_HorizonColor", p.skyHorizon);
+                cloudMat.SetColor("_GroundColor", Color.Lerp(p.skyHorizon, p.ambGround, 0.6f));
+                cloudMat.SetFloat("_Cover", p.cloudCover);
+                cloudMat.SetFloat("_Exposure", p.skyExposure);
+                cloudMat.SetColor("_SunColor", p.sun);
+                if (sun != null)
+                {
+                    sun.transform.rotation = Quaternion.Euler(p.sunEuler);
+                    Vector3 sd = -sun.transform.forward;
+                    cloudMat.SetVector("_SunDir", new Vector4(sd.x, sd.y, sd.z, 0f));
+                }
+            }
+            else if (p.sky != "" && skyMat != null)
             {
                 cam.clearFlags = CameraClearFlags.Skybox;
                 RenderSettings.skybox = skyMat;
-                if (p.sky == "day")
+                if (p.sky == "day" || p.sky == "clouds")
                 {
                     skyMat.SetColor("_SkyTint", new Color(0.5f, 0.55f, 0.65f));
                     skyMat.SetColor("_GroundColor", new Color(0.37f, 0.35f, 0.34f));

@@ -293,7 +293,7 @@ namespace Atlas
             AtlasTheme.TextButton(others, "camera", "Cámara", AddCamera, false, 46f, 16);
             AtlasTheme.TextButton(others, "image", "Imagen…", AddImagePlane, false, 46f, 16);
             AtlasTheme.TextButton(content, "import", "Importar modelo…", ImportModel, true, 50f);
-            var formats = AtlasTheme.Label(content, "GLB · glTF · FBX · OBJ · 3DS · BLEND · STL · PLY · ZIP", 14, AtlasTheme.TextDim, false, TextAnchor.MiddleCenter);
+            var formats = AtlasTheme.Label(content, "GLB · glTF · FBX · OBJ · BLEND · PRISMA · 3DS · STL · PLY · ZIP", 14, AtlasTheme.TextDim, false, TextAnchor.MiddleCenter);
             AtlasTheme.Le(formats.gameObject, 20f);
             addMenu = menu.gameObject;
             addMenu.SetActive(false);

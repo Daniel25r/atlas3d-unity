@@ -17,11 +17,14 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "3.3.0";
+        public const string Version = "3.4.0";
 
         Camera cam;
         Light sunLight;
-        Material litTemplate, unlitTemplate;
+        Material litTemplate, unlitTemplate, aeroTemplate;
+        ReflectionProbe probe;
+        bool reflDirty = true;
+        float nextRefl;
         Transform target;   // orbit centre
         float yaw = 30f, pitch = 22f, distance = 7f;
         readonly List<AtlasItem> items = new List<AtlasItem>();
@@ -47,6 +50,8 @@ namespace Atlas
             QualitySettings.vSyncCount = 0;
             Input.simulateMouseWithTouches = false;   // a touch is not also a mouse click
             litTemplate = Resources.Load<Material>("AtlasLit");
+            aeroTemplate = Resources.Load<Material>("AtlasAero");
+            if (aeroTemplate != null && (aeroTemplate.shader == null || !aeroTemplate.shader.isSupported)) aeroTemplate = null;
             unlitTemplate = Resources.Load<Material>("AtlasUnlit");
             BuildWorld();
             highlighter = new GameObject("Resaltado").AddComponent<Highlighter>();
@@ -106,6 +111,20 @@ namespace Atlas
             gm.SetFloat("_Smoothness", 0.1f);
             ground.GetComponent<Renderer>().sharedMaterial = gm;
 
+            // Reflections of the sky and the scene on glossy materials.
+            var pg = new GameObject("Reflejos");
+            probe = pg.AddComponent<ReflectionProbe>();
+            probe.mode = UnityEngine.Rendering.ReflectionProbeMode.Realtime;
+            probe.refreshMode = UnityEngine.Rendering.ReflectionProbeRefreshMode.ViaScripting;
+            probe.timeSlicingMode = UnityEngine.Rendering.ReflectionProbeTimeSlicingMode.NoTimeSlicing;
+            probe.resolution = 128;
+            probe.size = new Vector3(2000f, 2000f, 2000f);
+            probe.boxProjection = false;
+            probe.clearFlags = UnityEngine.Rendering.ReflectionProbeClearFlags.Skybox;
+            probe.hdr = true;
+            probe.importance = 1;
+            probe.cullingMask = ~(1 << Gizmo.Layer);
+
             var g = new GameObject("Gizmo");
             gizmo = g.AddComponent<Gizmo>();
             gizmo.cam = cam;
@@ -134,6 +153,20 @@ namespace Atlas
         void ApplyEnv()
         {
             Ambience.Apply(env, cam, sunLight);
+            reflDirty = true;
+        }
+
+        /// The reflections are captured again after changes (at most twice
+        /// a second, never while playing).
+        void UpdateReflections()
+        {
+            if (probe == null || !reflDirty || playing || Time.unscaledTime < nextRefl || store == null) return;
+            reflDirty = false;
+            nextRefl = Time.unscaledTime + 0.5f;
+            probe.transform.position = target.position + Vector3.up * 0.5f;
+            highlighter.SetVisible(false);
+            probe.RenderProbe();
+            highlighter.SetVisible(true);
         }
 
         // ------------------------------------------------------------------
@@ -238,6 +271,7 @@ namespace Atlas
             it.locked = d.locked;
             it.clip = d.clip ?? "";
             it.fov = d.fov > 1f ? d.fov : 50f;
+            it.shader = d.shader ?? "";
             it.renderCam = d.renderCam;
             it.transform.position = d.position;
             it.transform.eulerAngles = d.rotation;
@@ -325,7 +359,24 @@ namespace Atlas
             foreach (var r in it.GetComponentsInChildren<Renderer>(true)) r.enabled = it.visible;
             foreach (var c in it.GetComponentsInChildren<Collider>(true)) c.enabled = it.visible;
             if (it.kind == "model") return;
-            if (it.material == null) it.material = new Material(litTemplate);
+            // The material's kind follows the item (lit / Frutiger Aero glass).
+            bool wantAero = it.shader == "aero" && aeroTemplate != null && it.IsShape;
+            bool isAero = it.material != null && aeroTemplate != null && it.material.shader == aeroTemplate.shader;
+            if (it.material != null && isAero != wantAero)
+            {
+                Destroy(it.material);
+                it.material = null;
+            }
+            if (it.material == null) it.material = new Material(wantAero ? aeroTemplate : litTemplate);
+            if (wantAero)
+            {
+                var am = it.material;
+                am.SetColor("_BaseColor", new Color(it.color.r, it.color.g, it.color.b, Mathf.Clamp01(it.opacity)));
+                am.SetFloat("_Glow", Mathf.Clamp(0.6f + it.emission * 0.25f, 0f, 2f));
+                am.SetFloat("_Smoothness", it.smoothness);
+                foreach (var r in it.GetComponentsInChildren<Renderer>(true)) r.sharedMaterial = am;
+                return;
+            }
             var m = it.material;
             Color col = it.color;
             if (it.kind == "camera")
@@ -605,6 +656,7 @@ namespace Atlas
         {
             if (store == null) return;
             store.Push(Snapshot());
+            reflDirty = true;
             RefreshUndo();
             RefreshKeys();
             if (save) SaveNow(false);
@@ -835,6 +887,7 @@ namespace Atlas
             if (poseMode && propsPanel != null && propsPanel.activeSelf) FillBoneFields();
             UpdateBoneOverlay();
             UpdateLookThrough();
+            UpdateReflections();
             if (viewArea != null && Mathf.Abs(viewArea.rect.width - lastViewW) > 1f)
             {
                 lastViewW = viewArea.rect.width;

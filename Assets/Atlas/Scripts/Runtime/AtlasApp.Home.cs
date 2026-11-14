@@ -349,7 +349,7 @@ namespace Atlas
             AtlasTheme.Dialog(canvasRoot, "ATLAS 3D " + Version,
                 "Estudio de creación y animación 3D para móviles.\n\n" +
                 "Esta es la nueva versión hecha en Unity: más fluida y con mejor imagen (URP, sombras suaves, efectos de cine). " +
-                "Importa GLB, glTF, FBX, OBJ (+MTL), 3DS, BLEND, STL, PLY y ZIP; exporta GLB, glTF, OBJ, STL, PLY y 3MF.\n\n" +
+                "Importa GLB, glTF, FBX, OBJ (+MTL), BLEND, Prisma3D, 3DS, STL, PLY y ZIP; exporta GLB, glTF, OBJ, STL, PLY y 3MF.\n\n" +
                 "Letra Inter (licencia OFL).", null, "Cerrar", false, null);
             toastHolder.SetAsLastSibling();
         }

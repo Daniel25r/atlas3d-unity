@@ -19,6 +19,7 @@ namespace Atlas
         public float emission = 0f;
         public float opacity = 1f;
         public string texture = "";  // file inside the project's «textures» folder
+        public string shader = "";   // "" lit (PBR), "aero" glossy Frutiger Aero glass
         public Material material;    // this object's own material
         // Light
         public float lightIntensity = 3f;

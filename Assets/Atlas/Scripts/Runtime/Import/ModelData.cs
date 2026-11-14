@@ -39,6 +39,21 @@ namespace Atlas.Import
         public float[] skinIbm;                // 16 per joint, column-major
         public readonly List<MPart> parts = new List<MPart>();
         public int VertexCount { get { return pos != null ? pos.Length / 3 : 0; } }
+
+        /// Every triangle with its front where its normals point (glTF:
+        /// counter-clockwise seen from the front).
+        public static void FixWinding(float[] p, float[] n, uint[] t)
+        {
+            for (int i = 0; i + 2 < t.Length; i += 3)
+            {
+                uint a = t[i], b = t[i + 1], c = t[i + 2];
+                float ux = p[b * 3] - p[a * 3], uy = p[b * 3 + 1] - p[a * 3 + 1], uz = p[b * 3 + 2] - p[a * 3 + 2];
+                float vx = p[c * 3] - p[a * 3], vy = p[c * 3 + 1] - p[a * 3 + 1], vz = p[c * 3 + 2] - p[a * 3 + 2];
+                float fx = uy * vz - uz * vy, fy = uz * vx - ux * vz, fz = ux * vy - uy * vx;
+                float wx = n[a * 3] + n[b * 3] + n[c * 3], wy = n[a * 3 + 1] + n[b * 3 + 1] + n[c * 3 + 1], wz = n[a * 3 + 2] + n[b * 3 + 2] + n[c * 3 + 2];
+                if (fx * wx + fy * wy + fz * wz < 0f) { t[i + 1] = c; t[i + 2] = b; }
+            }
+        }
     }
 
     public class MMaterial
@@ -49,6 +64,7 @@ namespace Atlas.Import
         public float[] emission = { 0, 0, 0 };
         public int texture = -1, normalTexture = -1;
         public bool doubleSided;
+        public bool alphaMask;   // cut-out by the texture's alpha (hair, leaves…)
     }
 
     public class MTexture
@@ -231,6 +247,7 @@ namespace Atlas.Import
                 if (m.emission[0] + m.emission[1] + m.emission[2] > 0.001f)
                     sb.Append(",\"emissiveFactor\":[").Append(N(Clamp01(m.emission[0]))).Append(',').Append(N(Clamp01(m.emission[1]))).Append(',').Append(N(Clamp01(m.emission[2]))).Append(']');
                 if (m.color[3] < 0.999f) sb.Append(",\"alphaMode\":\"BLEND\"");
+                else if (m.alphaMask) sb.Append(",\"alphaMode\":\"MASK\",\"alphaCutoff\":0.4");
                 if (m.doubleSided) sb.Append(",\"doubleSided\":true");
                 sb.Append('}');
                 matJson.Add(sb.ToString());
