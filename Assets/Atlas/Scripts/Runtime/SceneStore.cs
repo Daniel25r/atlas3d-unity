@@ -39,6 +39,8 @@ namespace Atlas
         public float fov = 50f;
         public bool renderCam;
         public string shader = "";
+        public float modelGloss = -1f;
+        public string meshFile = "";
 
         public void FixOld()
         {
@@ -108,6 +110,7 @@ namespace Atlas
         public readonly string name;
         public string ModelsDir { get { return Path.Combine(projectDir, "models"); } }
         public string TexturesDir { get { return Path.Combine(projectDir, "textures"); } }
+        public string MeshesDir { get { return Path.Combine(projectDir, "meshes"); } }
         public string ThumbPath { get { return Path.Combine(projectDir, "thumb.png"); } }
         string ScenePath { get { return Path.Combine(projectDir, "scene.json"); } }
 
@@ -260,6 +263,8 @@ namespace Atlas
                     pose = CopyPose(it.pose),
                     fov = it.fov,
                     shader = it.shader ?? "",
+                    modelGloss = it.modelGloss,
+                    meshFile = it.meshFile ?? "",
                     renderCam = it.renderCam,
                 });
             }

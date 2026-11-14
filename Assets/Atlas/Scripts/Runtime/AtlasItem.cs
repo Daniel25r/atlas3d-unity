@@ -20,6 +20,11 @@ namespace Atlas
         public float opacity = 1f;
         public string texture = "";  // file inside the project's «textures» folder
         public string shader = "";   // "" lit (PBR), "aero" glossy Frutiger Aero glass
+        public float modelGloss = -1f;
+        public string meshFile = "";     // shapes changed with Modelar / Esculpir (project «meshes» folder)
+        public EditMesh edit;
+        public Mesh editMesh;   // imported models: -1 their own shine, else 0 (matte) .. 1 (glossy)
+        public readonly Dictionary<Material, Vector2> originalGloss = new Dictionary<Material, Vector2>();
         public Material material;    // this object's own material
         // Light
         public float lightIntensity = 3f;
@@ -442,6 +447,7 @@ namespace Atlas
         void OnDestroy()
         {
             if (material != null) Destroy(material);
+            if (editMesh != null) Destroy(editMesh);
             if (importer != null)
             {
                 importer.Dispose();

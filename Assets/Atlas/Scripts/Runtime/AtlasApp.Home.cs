@@ -54,7 +54,7 @@ namespace Atlas
             cam.enabled = true;
             if (saved != null)
             {
-                Restore(saved);
+                Restore(saved, true);
                 Commit(false);
                 Toast("Proyecto «" + name + "»");
             }
@@ -340,6 +340,7 @@ namespace Atlas
                 "• Engranaje: propiedades, materiales y «Ambiente rápido».\n" +
                 "• + → Cámara: los renders salen por ella; se puede animar.\n" +
                 "• Imán (barra izquierda): mover, girar y escalar a saltos exactos.\n" +
+                "• Formas: botones Modelar (vértices y caras, extruir…) y Esculpir (pinceles como arcilla).\n" +
                 "• Render: imagen o la animación completa.", null, "Entendido", false, null);
             toastHolder.SetAsLastSibling();
         }

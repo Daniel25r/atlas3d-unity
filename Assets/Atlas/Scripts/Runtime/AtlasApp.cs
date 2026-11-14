@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "3.4.0";
+        public const string Version = "3.5.0";
 
         Camera cam;
         Light sunLight;
@@ -47,6 +47,14 @@ namespace Atlas
         void Awake()
         {
             Application.targetFrameRate = 60;
+            // Always landscape (either side), from the first frame.
+            Screen.autorotateToPortrait = false;
+            Screen.autorotateToPortraitUpsideDown = false;
+            Screen.autorotateToLandscapeLeft = true;
+            Screen.autorotateToLandscapeRight = true;
+            if (Screen.orientation == ScreenOrientation.Portrait || Screen.orientation == ScreenOrientation.PortraitUpsideDown)
+                Screen.orientation = ScreenOrientation.LandscapeLeft;
+            Screen.orientation = ScreenOrientation.AutoRotation;
             QualitySettings.vSyncCount = 0;
             Input.simulateMouseWithTouches = false;   // a touch is not also a mouse click
             litTemplate = Resources.Load<Material>("AtlasLit");
@@ -237,6 +245,7 @@ namespace Atlas
             it.modelFile = d.modelFile;
             ApplyData(it, d);
             items.Add(it);
+            if (!string.IsNullOrEmpty(it.meshFile)) LoadItemMesh(it);
             if (d.kind == "model") LoadModel(it);
             else ApplyLook(it);
             return it;
@@ -272,6 +281,15 @@ namespace Atlas
             it.clip = d.clip ?? "";
             it.fov = d.fov > 1f ? d.fov : 50f;
             it.shader = d.shader ?? "";
+            it.modelGloss = d.modelGloss;
+            string mf = d.meshFile ?? "";
+            if (mf != (it.meshFile ?? ""))
+            {
+                it.meshFile = mf;
+                if (it.GetComponent<MeshFilter>() != null && it.IsShape && (it.edit != null || mf != "")) LoadItemMesh(it);
+                selVerts.Clear();
+                selFaces.Clear();
+            }
             it.renderCam = d.renderCam;
             it.transform.position = d.position;
             it.transform.eulerAngles = d.rotation;
@@ -358,7 +376,7 @@ namespace Atlas
             if (it == null) return;
             foreach (var r in it.GetComponentsInChildren<Renderer>(true)) r.enabled = it.visible;
             foreach (var c in it.GetComponentsInChildren<Collider>(true)) c.enabled = it.visible;
-            if (it.kind == "model") return;
+            if (it.kind == "model") { ApplyModelGloss(it); return; }
             // The material's kind follows the item (lit / Frutiger Aero glass).
             bool wantAero = it.shader == "aero" && aeroTemplate != null && it.IsShape;
             bool isAero = it.material != null && aeroTemplate != null && it.material.shader == aeroTemplate.shader;
@@ -427,6 +445,30 @@ namespace Atlas
                 if (m.HasProperty("_Cull")) m.SetFloat("_Cull", it.kind == "image" ? 0f : 2f);
             }
             foreach (var r in it.GetComponentsInChildren<Renderer>(true)) r.sharedMaterial = m;
+        }
+
+        /// «Brillo» of an imported model: its own materials, or all of them
+        /// from matte to glossy (and not metal).
+        void ApplyModelGloss(AtlasItem it)
+        {
+            foreach (var r in it.GetComponentsInChildren<Renderer>())
+                foreach (var m in r.sharedMaterials)
+                {
+                    if (m == null || !m.HasProperty("_Smoothness")) continue;
+                    if (!it.originalGloss.ContainsKey(m))
+                        it.originalGloss[m] = new Vector2(m.HasProperty("_Metallic") ? m.GetFloat("_Metallic") : 0f, m.GetFloat("_Smoothness"));
+                    var o = it.originalGloss[m];
+                    if (it.modelGloss < 0f)
+                    {
+                        if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", o.x);
+                        m.SetFloat("_Smoothness", o.y);
+                    }
+                    else
+                    {
+                        if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0f);
+                        m.SetFloat("_Smoothness", it.modelGloss * 0.85f);
+                    }
+                }
         }
 
         Texture2D LoadTexture(string file)
@@ -566,6 +608,14 @@ namespace Atlas
 
         void Select(AtlasItem it)
         {
+            if (meshMode != "" && it != selected)
+            {
+                if (sculpting) EndSculpt();
+                meshMode = "";
+                selVerts.Clear();
+                selFaces.Clear();
+                BuildMeshBar();
+            }
             if (poseMode && it != selected)
             {
                 poseMode = false;
@@ -584,6 +634,11 @@ namespace Atlas
         void ShowGizmo()
         {
             if (lookThrough != null) { gizmo.Show(null); return; }
+            if (meshMode != "")
+            {
+                gizmo.Show(meshMode == "model" && tool != Tool.Select && !playing && PlaceMeshPivot() ? meshPivot : null);
+                return;
+            }
             if (poseMode)
             {
                 var bone = selected != null && activeBone != "" ? selected.Bone(activeBone) : null;
@@ -597,6 +652,7 @@ namespace Atlas
         {
             if (selected == null) { Toast("Selecciona algo para borrarlo"); return; }
             ExitPose();
+            ExitMeshMode();
             items.Remove(selected);
             Destroy(selected.gameObject);
             Select(null);
@@ -623,6 +679,11 @@ namespace Atlas
             foreach (var it in items) if (it != null) Destroy(it.gameObject);
             items.Clear();
             selected = null;
+            meshMode = "";
+            sculpting = false;
+            selVerts.Clear();
+            selFaces.Clear();
+            if (meshBar != null) meshBar.SetActive(false);
             poseMode = false;
             activeBone = "";
             HideBoneOverlay();
@@ -680,7 +741,9 @@ namespace Atlas
             }
         }
 
-        void Restore(SceneData d)
+        /// `view`: also put the camera where it was saved (opening a
+        /// project). Undo / redo keep the view where the user is looking.
+        void Restore(SceneData d, bool view = false)
         {
             string keep = selected != null ? selected.id : null;
             var old = new Dictionary<string, AtlasItem>();
@@ -705,10 +768,13 @@ namespace Atlas
             bool keepPose = poseMode && sel != null && sel == selected;
             string keepBone = activeBone;
             count = items.Count;
-            target.position = d.cameraTarget;
-            yaw = d.cameraYaw;
-            pitch = d.cameraPitch;
-            distance = d.cameraDistance;
+            if (view)
+            {
+                target.position = d.cameraTarget;
+                yaw = d.cameraYaw;
+                pitch = d.cameraPitch;
+                distance = d.cameraDistance;
+            }
             fps = Mathf.Max(1, d.fps);
             endFrame = Mathf.Max(1, d.endFrame);
             startFrame = Mathf.Clamp(d.startFrame, 0, endFrame - 1);
@@ -844,6 +910,8 @@ namespace Atlas
             }
             else if (Input.touchCount >= 2)
             {
+                if (sculpting) EndSculpt();
+                if (draggingGizmo && meshDragging) { gizmo.End(); draggingGizmo = false; MeshDragEnd(); }
                 if (draggingGizmo) { gizmo.End(); draggingGizmo = false; BoneEdited(); AutoKey(); Commit(true); }
                 moved = 99f;   // not a tap any more
                 Touch a = Input.GetTouch(0), b = Input.GetTouch(1);
@@ -886,6 +954,7 @@ namespace Atlas
             if (selected != null && propsPanel != null && propsPanel.activeSelf && tf[0] != null) FillTransformFields();
             if (poseMode && propsPanel != null && propsPanel.activeSelf) FillBoneFields();
             UpdateBoneOverlay();
+            UpdateMeshOverlay();
             UpdateLookThrough();
             UpdateReflections();
             if (viewArea != null && Mathf.Abs(viewArea.rect.width - lastViewW) > 1f)
@@ -914,16 +983,21 @@ namespace Atlas
         {
             downPos = pos;
             moved = 0f;
+            // Sculpting: a finger on the shape is the brush.
+            if (BeginSculpt(pos)) { draggingGizmo = false; orbiting = false; return; }
             draggingGizmo = gizmo.TryBegin(pos);
+            if (draggingGizmo && meshMode == "model") MeshDragBegin();
             orbiting = !draggingGizmo;
         }
 
         void MovePointer(Vector2 pos, Vector2 delta)
         {
             moved += delta.magnitude;
+            if (sculpting) { SculptMove(pos); return; }
             if (draggingGizmo)
             {
                 gizmo.Drag(pos);
+                if (meshDragging) MeshDragMove();
                 return;
             }
             if (orbiting && moved > 6f)
@@ -936,6 +1010,15 @@ namespace Atlas
 
         void EndPointer(Vector2 pos)
         {
+            if (sculpting) { EndSculpt(); moved = -1f; return; }
+            if (draggingGizmo && meshDragging)
+            {
+                gizmo.End();
+                draggingGizmo = false;
+                MeshDragEnd();
+                moved = -1f;
+                return;
+            }
             if (draggingGizmo)
             {
                 gizmo.End();
@@ -953,6 +1036,8 @@ namespace Atlas
             moved = -1f;
             if (!tap) return;
             CloseMenus();
+            if (MeshTap(pos)) return;
+            if (meshMode == "sculpt") return;   // taps do not change the selection while sculpting
             if (poseMode)
             {
                 string bone = PickBone(pos);

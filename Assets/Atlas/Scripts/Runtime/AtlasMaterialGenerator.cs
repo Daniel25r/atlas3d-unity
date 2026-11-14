@@ -70,13 +70,17 @@ namespace Atlas
             m.SetTexture("_BaseMap", baseTex);
             float metal = pbr != null ? pbr.metallicFactor : 0f;
             float rough = pbr != null ? pbr.roughnessFactor : 1f;
-            // Without the metal/roughness texture the factors are the whole
-            // value; with it they would usually be 1 (too shiny / too metal).
+            // With a metal/roughness texture the factors are multipliers
+            // (usually 1, «all metal, all rough»): the texture is not read
+            // by the phone material, so a soft, non-metal look is used
+            // instead of a mirror-like shine.
             if (pbr != null && pbr.MetallicRoughnessTexture != null && pbr.MetallicRoughnessTexture.index >= 0)
             {
-                metal *= 0.5f;
-                rough = Mathf.Max(rough * 0.8f, 0.45f);
+                metal = 0f;
+                rough = Mathf.Max(rough, 0.72f);
             }
+            // Painted surfaces never look like polished chrome by accident.
+            if (baseTex != null) metal = Mathf.Min(metal, 0.3f);
             m.SetFloat("_Metallic", Mathf.Clamp01(metal));
             m.SetFloat("_Smoothness", Mathf.Clamp01(1f - rough));
 

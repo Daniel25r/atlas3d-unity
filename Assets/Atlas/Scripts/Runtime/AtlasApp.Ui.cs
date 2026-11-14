@@ -42,7 +42,15 @@ namespace Atlas
         {
             if (modeText == null) return;
             string toolName = tool == Tool.Select ? "Seleccionar" : tool == Tool.Move ? "Mover" : tool == Tool.Rotate ? "Girar" : "Escalar";
-            if (poseMode)
+            if (meshMode != "")
+            {
+                badgeText.text = meshMode == "model" ? "MODELAR" : "ESCULPIR";
+                badge.color = AtlasTheme.Key * 0.85f;
+                modeFull = meshMode == "model"
+                    ? (selMode == "vert" ? "Vértices" : "Caras") + " · " + (selected != null ? selected.gameObject.name : "")
+                    : SculptBrush.Names[System.Array.IndexOf(SculptBrush.Order, brush)] + " · " + (selected != null ? selected.gameObject.name : "");
+            }
+            else if (poseMode)
             {
                 badgeText.text = "POSE";
                 badge.color = AtlasTheme.AccentButton;
@@ -60,6 +68,11 @@ namespace Atlas
             {
                 boneBtn.gameObject.SetActive(poseMode || (selected != null && selected.HasBones));
                 AtlasTheme.SetActive(boneBtn, poseMode);
+                bool shape = MeshEditable(selected);
+                modelBtn.gameObject.SetActive(shape);
+                sculptBtn.gameObject.SetActive(shape);
+                AtlasTheme.SetActive(modelBtn, meshMode == "model");
+                AtlasTheme.SetActive(sculptBtn, meshMode == "sculpt");
             }
         }
 
@@ -96,6 +109,7 @@ namespace Atlas
             viewArea = AtlasTheme.Rect(safeRoot, "Visor");
             AtlasTheme.Fill(viewArea, RailWidth);
             BuildBoneOverlay();
+            BuildMeshUi();
             BuildModePill();
             BuildNav();
             BuildTimeline();
@@ -128,25 +142,29 @@ namespace Atlas
             rr.pivot = new Vector2(0f, 0.5f);
             rr.offsetMin = new Vector2(0f, 0f);
             rr.offsetMax = new Vector2(RailWidth, 0f);
-            var col = AtlasTheme.Column(rail.gameObject, 4f, new RectOffset(10, 10, 12, 12));
-            col.childForceExpandWidth = false;
-            col.childAlignment = TextAnchor.UpperCenter;
-            AtlasTheme.IconButton(rail.transform, "home", () => ShowHome(true));
-            AtlasTheme.Separator(rail.transform, false);
-            selectBtn = AtlasTheme.IconButton(rail.transform, "select", () => SetTool(Tool.Select));
-            moveBtn = AtlasTheme.IconButton(rail.transform, "move", () => SetTool(Tool.Move));
-            rotateBtn = AtlasTheme.IconButton(rail.transform, "rotate", () => SetTool(Tool.Rotate));
-            scaleBtn = AtlasTheme.IconButton(rail.transform, "scale", () => SetTool(Tool.Scale));
-            boneBtn = AtlasTheme.IconButton(rail.transform, "bone", TogglePose);
-            snapBtn = AtlasTheme.IconButton(rail.transform, "magnet", ToggleSnap);
+            // Scrolls when the screen is not tall enough for every tool.
+            ScrollRect rsr;
+            var c = AtlasTheme.ScrollArea(rail.transform, out rsr, 4f, new RectOffset(10, 10, 12, 12));
+            AtlasTheme.IconButton(c, "home", () => ShowHome(true));
+            AtlasTheme.Separator(c, false);
+            selectBtn = AtlasTheme.IconButton(c, "select", () => SetTool(Tool.Select));
+            moveBtn = AtlasTheme.IconButton(c, "move", () => SetTool(Tool.Move));
+            rotateBtn = AtlasTheme.IconButton(c, "rotate", () => SetTool(Tool.Rotate));
+            scaleBtn = AtlasTheme.IconButton(c, "scale", () => SetTool(Tool.Scale));
+            boneBtn = AtlasTheme.IconButton(c, "bone", TogglePose);
+            modelBtn = AtlasTheme.IconButton(c, "edit", () => SetMeshMode(meshMode == "model" ? "" : "model"));
+            sculptBtn = AtlasTheme.IconButton(c, "sculpt", () => SetMeshMode(meshMode == "sculpt" ? "" : "sculpt"));
+            snapBtn = AtlasTheme.IconButton(c, "magnet", ToggleSnap);
             boneBtn.gameObject.SetActive(false);
-            AtlasTheme.Separator(rail.transform, false);
-            AtlasTheme.IconButton(rail.transform, "add", () => ToggleMenu(addMenu));
-            AtlasTheme.IconButton(rail.transform, "duplicate", DuplicateSelected);
-            AtlasTheme.IconButton(rail.transform, "delete", DeleteSelected);
-            AtlasTheme.IconButton(rail.transform, "deselect", () => Select(null));
-            AtlasTheme.Separator(rail.transform, false);
-            AtlasTheme.IconButton(rail.transform, "focus", FocusSelected);
+            modelBtn.gameObject.SetActive(false);
+            sculptBtn.gameObject.SetActive(false);
+            AtlasTheme.Separator(c, false);
+            AtlasTheme.IconButton(c, "add", () => ToggleMenu(addMenu));
+            AtlasTheme.IconButton(c, "duplicate", DuplicateSelected);
+            AtlasTheme.IconButton(c, "delete", DeleteSelected);
+            AtlasTheme.IconButton(c, "deselect", () => Select(null));
+            AtlasTheme.Separator(c, false);
+            AtlasTheme.IconButton(c, "focus", FocusSelected);
         }
 
         void BuildTopBar()
