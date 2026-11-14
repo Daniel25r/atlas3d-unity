@@ -28,6 +28,7 @@ namespace Atlas.Import
     public class MissingContentException : Exception
     {
         public readonly int count;
+        public string names = "";
         public string folder = "", file = "";   // where the project was copied (set by SceneStore)
         public MissingContentException(int n) : base("a este proyecto de Prisma3D le faltan sus mallas (archivos .pobject de la carpeta «content»)") { count = n; }
     }
@@ -61,6 +62,7 @@ namespace Atlas.Import
             using (var f = File.OpenRead(path)) f.Read(head, 0, 8);
             string projPath = path;
             string rootDir = Path.GetDirectoryName(path);
+            fileDir = rootDir;
             if (IsAlteredZip(head) || (head[0] == 0x50 && head[1] == 0x4B))
             {
                 // Repair the signature and unpack next to the file.
@@ -196,10 +198,136 @@ namespace Atlas.Import
         static object Decode(byte[] data)
         {
             if (data == null || data.Length <= 4) return null;
+            // MessagePack-CSharp LZ4 (newer Prisma3D files): unpacked first.
+            for (int start = 0; start <= 4; start += 4)
+            {
+                byte[] plain = Lz4Unpack(data, start);
+                if (plain != null)
+                {
+                    var z = new MsgPack(plain, 0).Read() as List<object>;
+                    if (z != null && z.Count > 0) return z;
+                }
+            }
             var v = new MsgPack(data, 4).Read() as List<object>;
             if (v != null && v.Count > 0) return v;
             var w = new MsgPack(data, 0).Read() as List<object>;
             return w != null && w.Count > 0 ? w : (object)v;
+        }
+
+        /// LZ4 as MessagePack-CSharp writes it: one block (ext 99: int length +
+        /// LZ4 data) or a block array ([ext 98: lengths…, bin, bin…]); null
+        /// when the data is not compressed.
+        static byte[] Lz4Unpack(byte[] d, int at)
+        {
+            try
+            {
+                if (at >= d.Length) return null;
+                int i = at;
+                int extType, extLen;
+                if (ReadExt(d, ref i, out extType, out extLen) && extType == 99)
+                {
+                    int end = i + extLen;
+                    int j = i;
+                    long size = ReadInt(d, ref j);
+                    if (size <= 0 || size > 512L * 1024 * 1024) return null;
+                    var outb = new byte[size];
+                    Lz4Block(d, j, end - j, outb, 0, (int)size);
+                    return outb;
+                }
+                i = at;
+                byte t = d[i];
+                int count;
+                if (t >= 0x90 && t <= 0x9f) { count = t & 15; i++; }
+                else if (t == 0xdc) { count = (d[i + 1] << 8) | d[i + 2]; i += 3; }
+                else return null;
+                if (count < 2 || !ReadExt(d, ref i, out extType, out extLen) || extType != 98) return null;
+                int lend = i + extLen;
+                var sizes = new List<long>();
+                while (i < lend) sizes.Add(ReadInt(d, ref i));
+                if (sizes.Count != count - 1) return null;
+                long total = 0;
+                foreach (var s in sizes) { if (s < 0) return null; total += s; }
+                if (total <= 0 || total > 512L * 1024 * 1024) return null;
+                var all = new byte[total];
+                int o = 0;
+                foreach (var s in sizes)
+                {
+                    int bl = ReadBinLen(d, ref i);
+                    if (bl < 0) return null;
+                    Lz4Block(d, i, bl, all, o, (int)s);
+                    i += bl;
+                    o += (int)s;
+                }
+                return all;
+            }
+            catch (Exception) { return null; }
+        }
+
+        static bool ReadExt(byte[] d, ref int i, out int type, out int len)
+        {
+            type = -1; len = 0;
+            byte t = d[i];
+            if (t == 0xc7) { len = d[i + 1]; type = (sbyte)d[i + 2]; i += 3; }
+            else if (t == 0xc8) { len = (d[i + 1] << 8) | d[i + 2]; type = (sbyte)d[i + 3]; i += 4; }
+            else if (t == 0xc9) { len = (d[i + 1] << 24) | (d[i + 2] << 16) | (d[i + 3] << 8) | d[i + 4]; type = (sbyte)d[i + 5]; i += 6; }
+            else if (t >= 0xd4 && t <= 0xd8) { len = 1 << (t - 0xd4); type = (sbyte)d[i + 1]; i += 2; }
+            else return false;
+            return len >= 0 && i + len <= d.Length;
+        }
+
+        static long ReadInt(byte[] d, ref int i)
+        {
+            byte t = d[i++];
+            if (t <= 0x7f) return t;
+            if (t >= 0xe0) return t - 256;
+            long v = 0;
+            int n;
+            switch (t)
+            {
+                case 0xcc: case 0xd0: n = 1; break;
+                case 0xcd: case 0xd1: n = 2; break;
+                case 0xce: case 0xd2: n = 4; break;
+                case 0xcf: case 0xd3: n = 8; break;
+                default: throw new Exception("lz4: longitud no válida");
+            }
+            for (int k = 0; k < n; k++) v = (v << 8) | d[i + k];
+            i += n;
+            if (t == 0xd0) v = (sbyte)v; else if (t == 0xd1) v = (short)v; else if (t == 0xd2) v = (int)v;
+            return v;
+        }
+
+        static int ReadBinLen(byte[] d, ref int i)
+        {
+            byte t = d[i];
+            if (t == 0xc4) { i += 2; return d[i - 1]; }
+            if (t == 0xc5) { i += 3; return (d[i - 2] << 8) | d[i - 1]; }
+            if (t == 0xc6) { i += 5; return (d[i - 4] << 24) | (d[i - 3] << 16) | (d[i - 2] << 8) | d[i - 1]; }
+            return -1;
+        }
+
+        /// Plain LZ4 block decoder.
+        static void Lz4Block(byte[] src, int si, int slen, byte[] dst, int di, int dlen)
+        {
+            int send = si + slen, dend = di + dlen, dstart = di;
+            while (si < send)
+            {
+                int token = src[si++];
+                int lit = token >> 4;
+                if (lit == 15) { int b; do { b = src[si++]; lit += b; } while (b == 255); }
+                if (di + lit > dend || si + lit > send) throw new Exception("lz4: datos dañados");
+                Buffer.BlockCopy(src, si, dst, di, lit);
+                si += lit; di += lit;
+                if (si >= send || di >= dend) break;
+                int off = src[si] | (src[si + 1] << 8);
+                si += 2;
+                if (off == 0 || di - off < dstart) throw new Exception("lz4: desplazamiento no válido");
+                int ml = token & 15;
+                if (ml == 15) { int b; do { b = src[si++]; ml += b; } while (b == 255); }
+                ml += 4;
+                if (di + ml > dend) throw new Exception("lz4: datos dañados");
+                for (int k = 0; k < ml; k++) { dst[di] = dst[di - off]; di++; }
+            }
+            if (di != dend) throw new Exception("lz4: tamaño distinto");
         }
 
         // ------------------------------------------------------------------
@@ -666,6 +794,37 @@ namespace Atlas.Import
             return "";
         }
 
+        static List<KeyValuePair<string, object>> contentIndex;
+        static string fileDir;   // the picked file's folder (extra .pobject files go there)
+
+        static object ContentById(string rootDir, string cid, List<object> used)
+        {
+            if (contentIndex == null)
+            {
+                contentIndex = new List<KeyValuePair<string, object>>();
+                var files = new List<string>();
+                try { files.AddRange(Directory.GetFiles(rootDir, "*", SearchOption.AllDirectories)); } catch (Exception) { }
+                if (!string.IsNullOrEmpty(fileDir) && fileDir != rootDir)
+                    try { files.AddRange(Directory.GetFiles(fileDir, "*.pobject", SearchOption.AllDirectories)); } catch (Exception) { }
+                try
+                {
+                    foreach (var f in files)
+                    {
+                        string e = Path.GetExtension(f).ToLowerInvariant();
+                        if (e != ".pobject" && e != "") continue;
+                        if (new FileInfo(f).Length > 300L * 1024 * 1024) continue;
+                        object c;
+                        try { c = Decode(File.ReadAllBytes(f)); } catch (Exception) { continue; }
+                        if (IsContent(c)) contentIndex.Add(new KeyValuePair<string, object>(Sid(L(c)[0]), c));
+                    }
+                }
+                catch (Exception) { }
+            }
+            foreach (var kv in contentIndex) if (kv.Key == cid) return kv.Value;
+            foreach (var kv in contentIndex) if (!used.Contains(kv.Value)) return kv.Value;
+            return null;
+        }
+
         static MModel Build(string rootDir, string projPath)
         {
             var proj = Decode(File.ReadAllBytes(projPath));
@@ -697,6 +856,8 @@ namespace Atlas.Import
             m.nodes.Add(new MNode { name = "Prisma3D", r = new[] { 0f, 1f, 0f, 0f } });
             int meshesMade = 0;
             var missing = new List<string>();
+            var usedContent = new List<object>();
+            contentIndex = null;
             foreach (var r0 in L(P[1]))
             {
                 var rootObj = L(r0);
@@ -707,8 +868,12 @@ namespace Atlas.Import
                 {
                     string cpath = FindFile(rootDir, "content", cid + ".pobject");
                     content = cpath != "" ? Decode(File.ReadAllBytes(cpath)) : null;
+                    // Not by its file name: by the id written inside each
+                    // .pobject (renamed or copied files), then any left over.
+                    if (!IsContent(content)) content = ContentById(rootDir, cid, usedContent);
                 }
                 if (!IsContent(content)) { missing.Add(rootObj[1] as string ?? cid); continue; }
+                usedContent.Add(content);
                 var C = L(content);
                 var objs = new List<List<object>>();
                 foreach (var o0 in L(C[1]))
@@ -856,7 +1021,7 @@ namespace Atlas.Import
             }
             if (meshesMade == 0)
             {
-                if (missing.Count > 0) throw new MissingContentException(missing.Count);
+                if (missing.Count > 0) throw new MissingContentException(missing.Count) { names = string.Join(", ", missing.ToArray()) };
                 throw new Exception("el proyecto de Prisma3D no tiene mallas que ATLAS pueda leer");
             }
             return m;

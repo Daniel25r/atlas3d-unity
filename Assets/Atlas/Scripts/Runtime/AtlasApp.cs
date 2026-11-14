@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "3.7.2";
+        public const string Version = "3.7.3";
 
         Camera cam;
         Light sunLight;
@@ -432,7 +432,12 @@ namespace Atlas
                 m.SetColor("_EmissionColor", it.renderCam ? new Color(0.35f, 0.12f, 0.6f) : Color.black);
                 m.SetTexture("_BaseMap", null);
                 MatUtil.SetTransparent(m, false);
-                foreach (var r in it.GetComponentsInChildren<Renderer>(true)) r.sharedMaterial = m;
+                foreach (var r in it.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (r is LineRenderer) continue;
+                    var acc = CameraAccent(r.gameObject.name);
+                    r.sharedMaterial = acc != null ? acc : m;
+                }
                 return;
             }
             if (it.IsLight)
@@ -644,10 +649,15 @@ namespace Atlas
         /// files of its «content» folder and try again.
         void AskPrismaContent(Import.MissingContentException e, string shownName)
         {
+            bool full = e.file.EndsWith(".prisma", System.StringComparison.OrdinalIgnoreCase) || e.file.StartsWith("paquete_");
+            string what = string.IsNullOrEmpty(e.names) ? "" : " (" + (e.names.Length > 80 ? e.names.Substring(0, 80) + "…" : e.names) + ")";
             AtlasTheme.Dialog(canvasRoot, "Faltan las mallas del proyecto",
-                "Un .proj de Prisma3D guarda sus modelos aparte, en la carpeta «content» que está junto a él (archivos .pobject). " +
-                "Toca «Elegir archivos», entra en esa carpeta «content» y marca todos los .pobject (y las imágenes de «res» si tiene texturas).\n\n" +
-                "Más fácil: en Prisma3D exporta o comparte el proyecto como .prisma e importa ese archivo.",
+                full
+                ? "Este proyecto de Prisma3D no trae dentro las mallas de sus objetos" + what + ". Suele pasar cuando se exporta sin guardar antes. " +
+                  "Ábrelo en Prisma3D, guárdalo y vuelve a exportarlo o compartirlo con ATLAS 3D.\n\nSi tienes sus archivos .pobject (carpeta «content»), tócalos con «Elegir archivos»."
+                : "Un .proj de Prisma3D guarda sus modelos aparte" + what + ", en la carpeta «content» que está junto a él (archivos .pobject). " +
+                  "Toca «Elegir archivos», entra en esa carpeta «content» y marca todos los .pobject (y las imágenes de «res» si tiene texturas).\n\n" +
+                  "Más fácil: en Prisma3D comparte el proyecto con ATLAS 3D o expórtalo como .prisma.",
                 null, "Elegir archivos", false, _ =>
                 {
                     if (NativeFilePicker.IsFilePickerBusy()) return;
@@ -1318,6 +1328,17 @@ namespace Atlas
             Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
             cam.transform.position = target.position + rot * new Vector3(0f, 0f, -distance);
             cam.transform.rotation = rot;
+            FitShadows(distance);
+        }
+
+        /// Shadows only as far as needed for what is on screen: small models
+        /// seen up close get sharp shadows without dark triangles on their faces.
+        static void FitShadows(float viewDistance)
+        {
+            var urp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline as UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset;
+            if (urp == null) return;
+            float d = Mathf.Clamp(viewDistance * 3.5f, 6f, 80f);
+            if (Mathf.Abs(urp.shadowDistance - d) > 0.25f) urp.shadowDistance = d;
         }
 
         void FocusSelected()

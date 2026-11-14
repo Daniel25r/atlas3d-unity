@@ -55,6 +55,10 @@ public class AtlasManifest : IPostGenerateGradleAndroidProject
         }
         if (!xml.Contains("xmlns:android")) Debug.LogWarning("ATLAS: el manifiesto no declara xmlns:android");
         xml = xml.Insert(at, Activity);
+        // Uninstalling asks whether to keep the projects.
+        int app = xml.IndexOf("<application");
+        if (app >= 0 && !xml.Contains("hasFragileUserData"))
+            xml = xml.Insert(app + "<application".Length, " android:hasFragileUserData=\"true\"");
         File.WriteAllText(manifest, xml);
         Debug.Log("ATLAS: «Abrir con / Compartir» añadido al manifiesto");
     }

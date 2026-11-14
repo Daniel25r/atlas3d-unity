@@ -21,25 +21,64 @@ namespace Atlas
         // ------------------------------------------------------------------
         // Scene camera
 
-        /// Camera prop: a small body with a lens pointing forward.
+        /// Camera prop, like the Godot version: a film camera with its body,
+        /// lens (pointing forward, +Z), two reels on top, a red «recording»
+        /// light and a small blue screen on the side.
         GameObject MakeCameraProp()
         {
             var go = new GameObject();
-            var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            body.name = "Cuerpo";
-            Destroy(body.GetComponent<Collider>());
-            body.transform.SetParent(go.transform, false);
-            body.transform.localScale = new Vector3(0.28f, 0.22f, 0.36f);
-            body.transform.localPosition = new Vector3(0f, 0f, -0.1f);
-            var lens = new GameObject("Objetivo");
-            lens.transform.SetParent(go.transform, false);
-            lens.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
-            lens.transform.localScale = new Vector3(0.24f, 0.22f, 0.24f);
-            lens.transform.localPosition = new Vector3(0f, 0f, 0.19f);
-            lens.AddComponent<MeshFilter>().sharedMesh = Primitives.Get("cone");
-            lens.AddComponent<MeshRenderer>();
+            Part(go, PrimitiveType.Cube, "Cuerpo", new Vector3(0f, 0f, -0.04f), Vector3.zero, new Vector3(0.26f, 0.24f, 0.42f));
+            Part(go, PrimitiveType.Cylinder, "Objetivo", new Vector3(0f, 0.01f, 0.24f), new Vector3(90f, 0f, 0f), new Vector3(0.17f, 0.07f, 0.17f));
+            Part(go, PrimitiveType.Cylinder, "Parasol", new Vector3(0f, 0.01f, 0.32f), new Vector3(90f, 0f, 0f), new Vector3(0.21f, 0.015f, 0.21f));
+            Part(go, PrimitiveType.Cylinder, "Carrete", new Vector3(0f, 0.24f, 0.08f), new Vector3(0f, 0f, 90f), new Vector3(0.22f, 0.025f, 0.22f));
+            Part(go, PrimitiveType.Cylinder, "Carrete", new Vector3(0f, 0.22f, -0.17f), new Vector3(0f, 0f, 90f), new Vector3(0.18f, 0.025f, 0.18f));
+            Part(go, PrimitiveType.Cube, "Visor", new Vector3(-0.1f, 0.08f, -0.3f), Vector3.zero, new Vector3(0.06f, 0.06f, 0.1f));
+            Part(go, PrimitiveType.Sphere, "Luz", new Vector3(0.132f, 0.06f, 0.1f), Vector3.zero, new Vector3(0.035f, 0.035f, 0.035f));
+            Part(go, PrimitiveType.Cube, "Pantalla", new Vector3(0.132f, 0.03f, -0.04f), Vector3.zero, new Vector3(0.01f, 0.07f, 0.09f));
             foreach (var r in go.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             return go;
+        }
+
+        static void Part(GameObject parent, PrimitiveType type, string name, Vector3 pos, Vector3 euler, Vector3 scale)
+        {
+            var p = GameObject.CreatePrimitive(type);
+            p.name = name;
+            var col = p.GetComponent<Collider>();
+            if (col != null) Destroy(col);
+            p.transform.SetParent(parent.transform, false);
+            p.transform.localPosition = pos;
+            p.transform.localRotation = Quaternion.Euler(euler);
+            p.transform.localScale = scale;
+        }
+
+        Material camRedMat, camBlueMat;
+
+        /// The red light and the blue screen keep their own colours.
+        Material CameraAccent(string part)
+        {
+            if (part == "Luz")
+            {
+                if (camRedMat == null)
+                {
+                    camRedMat = new Material(litTemplate);
+                    camRedMat.SetColor("_BaseColor", new Color(0.9f, 0.1f, 0.08f));
+                    camRedMat.EnableKeyword("_EMISSION");
+                    camRedMat.SetColor("_EmissionColor", new Color(1.6f, 0.15f, 0.1f));
+                }
+                return camRedMat;
+            }
+            if (part == "Pantalla")
+            {
+                if (camBlueMat == null)
+                {
+                    camBlueMat = new Material(litTemplate);
+                    camBlueMat.SetColor("_BaseColor", new Color(0.1f, 0.35f, 0.9f));
+                    camBlueMat.EnableKeyword("_EMISSION");
+                    camBlueMat.SetColor("_EmissionColor", new Color(0.1f, 0.4f, 1.2f));
+                }
+                return camBlueMat;
+            }
+            return null;
         }
 
         AtlasItem RenderCamera()

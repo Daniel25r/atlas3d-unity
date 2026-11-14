@@ -103,6 +103,16 @@ public static class AtlasBuild
         SetBool(uso, "m_AdditionalLightShadowsSupported", true);
         SetBool(uso, "m_SoftShadowsSupported", true);
         SetBool(uso, "m_MainLightShadowsSupported", true);
+        // Sharper shadows with a little more bias: no dark triangles on the
+        // faces of small low-poly models.
+        var pr = uso.FindProperty("m_MainLightShadowmapResolution");
+        if (pr != null) pr.intValue = 2048;
+        pr = uso.FindProperty("m_ShadowCascadeCount");
+        if (pr != null) pr.intValue = 2;
+        pr = uso.FindProperty("m_ShadowDepthBias");
+        if (pr != null) pr.floatValue = 1.6f;
+        pr = uso.FindProperty("m_ShadowNormalBias");
+        if (pr != null) pr.floatValue = 1.2f;
         uso.ApplyModifiedPropertiesWithoutUndo();
         EditorUtility.SetDirty(urp);
         KeepFog();
@@ -146,7 +156,7 @@ public static class AtlasBuild
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "3.7.2";
+        PlayerSettings.bundleVersion = "3.7.3";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;
@@ -163,11 +173,44 @@ public static class AtlasBuild
         PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
         PlayerSettings.SplashScreen.showUnityLogo = false;
         EditorUserBuildSettings.buildAppBundle = false;
+        Signing();
         Branding();
         CrispIcons();
         IncludeGltfShaders();
         NativePlugins();
         AssetDatabase.SaveAssets();
+    }
+
+    /// Always the same signing key (GitHub secrets, passed by GameCI), so
+    /// each new APK installs over the previous one. Without it Unity signs
+    /// with a new debug key on every build and Android refuses the update
+    /// («conflicto con un paquete»).
+    static void Signing()
+    {
+        string name = Arg("-androidKeystoreName") ?? Environment.GetEnvironmentVariable("ANDROID_KEYSTORE_NAME");
+        string pass = Arg("-androidKeystorePass") ?? Environment.GetEnvironmentVariable("ANDROID_KEYSTORE_PASS");
+        string alias = Arg("-androidKeyaliasName") ?? Environment.GetEnvironmentVariable("ANDROID_KEYALIAS_NAME");
+        string apass = Arg("-androidKeyaliasPass") ?? Environment.GetEnvironmentVariable("ANDROID_KEYALIAS_PASS");
+        if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(pass) || string.IsNullOrEmpty(alias))
+        {
+            Debug.LogWarning("ATLAS: SIN FIRMA FIJA (faltan los secretos ANDROID_KEYSTORE_*): este APK no se podrá instalar encima de otro");
+            PlayerSettings.Android.useCustomKeystore = false;
+            return;
+        }
+        string file = Path.IsPathRooted(name) ? name : Path.GetFullPath(name);
+        if (!File.Exists(file)) file = Path.Combine(Path.GetDirectoryName(Application.dataPath), name);
+        if (!File.Exists(file))
+        {
+            Debug.LogWarning("ATLAS: no está el archivo de firma " + file);
+            PlayerSettings.Android.useCustomKeystore = false;
+            return;
+        }
+        PlayerSettings.Android.useCustomKeystore = true;
+        PlayerSettings.Android.keystoreName = file;
+        PlayerSettings.Android.keystorePass = pass;
+        PlayerSettings.Android.keyaliasName = alias;
+        PlayerSettings.Android.keyaliasPass = string.IsNullOrEmpty(apass) ? pass : apass;
+        Debug.Log("ATLAS: firmado con la llave fija «" + alias + "»");
     }
 
     static void MakeMaterial(string name, string shaderName)

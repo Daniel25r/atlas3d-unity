@@ -32,6 +32,31 @@ namespace Atlas
             return n.Contains("_end") || n.EndsWith("end") || n.StartsWith("ik_") || n.Contains("attach") || n.Contains("weapon");
         }
 
+        static readonly string[] SecondaryWords =
+        {
+            "skirt", "hair", "handle", "cloth", "cape", "coat", "sleeve", "ribbon", "tie", "chain", "phys", "dyn", "jiggle",
+            "twist", "roll", "helper", "adj", "dummy", "nub", "sec_", "secondary", "acce", "acc_", "string", "belt", "bag",
+            "hood", "scarf", "tassel", "feather", "bust", "breast", "pony", "braid", "bang", "fringe", "frill", "lace", "tip",
+            "pos_", "position", "null", "socket", "prop", "camera", "light", "target", "pole", "ctrl", "control", "mch",
+        };
+
+        /// Bones that move hair, skirts, clothes or accessories (physics in
+        /// games, like «Sp_Hi_MSkirt0_B_00»): hidden unless asked for, so
+        /// the body's joints are easy to touch.
+        public static bool IsSecondary(string bone)
+        {
+            string n = Strip(bone.ToLowerInvariant());
+            if (n.StartsWith("sp_") || n.StartsWith("j_sec") || n.StartsWith("+")) return true;
+            foreach (var w in SecondaryWords) if (n.Contains(w)) return true;
+            return false;
+        }
+
+        static string Strip(string n)
+        {
+            foreach (var p in Prefixes) if (n.StartsWith(p)) return n.Substring(p.Length);
+            return n;
+        }
+
         static bool IsInt(string s)
         {
             if (s.Length == 0) return false;

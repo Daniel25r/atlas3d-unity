@@ -95,6 +95,46 @@ namespace Atlas
         // ------------------------------------------------------------------
         // Skeleton drawn over the view
 
+        bool allBones;
+
+        /// The body's joints only (no hair, skirt or clothes bones) unless
+        /// «Todos los huesos» is on; if that would leave nothing, all.
+        bool ShowBone(AtlasItem it, string path)
+        {
+            string leaf = BoneNames.Leaf(path);
+            if (BoneNames.IsHelper(leaf)) return false;
+            if (allBones || path == activeBone) return true;
+            if (!BoneNames.IsSecondary(leaf)) return true;
+            return MainBoneCount(it) == 0;
+        }
+
+        AtlasItem mainCountItem;
+        int mainCount;
+
+        int MainBoneCount(AtlasItem it)
+        {
+            if (mainCountItem == it) return mainCount;
+            mainCountItem = it;
+            mainCount = 0;
+            foreach (var p in it.BoneOrder)
+            {
+                string l = BoneNames.Leaf(p);
+                if (!BoneNames.IsHelper(l) && !BoneNames.IsSecondary(l)) mainCount++;
+            }
+            return mainCount;
+        }
+
+        int HiddenBoneCount(AtlasItem it)
+        {
+            int n = 0;
+            foreach (var p in it.BoneOrder)
+            {
+                string l = BoneNames.Leaf(p);
+                if (!BoneNames.IsHelper(l) && BoneNames.IsSecondary(l)) n++;
+            }
+            return MainBoneCount(it) == 0 ? 0 : n;
+        }
+
         void BuildBoneOverlay()
         {
             boneLayer = AtlasTheme.Rect(viewArea, "Huesos");
@@ -120,7 +160,7 @@ namespace Atlas
             overlayItem = it;
             foreach (var path in it.BoneOrder)
             {
-                if (BoneNames.IsHelper(BoneNames.Leaf(path))) continue;
+                if (!ShowBone(it, path)) continue;
                 overlayBones.Add(path);
                 overlayParents.Add(it.ParentBone(path));
             }
@@ -179,7 +219,8 @@ namespace Atlas
                 {
                     bool active = overlayBones[i] == activeBone;
                     dot.rectTransform.anchoredPosition = pos[i];
-                    dot.rectTransform.sizeDelta = active ? new Vector2(22f, 22f) : new Vector2(15f, 15f);
+                    float ds = overlayBones.Count > 60 ? 10f : overlayBones.Count > 30 ? 12f : 15f;
+                    dot.rectTransform.sizeDelta = active ? new Vector2(22f, 22f) : new Vector2(ds, ds);
                     dot.color = active ? AtlasTheme.Key : (selected.IsPosed(overlayBones[i]) ? AtlasTheme.Accent : new Color(0.92f, 0.92f, 0.96f, 0.9f));
                 }
                 var line = overlayLines[i];
@@ -208,7 +249,7 @@ namespace Atlas
             string found = "";
             foreach (var path in selected.BoneOrder)
             {
-                if (BoneNames.IsHelper(BoneNames.Leaf(path))) continue;
+                if (!ShowBone(selected, path)) continue;
                 var t = selected.Bone(path);
                 if (t == null) continue;
                 Vector3 sp = cam.WorldToScreenPoint(t.position);
@@ -330,6 +371,14 @@ namespace Atlas
                 Hint(box, "En modo pose, toca una articulación en el visor (o elige un hueso en la lista) y gírala con el manipulador. Las rotaciones se animan con claves.");
                 return;
             }
+            int hidden = HiddenBoneCount(it);
+            if (hidden > 0 || allBones)
+                AtlasTheme.Switch(box, "Mostrar también pelo, falda y ropa (" + hidden + ")", allBones, on =>
+                {
+                    allBones = on;
+                    overlayItem = null;   // rebuilt with the new set
+                    RefreshProps();
+                });
             // Bone list with a search box.
             var rows = new List<GameObject>();
             var names = new List<string>();
@@ -343,7 +392,7 @@ namespace Atlas
             {
                 string path = path0;
                 string leaf = BoneNames.Leaf(path);
-                if (BoneNames.IsHelper(leaf)) continue;
+                if (!ShowBone(it, path)) continue;
                 string shown = BoneNames.Display(leaf);
                 bool active = path == activeBone;
                 var row = AtlasTheme.Box(list, "Hueso", active ? AtlasTheme.AccentDim : AtlasTheme.Panel2, 8);
