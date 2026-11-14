@@ -5,7 +5,9 @@
 // build is the same on every machine.
 using System;
 using System.IO;
+using System.Collections.Generic;
 using UnityEditor;
+using UnityEditor.Android;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
@@ -132,6 +134,8 @@ public static class AtlasBuild
         PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
         PlayerSettings.SplashScreen.showUnityLogo = false;
         EditorUserBuildSettings.buildAppBundle = false;
+        Branding();
+        IncludeGltfShaders();
         AssetDatabase.SaveAssets();
     }
 
@@ -151,5 +155,108 @@ public static class AtlasBuild
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
         }
         AssetDatabase.CreateAsset(m, path);
+    }
+
+    const string BrandDir = "Assets/Atlas/Branding";
+
+    static Texture2D Tex(string path, bool sprite)
+    {
+        var imp = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (imp != null)
+        {
+            bool dirty = false;
+            var want = sprite ? TextureImporterType.Sprite : TextureImporterType.Default;
+            if (imp.textureType != want) { imp.textureType = want; dirty = true; }
+            if (imp.textureCompression != TextureImporterCompression.Uncompressed) { imp.textureCompression = TextureImporterCompression.Uncompressed; dirty = true; }
+            if (!imp.alphaIsTransparency) { imp.alphaIsTransparency = true; dirty = true; }
+            if (dirty) imp.SaveAndReimport();
+        }
+        return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+    }
+
+    /// ATLAS's own logo: launcher icon (classic and adaptive) and the
+    /// opening screen.
+    static void Branding()
+    {
+        try
+        {
+            var icon = Tex(BrandDir + "/AppIcon.png", false);
+            var fg = Tex(BrandDir + "/AdaptiveForeground.png", false);
+            var bg = Tex(BrandDir + "/AdaptiveBackground.png", false);
+            if (icon != null)
+            {
+                PlayerSettings.SetIcons(NamedBuildTarget.Unknown, new[] { icon }, IconKind.Any);
+                SetAndroidIcons(AndroidPlatformIconKind.Legacy, new[] { icon });
+                SetAndroidIcons(AndroidPlatformIconKind.Round, new[] { icon });
+            }
+            if (fg != null && bg != null)
+                SetAndroidIcons(AndroidPlatformIconKind.Adaptive, new[] { bg, fg });
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("ATLAS: icono no aplicado: " + e.Message);
+        }
+        try
+        {
+            Tex(BrandDir + "/Splash.png", true);
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(BrandDir + "/Splash.png");
+            if (sprite != null)
+            {
+                PlayerSettings.SplashScreen.show = true;
+                PlayerSettings.SplashScreen.backgroundColor = Color.black;
+                PlayerSettings.SplashScreen.drawMode = PlayerSettings.SplashScreen.DrawMode.AllSequential;
+                PlayerSettings.SplashScreen.logos = new[] { PlayerSettings.SplashScreenLogo.Create(1.6f, sprite) };
+                PlayerSettings.SplashScreen.unityLogoStyle = PlayerSettings.SplashScreen.UnityLogoStyle.LightOnDark;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("ATLAS: pantalla de inicio no aplicada: " + e.Message);
+        }
+    }
+
+    static void SetAndroidIcons(PlatformIconKind kind, Texture2D[] layers)
+    {
+        var icons = PlayerSettings.GetPlatformIcons(NamedBuildTarget.Android, kind);
+        foreach (var ic in icons)
+            ic.SetTextures(layers);
+        PlayerSettings.SetPlatformIcons(NamedBuildTarget.Android, kind, icons);
+    }
+
+    /// glTFast draws imported models with its own shaders: their variant
+    /// collections go into the preloaded shaders so they are in the APK.
+    static void IncludeGltfShaders()
+    {
+        try
+        {
+            var found = new List<ShaderVariantCollection>();
+            foreach (string guid in AssetDatabase.FindAssets("t:ShaderVariantCollection", new[] { "Packages/com.unity.cloud.gltfast" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (path.ToLowerInvariant().Contains("built-in") || path.ToLowerInvariant().Contains("builtin") || path.ToLowerInvariant().Contains("hdrp")) continue;
+                var svc = AssetDatabase.LoadAssetAtPath<ShaderVariantCollection>(path);
+                if (svc != null) { found.Add(svc); Debug.Log("ATLAS: shaders de glTF incluidos: " + path); }
+            }
+            if (found.Count > 0)
+            {
+                var gs = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>("ProjectSettings/GraphicsSettings.asset");
+                var so = new SerializedObject(gs);
+                var list = so.FindProperty("m_PreloadedShaders");
+                foreach (var f in found)
+                {
+                    bool already = false;
+                    for (int i = 0; i < list.arraySize; i++)
+                        if (list.GetArrayElementAtIndex(i).objectReferenceValue == f) already = true;
+                    if (already) continue;
+                    list.InsertArrayElementAtIndex(list.arraySize);
+                    list.GetArrayElementAtIndex(list.arraySize - 1).objectReferenceValue = f;
+                }
+                so.ApplyModifiedProperties();
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("ATLAS: shaders de glTF no incluidos: " + e.Message);
+        }
     }
 }
