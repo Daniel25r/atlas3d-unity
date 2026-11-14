@@ -171,7 +171,8 @@ namespace Atlas
             foreach (var ri in del.GetComponentsInChildren<RawImage>()) ri.color = AtlasTheme.Danger;
 
             BuildTransformSection(it);
-            if (it.IsLight) BuildLightSection(it);
+            if (it.kind == "camera") BuildCameraSection(it);
+            else if (it.IsLight) BuildLightSection(it);
             else if (it.kind == "model")
             {
                 if (it.HasBones) BuildSkeletonSection(it);

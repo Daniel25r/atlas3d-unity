@@ -29,6 +29,9 @@ namespace Atlas
         public bool visible = true;
         public bool locked = false;
         public string clip = "";     // imported model: animation clip played on the timeline
+        // Scene camera
+        public float fov = 50f;
+        public bool renderCam;       // renders are made from this camera
         public string modelFile;     // models: file name inside the project's «models» folder
         public IDisposable importer; // keeps the imported model's resources alive
         public bool loaded;          // models: the file is in the scene
@@ -45,7 +48,9 @@ namespace Atlas
         readonly Dictionary<string, BonePose> rest = new Dictionary<string, BonePose>();
 
         public bool IsLight { get { return kind == "light" || kind == "spot" || kind == "sun"; } }
-        public bool IsShape { get { return !IsLight && kind != "model"; } }
+        public bool IsShape { get { return !IsLight && kind != "model" && kind != "camera"; } }
+        /// Lights and cameras: tools of the scene, not part of exported models.
+        public bool IsHelper { get { return IsLight || kind == "camera"; } }
         public bool HasBones { get { return bones.Count > 0; } }
         public List<string> BoneOrder { get { return boneOrder; } }
 

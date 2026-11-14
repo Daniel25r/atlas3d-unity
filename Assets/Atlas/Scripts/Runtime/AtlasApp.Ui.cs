@@ -13,6 +13,9 @@ namespace Atlas
         Button selectBtn, moveBtn, rotateBtn, scaleBtn, undoBtn, redoBtn, animBtn, propsBtn, eyeBtn, renderBtn;
         GameObject addMenu, mainMenu, timeline;
         Text modeText, badgeText;
+        LayoutElement modeLe;
+        RectTransform pillRect, topBarRect;
+        string modeFull = "";
         Image badge;
         RectTransform toastHolder;
         UnityEngine.Rect lastSafe;
@@ -43,15 +46,16 @@ namespace Atlas
             {
                 badgeText.text = "POSE";
                 badge.color = AtlasTheme.AccentButton;
-                modeText.text = activeBone != "" ? toolName + " · " + BoneNames.Display(BoneNames.Leaf(activeBone)) : "Toca una articulación";
+                modeFull = activeBone != "" ? toolName + " · " + BoneNames.Display(BoneNames.Leaf(activeBone)) : "Toca una articulación";
             }
             else
             {
                 badgeText.text = "OBJETO";
                 badge.color = AtlasTheme.Badge;
                 string what = selected != null ? selected.gameObject.name + (selected.locked ? " (bloqueado)" : "") : "Nada seleccionado";
-                modeText.text = toolName + " · " + what;
+                modeFull = toolName + " · " + what;
             }
+            LayoutModePill();
             if (boneBtn != null)
             {
                 boneBtn.gameObject.SetActive(poseMode || (selected != null && selected.HasBones));
@@ -100,6 +104,7 @@ namespace Atlas
             BuildAddMenu();
             BuildMainMenu();
             BuildRenderPanel();
+            BuildLookBar();
             toastHolder = AtlasTheme.Rect(canvasGo.transform, "Avisos");
             AtlasTheme.Pin(toastHolder, 0.5f, 0f, new Vector2(RailWidth * 0.5f, 20f), new Vector2(760f, 0f));
             var tc = AtlasTheme.Column(toastHolder.gameObject, 8f, new RectOffset(0, 0, 0, 0), TextAnchor.LowerCenter);
@@ -133,6 +138,7 @@ namespace Atlas
             rotateBtn = AtlasTheme.IconButton(rail.transform, "rotate", () => SetTool(Tool.Rotate));
             scaleBtn = AtlasTheme.IconButton(rail.transform, "scale", () => SetTool(Tool.Scale));
             boneBtn = AtlasTheme.IconButton(rail.transform, "bone", TogglePose);
+            snapBtn = AtlasTheme.IconButton(rail.transform, "magnet", ToggleSnap);
             boneBtn.gameObject.SetActive(false);
             AtlasTheme.Separator(rail.transform, false);
             AtlasTheme.IconButton(rail.transform, "add", () => ToggleMenu(addMenu));
@@ -147,6 +153,7 @@ namespace Atlas
         {
             var bar = AtlasTheme.Box(viewArea, "BarraFlotante", AtlasTheme.Panel, 18);
             var r = bar.rectTransform;
+            topBarRect = r;
             AtlasTheme.Pin(r, 1f, 1f, new Vector2(-10f, -10f), new Vector2(0f, 62f));
             AtlasTheme.Row(bar.gameObject, 4f, new RectOffset(8, 8, 6, 6));
             var fit = bar.gameObject.AddComponent<ContentSizeFitter>();
@@ -161,6 +168,22 @@ namespace Atlas
             var save = AtlasTheme.IconButton(bar.transform, "save", () => SaveNow(true));
             foreach (var ri in save.GetComponentsInChildren<RawImage>()) ri.color = AtlasTheme.Key;
             AtlasTheme.IconButton(bar.transform, "menu", () => ToggleMenu(mainMenu));
+        }
+
+        /// The pill shows as much of its text as fits, and goes under the
+        /// floating bar when both do not fit side by side (narrow screens).
+        void LayoutModePill()
+        {
+            if (modeText == null || pillRect == null || viewArea == null) return;
+            float W = viewArea.rect.width;
+            float bar = topBarRect != null ? topBarRect.rect.width : 600f;
+            bool below = W - bar - 40f < 260f;
+            pillRect.anchoredPosition = new Vector2(12f, below ? -84f : -16f);
+            float maxText = Mathf.Max(120f, (below ? W - 160f : W - bar - 150f));
+            int maxChars = Mathf.Max(8, Mathf.FloorToInt(maxText / 10.5f));
+            string t = modeFull.Length > maxChars ? modeFull.Substring(0, maxChars - 1) + "…" : modeFull;
+            modeText.text = t;
+            modeLe.preferredWidth = Mathf.Min(maxText, t.Length * 10.5f + 6f);
         }
 
         void BuildModePill()
@@ -180,10 +203,11 @@ namespace Atlas
             AtlasTheme.Fill(badgeText.rectTransform);
             modeText = AtlasTheme.Label(pill.transform, "Mover · Nada seleccionado", 19, AtlasTheme.TextColor, true);
             modeText.horizontalOverflow = HorizontalWrapMode.Overflow;
-            var tle = modeText.gameObject.AddComponent<LayoutElement>();
-            tle.preferredHeight = 30f;
-            tle.preferredWidth = 300f;
-            tle.flexibleWidth = 0f;
+            modeLe = modeText.gameObject.AddComponent<LayoutElement>();
+            modeLe.preferredHeight = 30f;
+            modeLe.preferredWidth = 300f;
+            modeLe.flexibleWidth = 0f;
+            pillRect = pill.rectTransform;
         }
 
         // Axis gizmo: X / Y / Z balls that follow the view; a tap looks along it.
@@ -245,26 +269,31 @@ namespace Atlas
         {
             var menu = AtlasTheme.Box(viewArea, "MenuAnadir", AtlasTheme.Panel2, 18);
             AtlasTheme.Pin(menu.rectTransform, 0f, 1f, new Vector2(12f, -66f), new Vector2(340f, 0f));
-            AtlasTheme.Column(menu.gameObject, 6f, new RectOffset(12, 12, 12, 12));
-            var fit = menu.gameObject.AddComponent<ContentSizeFitter>();
-            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            var title = AtlasTheme.Label(menu.transform, "FORMAS", 15, AtlasTheme.TextDim, true);
+            // Scrolls when it is taller than the screen (FitMenu sizes it).
+            ScrollRect msr;
+            var content = AtlasTheme.ScrollArea(menu.transform, out msr, 6f, new RectOffset(12, 12, 12, 12));
+            var title = AtlasTheme.Label(content, "FORMAS", 15, AtlasTheme.TextDim, true);
             AtlasTheme.Le(title.gameObject, 22f);
-            var shapes = AtlasTheme.Grid(menu.transform, 2, 316f, 46f);
+            var shapes = AtlasTheme.Grid(content, 2, 316f, 46f);
             string[] kinds = { "cube", "sphere", "cylinder", "capsule", "cone", "pyramid", "torus", "plane" };
             foreach (var k in kinds)
             {
                 string kind = k;
                 AtlasTheme.TextButton(shapes, kind, DisplayName(kind), () => AddShape(kind), false, 46f, 17);
             }
-            var t2 = AtlasTheme.Label(menu.transform, "LUCES", 15, AtlasTheme.TextDim, true);
+            var t2 = AtlasTheme.Label(content, "LUCES", 15, AtlasTheme.TextDim, true);
             AtlasTheme.Le(t2.gameObject, 22f);
-            var lights = AtlasTheme.Grid(menu.transform, 3, 316f, 46f);
+            var lights = AtlasTheme.Grid(content, 3, 316f, 46f);
             AtlasTheme.TextButton(lights, "light", "Luz", () => AddShape("light"), false, 46f, 16);
             AtlasTheme.TextButton(lights, "spot", "Foco", () => AddShape("spot"), false, 46f, 16);
             AtlasTheme.TextButton(lights, "sun", "Sol", () => AddShape("sun"), false, 46f, 16);
-            AtlasTheme.TextButton(menu.transform, "import", "Importar modelo…", ImportModel, true, 50f);
-            var formats = AtlasTheme.Label(menu.transform, "GLB · glTF · FBX · OBJ · 3DS · BLEND · STL · PLY · ZIP", 14, AtlasTheme.TextDim, false, TextAnchor.MiddleCenter);
+            var t3 = AtlasTheme.Label(content, "OTROS", 15, AtlasTheme.TextDim, true);
+            AtlasTheme.Le(t3.gameObject, 22f);
+            var others = AtlasTheme.Grid(content, 2, 316f, 46f);
+            AtlasTheme.TextButton(others, "camera", "Cámara", AddCamera, false, 46f, 16);
+            AtlasTheme.TextButton(others, "image", "Imagen…", AddImagePlane, false, 46f, 16);
+            AtlasTheme.TextButton(content, "import", "Importar modelo…", ImportModel, true, 50f);
+            var formats = AtlasTheme.Label(content, "GLB · glTF · FBX · OBJ · 3DS · BLEND · STL · PLY · ZIP", 14, AtlasTheme.TextDim, false, TextAnchor.MiddleCenter);
             AtlasTheme.Le(formats.gameObject, 20f);
             addMenu = menu.gameObject;
             addMenu.SetActive(false);
@@ -274,28 +303,28 @@ namespace Atlas
         {
             var menu = AtlasTheme.Box(viewArea, "Menu", AtlasTheme.Panel2, 18);
             AtlasTheme.Pin(menu.rectTransform, 1f, 1f, new Vector2(-10f, -80f), new Vector2(330f, 0f));
-            AtlasTheme.Column(menu.gameObject, 6f, new RectOffset(12, 12, 12, 12));
-            var fit = menu.gameObject.AddComponent<ContentSizeFitter>();
-            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            var t1 = AtlasTheme.Label(menu.transform, "PROYECTO", 15, AtlasTheme.TextDim, true);
+            // Scrolls when it is taller than the screen (FitMenu sizes it).
+            ScrollRect msr;
+            var content = AtlasTheme.ScrollArea(menu.transform, out msr, 6f, new RectOffset(12, 12, 12, 12));
+            var t1 = AtlasTheme.Label(content, "PROYECTO", 15, AtlasTheme.TextDim, true);
             AtlasTheme.Le(t1.gameObject, 22f);
             // The same entries as the Godot «more» menu (importing lives in +).
-            AtlasTheme.TextButton(menu.transform, "save", "Guardar", () => { CloseMenus(); SaveNow(true); }, false, 46f);
-            AtlasTheme.TextButton(menu.transform, "edit", "Renombrar…", () => { CloseMenus(); RenameCurrentProject(); }, false, 46f);
-            AtlasTheme.TextButton(menu.transform, "info", "Información", () => { CloseMenus(); ShowProjectInfo(); }, false, 46f);
-            AtlasTheme.TextButton(menu.transform, "camera", "Renderizar imagen o vídeo…", () => ToggleMenu(renderPanel), false, 46f);
-            var t2 = AtlasTheme.Label(menu.transform, "EXPORTAR MODELO 3D", 15, AtlasTheme.TextDim, true);
+            AtlasTheme.TextButton(content, "save", "Guardar", () => { CloseMenus(); SaveNow(true); }, false, 46f);
+            AtlasTheme.TextButton(content, "edit", "Renombrar…", () => { CloseMenus(); RenameCurrentProject(); }, false, 46f);
+            AtlasTheme.TextButton(content, "info", "Información", () => { CloseMenus(); ShowProjectInfo(); }, false, 46f);
+            AtlasTheme.TextButton(content, "camera", "Renderizar imagen o vídeo…", () => ToggleMenu(renderPanel), false, 46f);
+            var t2 = AtlasTheme.Label(content, "EXPORTAR MODELO 3D", 15, AtlasTheme.TextDim, true);
             AtlasTheme.Le(t2.gameObject, 22f);
-            var grid = AtlasTheme.Grid(menu.transform, 3, 306f, 44f);
+            var grid = AtlasTheme.Grid(content, 3, 306f, 44f);
             foreach (var f in Exporter.Formats)
             {
                 string fmt = f;
                 AtlasTheme.Chip(grid, fmt, () => ExportAs(fmt));
             }
-            AtlasTheme.Separator(menu.transform, false);
-            AtlasTheme.TextButton(menu.transform, "help", "Guía de inicio", () => { CloseMenus(); ShowGuide(); }, false, 46f);
-            AtlasTheme.TextButton(menu.transform, "home", "Cerrar proyecto", () => ShowHome(true), false, 46f);
-            var about = AtlasTheme.Label(menu.transform, "ATLAS 3D · versión " + Version, 14, AtlasTheme.AccentLight, false, TextAnchor.MiddleCenter);
+            AtlasTheme.Separator(content, false);
+            AtlasTheme.TextButton(content, "help", "Guía de inicio", () => { CloseMenus(); ShowGuide(); }, false, 46f);
+            AtlasTheme.TextButton(content, "home", "Cerrar proyecto", () => ShowHome(true), false, 46f);
+            var about = AtlasTheme.Label(content, "ATLAS 3D · versión " + Version, 14, AtlasTheme.AccentLight, false, TextAnchor.MiddleCenter);
             AtlasTheme.Le(about.gameObject, 22f);
             mainMenu = menu.gameObject;
             mainMenu.SetActive(false);
@@ -306,7 +335,24 @@ namespace Atlas
             bool open = !m.activeSelf;
             CloseMenus();
             m.SetActive(open);
+            if (open) FitMenu(m);
             if (m == renderPanel) AtlasTheme.SetActive(renderBtn, false);
+        }
+
+        /// A menu as tall as its entries, but never past the bottom of the
+        /// view (or the timeline): then it scrolls.
+        void FitMenu(GameObject m)
+        {
+            var r = (RectTransform)m.transform;
+            var content = r.Find("Vista/Contenido") as RectTransform;
+            if (content == null) return;
+            LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+            float pref = LayoutUtility.GetPreferredHeight(content);
+            float top = -r.anchoredPosition.y;
+            float bottom = timeline != null && timeline.activeSelf ? TimelineHeight : 0f;
+            float avail = viewArea.rect.height - top - bottom - 10f;
+            r.sizeDelta = new Vector2(r.sizeDelta.x, Mathf.Max(80f, Mathf.Min(pref, avail)));
+            content.anchoredPosition = Vector2.zero;
         }
 
         void CloseMenus()

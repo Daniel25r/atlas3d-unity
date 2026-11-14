@@ -338,6 +338,8 @@ namespace Atlas
                 "• Modelos con huesos: botón del hueso → toca una articulación y gírala.\n" +
                 "• Animar: elige un fotograma, coloca el objeto y pulsa la clave amarilla.\n" +
                 "• Engranaje: propiedades, materiales y «Ambiente rápido».\n" +
+                "• + → Cámara: los renders salen por ella; se puede animar.\n" +
+                "• Imán (barra izquierda): mover, girar y escalar a saltos exactos.\n" +
                 "• Render: imagen o la animación completa.", null, "Entendido", false, null);
             toastHolder.SetAsLastSibling();
         }

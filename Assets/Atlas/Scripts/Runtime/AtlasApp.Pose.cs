@@ -225,7 +225,7 @@ namespace Atlas
         /// The visible, unlocked object under the finger: its triangles are
         /// tested (skinned meshes in their current pose), so a tap between
         /// a character's legs does not select it, and any part of it does.
-        AtlasItem PickItem(Vector2 screen)
+        AtlasItem PickItemTriangles(Vector2 screen)
         {
             Ray ray = cam.ScreenPointToRay(screen);
             AtlasItem best = null;

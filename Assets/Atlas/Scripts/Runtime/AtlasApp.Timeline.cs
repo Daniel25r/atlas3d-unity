@@ -1,7 +1,7 @@
 // ATLAS 3D (Unity) - the timeline, the same as the Godot version, with
 // three sizes (▾ ▴):
 //   one bar      play, frame stepping, key ◆ (+ what to key), auto-key,
-//                onion skin, frame, duration, «more»
+//                frame, duration, «more»
 //   compact      + ruler and one row per object with its keys
 //   expanded     + every tool (start / end, key jumps, delete, curves,
 //                range, FPS, speed, loop) and one row per track
@@ -17,17 +17,16 @@ namespace Atlas
         int timelineState = 1;   // 0 bar, 1 compact, 2 expanded
         TimelineView tlView;
         RectTransform tlBarContent;
-        Button playBtn, keyBtn, autoBtn, onionBtn, loopBtn, growBtn, shrinkBtn, moreBtn;
+        Button playBtn, keyBtn, autoBtn, loopBtn, growBtn, shrinkBtn, moreBtn;
         Text timeLabel, speedLabel;
         InputField frameField, startField, endField, fpsField;
         readonly List<GameObject> tlAdvanced = new List<GameObject>();
-        bool autoKey, loopPlay = true, showAllKeys, onionOn;
+        bool autoKey, loopPlay = true, showAllKeys;
         int startFrame;
         float speed = 1f;
         static readonly float[] Speeds = { 0.25f, 0.5f, 1f, 1.5f, 2f };
         readonly HashSet<string> selKeys = new HashSet<string>();
         readonly List<CopiedKey> clipboard = new List<CopiedKey>();
-        OnionSkin onion;
 
         class CopiedKey
         {
@@ -96,8 +95,6 @@ namespace Atlas
                 OpenKeyMenu(sp);
             };
 
-            onion = new GameObject("PapelCebolla").AddComponent<OnionSkin>();
-            onion.Init(Resources.Load<Material>("AtlasUnlitTransparent") ?? unlitTemplate);
             SetTimelineState(1);
         }
 
@@ -142,7 +139,6 @@ namespace Atlas
                 if (autoKey) foreach (var ri in autoBtn.GetComponentsInChildren<RawImage>()) ri.color = AtlasTheme.Danger;
                 Toast(autoKey ? "Clave automática: cada cambio crea una clave" : "Clave automática desactivada");
             }, 42f, 22f);
-            onionBtn = AtlasTheme.IconButton(bar, "onion", ToggleOnion, 42f, 22f);
             frameField = AtlasTheme.NumberField(bar, 0f, v =>
             {
                 if (playing) TogglePlay();
@@ -282,7 +278,6 @@ namespace Atlas
             tlView.endFrame = endFrame;
             tlView.playing = playing;
             if (timeline.activeSelf) tlView.Refresh();
-            if (onion != null) onion.dirty = true;
         }
 
         /// Rebuilds the rows of the track view (keys changed).
@@ -607,7 +602,6 @@ namespace Atlas
                     Toast("La animación ahora termina en el fotograma " + endFrame);
                 }),
                 AtlasTheme.MenuItem.Check("loop", "Repetir en bucle", loopPlay, () => { loopPlay = !loopPlay; AtlasTheme.SetActive(loopBtn, loopPlay); }),
-                AtlasTheme.MenuItem.Check("onion", "Papel cebolla", onionOn, ToggleOnion),
                 AtlasTheme.MenuItem.Check("timeline", "Hoja de animación (todos los objetos)", showAllKeys, () =>
                 {
                     showAllKeys = !showAllKeys;
@@ -617,21 +611,6 @@ namespace Atlas
             };
             AtlasTheme.Popup(canvasRoot, RectTransformUtility.WorldToScreenPoint(null, worldPos), l);
             toastHolder.SetAsLastSibling();
-        }
-
-        void ToggleOnion()
-        {
-            onionOn = !onionOn;
-            AtlasTheme.SetActive(onionBtn, onionOn);
-            onion.SetEnabled(onionOn);
-            if (onionOn) Toast("Papel cebolla: en rojo la pose anterior, en azul la siguiente (sólo en el visor)");
-        }
-
-        void UpdateOnion()
-        {
-            if (onion == null || !onionOn) return;
-            onion.target = selected;
-            onion.Rebuild(frame, startFrame, endFrame, fps, playing);
         }
     }
 }

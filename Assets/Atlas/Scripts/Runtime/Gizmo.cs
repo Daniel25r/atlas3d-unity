@@ -27,6 +27,11 @@ namespace Atlas
         public Tool tool = Tool.Move;
         public Transform target;
         public float pxScale = 1f;   // logical -> screen pixels (canvas scale)
+        public bool snap;            // «Imán»: 0.25 m, 15°, ×0.1
+
+        static float Snap(float v, float step) { return Mathf.Round(v / step) * step; }
+
+        static Vector3 Snap(Vector3 v, float step) { return new Vector3(Snap(v.x, step), Snap(v.y, step), Snap(v.z, step)); }
 
         Transform rootMove, rootRotate, rootScale;
         readonly Material[] mats = new Material[4];
@@ -246,21 +251,25 @@ namespace Atlas
             if (active == None || target == null) return;
             if (tool == Tool.Move)
             {
-                if (active < 3) target.position = startPos + AxisTranslation(active, s0, s1);
-                else target.position = startPos + PlaneTranslation(s0, s1);
+                Vector3 d = active < 3 ? AxisTranslation(active, s0, s1) : PlaneTranslation(s0, s1);
+                if (snap) d = Snap(d, 0.25f);
+                target.position = startPos + d;
             }
             else if (tool == Tool.Rotate)
             {
                 if (active < 3)
                 {
                     Vector3 axis = startRot * (active == 0 ? Vector3.right : active == 1 ? Vector3.up : Vector3.forward);
-                    target.rotation = Quaternion.AngleAxis(AxisRotation(axis, s0, s1), axis) * startRot;
+                    float ang = AxisRotation(axis, s0, s1);
+                    if (snap) ang = Snap(ang, 15f);
+                    target.rotation = Quaternion.AngleAxis(ang, axis) * startRot;
                 }
                 else target.rotation = FreeRotation(s0, s1) * startRot;
             }
             else
             {
                 float f = Mathf.Max(0.01f, ScaleFactor(active, s0, s1));
+                if (snap) f = Mathf.Max(0.1f, Snap(f, 0.1f));
                 if (active < 3)
                 {
                     Vector3 s = startScale;

@@ -36,6 +36,8 @@ namespace Atlas
         public bool locked;
         public string clip = "";
         public List<BonePose> pose = new List<BonePose>();
+        public float fov = 50f;
+        public bool renderCam;
 
         public void FixOld()
         {
@@ -255,6 +257,8 @@ namespace Atlas
                     locked = it.locked,
                     clip = it.clip ?? "",
                     pose = CopyPose(it.pose),
+                    fov = it.fov,
+                    renderCam = it.renderCam,
                 });
             }
             return d;

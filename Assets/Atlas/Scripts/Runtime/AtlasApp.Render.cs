@@ -25,12 +25,12 @@ namespace Atlas
         {
             var menu = AtlasTheme.Box(viewArea, "Render", AtlasTheme.Panel2, 18);
             AtlasTheme.Pin(menu.rectTransform, 1f, 1f, new Vector2(-10f, -80f), new Vector2(360f, 0f));
-            AtlasTheme.Column(menu.gameObject, 8f, new RectOffset(14, 14, 12, 14));
-            var fit = menu.gameObject.AddComponent<ContentSizeFitter>();
-            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            var t1 = AtlasTheme.Label(menu.transform, "RENDER · TAMAÑO", 15, AtlasTheme.TextDim, true);
+            // Scrolls when it is taller than the screen (FitMenu sizes it).
+            ScrollRect msr;
+            var content = AtlasTheme.ScrollArea(menu.transform, out msr, 8f, new RectOffset(14, 14, 12, 14));
+            var t1 = AtlasTheme.Label(content, "RENDER · TAMAÑO", 15, AtlasTheme.TextDim, true);
             AtlasTheme.Le(t1.gameObject, 22f);
-            var g = AtlasTheme.Grid(menu.transform, 2, 332f, 40f);
+            var g = AtlasTheme.Grid(content, 2, 332f, 40f);
             for (int i = 0; i < RenderSizeNames.Length; i++)
             {
                 int idx = i;
@@ -42,10 +42,10 @@ namespace Atlas
                 }));
             }
             RefreshSizeChips();
-            AtlasTheme.Switch(menu.transform, "Mostrar el suelo", renderGround, on => renderGround = on);
-            AtlasTheme.TextButton(menu.transform, "image", "Imagen (PNG)", RenderPicture, true, 50f);
-            AtlasTheme.TextButton(menu.transform, "film", "Animación (fotogramas en ZIP)", () => StartCoroutine(RenderFrames()), false, 50f, 17);
-            var hint = AtlasTheme.Label(menu.transform, "Los fotogramas JPG numerados se convierten en vídeo con CapCut, VN o cualquier editor.", 14, AtlasTheme.TextDim);
+            AtlasTheme.Switch(content, "Mostrar el suelo", renderGround, on => renderGround = on);
+            AtlasTheme.TextButton(content, "image", "Imagen (PNG)", RenderPicture, true, 50f);
+            AtlasTheme.TextButton(content, "film", "Animación (fotogramas en ZIP)", () => StartCoroutine(RenderFrames()), false, 50f, 17);
+            var hint = AtlasTheme.Label(content, "Los fotogramas JPG numerados se convierten en vídeo con CapCut, VN o cualquier editor.", 14, AtlasTheme.TextDim);
             AtlasTheme.Le(hint.gameObject, 40f);
             renderPanel = menu.gameObject;
             renderPanel.SetActive(false);
@@ -67,7 +67,22 @@ namespace Atlas
             bool g = gizmo.gameObject.activeSelf;
             gizmo.gameObject.SetActive(false);
             highlighter.SetVisible(false);
-            if (onion != null) onion.SetVisible(false);
+            // Lamps and cameras are tools: they light, but are not seen.
+            var hidden = new List<Renderer>();
+            foreach (var it in items)
+                if (it != null && it.IsHelper)
+                    foreach (var r in it.GetComponentsInChildren<Renderer>())
+                        if (r.enabled) { r.enabled = false; hidden.Add(r); }
+            // From the scene camera when there is one.
+            var rc = RenderCamera();
+            Vector3 keepPos = cam.transform.position;
+            Quaternion keepRot = cam.transform.rotation;
+            float keepFov = cam.fieldOfView;
+            if (rc != null)
+            {
+                cam.transform.SetPositionAndRotation(rc.transform.position, rc.transform.rotation);
+                cam.fieldOfView = rc.fov;
+            }
             bool gr = ground.activeSelf;
             ground.SetActive(showGround && gr);
             int aa = (long)w * h > 4000000L ? 1 : 4;
@@ -88,7 +103,9 @@ namespace Atlas
             ground.SetActive(gr);
             gizmo.gameObject.SetActive(g);
             highlighter.SetVisible(true);
-            if (onion != null) onion.SetVisible(true);
+            foreach (var r in hidden) if (r != null) r.enabled = true;
+            cam.transform.SetPositionAndRotation(keepPos, keepRot);
+            cam.fieldOfView = keepFov;
             return tex;
         }
 

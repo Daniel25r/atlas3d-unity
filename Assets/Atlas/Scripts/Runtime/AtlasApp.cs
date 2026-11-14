@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "3.2.0";
+        public const string Version = "3.3.0";
 
         Camera cam;
         Light sunLight;
@@ -39,6 +39,7 @@ namespace Atlas
         int endFrame = 120;
         float frame;
         bool playing;
+        float lastViewW;
 
         void Awake()
         {
@@ -153,6 +154,8 @@ namespace Atlas
                 case "light": return "Luz";
                 case "spot": return "Foco";
                 case "sun": return "Sol";
+                case "camera": return "Cámara";
+                case "image": return "Imagen";
                 default: return "Modelo";
             }
         }
@@ -186,6 +189,12 @@ namespace Atlas
                 case "spot":
                 case "sun":
                     go = MakeLamp(d.kind);
+                    break;
+                case "camera":
+                    go = MakeCameraProp();
+                    break;
+                case "image":
+                    go = GameObject.CreatePrimitive(PrimitiveType.Quad);
                     break;
                 default: go = new GameObject(); break;
             }
@@ -228,6 +237,8 @@ namespace Atlas
             it.visible = d.visible;
             it.locked = d.locked;
             it.clip = d.clip ?? "";
+            it.fov = d.fov > 1f ? d.fov : 50f;
+            it.renderCam = d.renderCam;
             it.transform.position = d.position;
             it.transform.eulerAngles = d.rotation;
             it.transform.localScale = d.scale;
@@ -317,6 +328,18 @@ namespace Atlas
             if (it.material == null) it.material = new Material(litTemplate);
             var m = it.material;
             Color col = it.color;
+            if (it.kind == "camera")
+            {
+                m.SetColor("_BaseColor", new Color(0.16f, 0.17f, 0.2f));
+                m.SetFloat("_Metallic", 0.3f);
+                m.SetFloat("_Smoothness", 0.6f);
+                m.EnableKeyword("_EMISSION");
+                m.SetColor("_EmissionColor", it.renderCam ? new Color(0.35f, 0.12f, 0.6f) : Color.black);
+                m.SetTexture("_BaseMap", null);
+                MatUtil.SetTransparent(m, false);
+                foreach (var r in it.GetComponentsInChildren<Renderer>(true)) r.sharedMaterial = m;
+                return;
+            }
             if (it.IsLight)
             {
                 col.a = 1f;
@@ -349,6 +372,8 @@ namespace Atlas
                 m.SetColor("_EmissionColor", new Color(it.color.r, it.color.g, it.color.b) * it.emission);
                 m.SetTexture("_BaseMap", LoadTexture(it.texture));
                 MatUtil.SetTransparent(m, it.opacity < 0.995f);
+                // Pictures are seen from both sides.
+                if (m.HasProperty("_Cull")) m.SetFloat("_Cull", it.kind == "image" ? 0f : 2f);
             }
             foreach (var r in it.GetComponentsInChildren<Renderer>(true)) r.sharedMaterial = m;
         }
@@ -497,7 +522,7 @@ namespace Atlas
                 HideBoneOverlay();
             }
             selected = it;
-            if (poseMode) highlighter.Clear();
+            if (poseMode || lookThrough != null) highlighter.Clear();
             else highlighter.Show(it);
             ShowGizmo();
             RefreshMode();
@@ -507,6 +532,7 @@ namespace Atlas
 
         void ShowGizmo()
         {
+            if (lookThrough != null) { gizmo.Show(null); return; }
             if (poseMode)
             {
                 var bone = selected != null && activeBone != "" ? selected.Bone(activeBone) : null;
@@ -535,6 +561,7 @@ namespace Atlas
             data.name = selected.gameObject.name + " (copia)";
             data.position += new Vector3(0.6f, 0f, 0.6f);
             data.keys = new List<KeyData>();
+            data.renderCam = false;
             Select(Create(data));
             Commit(true);
         }
@@ -807,7 +834,12 @@ namespace Atlas
             if (selected != null && propsPanel != null && propsPanel.activeSelf && tf[0] != null) FillTransformFields();
             if (poseMode && propsPanel != null && propsPanel.activeSelf) FillBoneFields();
             UpdateBoneOverlay();
-            UpdateOnion();
+            UpdateLookThrough();
+            if (viewArea != null && Mathf.Abs(viewArea.rect.width - lastViewW) > 1f)
+            {
+                lastViewW = viewArea.rect.width;
+                LayoutModePill();
+            }
             if (canvasRoot != null) gizmo.pxScale = canvasRoot.GetComponent<Canvas>().scaleFactor;
         }
 
