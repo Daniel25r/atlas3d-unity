@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Atlas
 {
-    public enum Tool { Move, Rotate, Scale }
+    public enum Tool { Select, Move, Rotate, Scale }
 
     public class Gizmo : MonoBehaviour
     {

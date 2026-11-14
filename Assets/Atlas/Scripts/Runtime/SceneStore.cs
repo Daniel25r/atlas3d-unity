@@ -20,6 +20,7 @@ namespace Atlas
         public Vector3 scale = Vector3.one;
         public Color color = Color.white;
         public string modelFile;
+        public List<KeyData> keys = new List<KeyData>();
     }
 
     [Serializable]
@@ -31,6 +32,9 @@ namespace Atlas
         public float cameraYaw = 30f;
         public float cameraPitch = 20f;
         public float cameraDistance = 7f;
+        public int fps = 24;
+        public int endFrame = 120;
+        public bool showGrid = true;
     }
 
     public class SceneStore
@@ -76,6 +80,7 @@ namespace Atlas
                     scale = t.localScale,
                     color = it.color,
                     modelFile = it.modelFile,
+                    keys = new List<KeyData>(it.keys),
                 });
             }
             return d;
@@ -141,7 +146,8 @@ namespace Atlas
         {
             Directory.CreateDirectory(ModelsDir);
             string ext = Path.GetExtension(source).ToLowerInvariant();
-            if (ext != ".glb" && ext != ".gltf") ext = ".glb";
+            if (ext == ".zip") return MeshFormats.ExtractPackage(source, ModelsDir);
+            if (System.Array.IndexOf(MeshFormats.Importable, ext) < 0) ext = MeshFormats.Sniff(source);
             string baseName = Path.GetFileNameWithoutExtension(source);
             if (string.IsNullOrEmpty(baseName)) baseName = "modelo";
             string name = baseName + "_" + NewId().Substring(0, 6) + ext;

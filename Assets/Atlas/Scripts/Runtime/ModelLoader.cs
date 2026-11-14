@@ -1,4 +1,5 @@
-// ATLAS 3D (Unity) - imported models (GLB / glTF) through glTFast.
+// ATLAS 3D (Unity) - imported models: GLB / glTF through glTFast, OBJ,
+// STL and PLY through MeshFormats.
 // The model is placed on the ground, gets a box for touch selection, and
 // any material whose shader is missing on this phone is replaced by a
 // standard URP one with the same colour and texture (never pink).
@@ -18,12 +19,30 @@ namespace Atlas
         public static async Task<string> Load(string path, AtlasItem root, Material litTemplate, bool placeOnGround)
         {
             if (!File.Exists(path)) return "No se encuentra el archivo del modelo.";
+            string ext = Path.GetExtension(path).ToLowerInvariant();
+            if (ext != ".glb" && ext != ".gltf")
+            {
+                if (Array.IndexOf(MeshFormats.Importable, ext) < 0) ext = MeshFormats.Sniff(path);
+            }
+            if (ext == ".obj" || ext == ".stl" || ext == ".ply")
+            {
+                string err;
+                var made = MeshFormats.Load(path, litTemplate, out err);
+                if (made == null) return err;
+                if (root == null) { UnityEngine.Object.Destroy(made); return "El objeto ya no existe."; }
+                var holderObj = new GameObject("Modelo");
+                holderObj.transform.SetParent(root.transform, false);
+                made.transform.SetParent(holderObj.transform, false);
+                Fit(root, placeOnGround);
+                await Task.Yield();
+                return "";
+            }
             var gltf = new GLTFast.GltfImport();
             bool ok;
             try
             {
                 var uri = new Uri("file://" + path);
-                if (path.EndsWith(".glb", StringComparison.OrdinalIgnoreCase))
+                if (ext == ".glb")
                     ok = await gltf.LoadGltfBinary(File.ReadAllBytes(path), uri);
                 else
                     ok = await gltf.Load(path);

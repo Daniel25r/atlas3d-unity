@@ -135,6 +135,7 @@ public static class AtlasBuild
         PlayerSettings.SplashScreen.showUnityLogo = false;
         EditorUserBuildSettings.buildAppBundle = false;
         Branding();
+        CrispIcons();
         IncludeGltfShaders();
         AssetDatabase.SaveAssets();
     }
@@ -221,6 +222,24 @@ public static class AtlasBuild
         foreach (var ic in icons)
             ic.SetTextures(layers);
         PlayerSettings.SetPlatformIcons(NamedBuildTarget.Android, kind, icons);
+    }
+
+    /// Interface icons: uncompressed with mipmaps (sharp at any size).
+    static void CrispIcons()
+    {
+        foreach (string guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/Atlas/Resources/Icons" }))
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            var imp = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (imp == null) continue;
+            if (imp.textureCompression == TextureImporterCompression.Uncompressed && imp.mipmapEnabled && imp.alphaIsTransparency) continue;
+            imp.textureType = TextureImporterType.Default;
+            imp.textureCompression = TextureImporterCompression.Uncompressed;
+            imp.mipmapEnabled = true;
+            imp.alphaIsTransparency = true;
+            imp.wrapMode = TextureWrapMode.Clamp;
+            imp.SaveAndReimport();
+        }
     }
 
     /// glTFast draws imported models with its own shaders: their variant
