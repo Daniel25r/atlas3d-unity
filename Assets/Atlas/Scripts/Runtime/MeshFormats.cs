@@ -18,7 +18,7 @@ namespace Atlas
 {
     public static class MeshFormats
     {
-        public static readonly string[] Importable = { ".glb", ".gltf", ".obj", ".stl", ".ply", ".zip" };
+        public static readonly string[] Importable = { ".glb", ".gltf", ".fbx", ".obj", ".3ds", ".blend", ".stl", ".ply", ".zip" };
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
         // ------------------------------------------------------------------
@@ -35,6 +35,8 @@ namespace Atlas
                     int n = f.Read(head, 0, head.Length);
                     if (n >= 4 && head[0] == (byte)'g' && head[1] == (byte)'l' && head[2] == (byte)'T' && head[3] == (byte)'F') return ".glb";
                     if (n >= 4 && head[0] == 0x50 && head[1] == 0x4B && head[2] == 3 && head[3] == 4) return ".zip";
+                    string conv = Import.ModelConverter.Sniff(head, n);
+                    if (conv != "") return conv;
                     string text = Encoding.ASCII.GetString(head, 0, n);
                     if (text.StartsWith("ply")) return ".ply";
                     if (text.TrimStart().StartsWith("{")) return ".gltf";
@@ -63,7 +65,7 @@ namespace Atlas
             Directory.CreateDirectory(dest);
             string best = null;
             int bestRank = 99;
-            string[] order = { ".glb", ".gltf", ".obj", ".ply", ".stl" };
+            string[] order = { ".glb", ".gltf", ".fbx", ".obj", ".3ds", ".blend", ".ply", ".stl" };
             using (var zip = new ZipArchive(File.OpenRead(zipPath), ZipArchiveMode.Read))
             {
                 foreach (var e in zip.Entries)
@@ -84,7 +86,7 @@ namespace Atlas
                     }
                 }
             }
-            if (best == null) throw new Exception("el .zip no contiene ningún modelo (GLB, glTF, OBJ, PLY o STL)");
+            if (best == null) throw new Exception("el .zip no contiene ningún modelo (GLB, glTF, FBX, OBJ, 3DS, PLY o STL)");
             return best;
         }
 

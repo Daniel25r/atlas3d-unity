@@ -120,11 +120,13 @@ public static class AtlasBuild
         MakeMaterial("AtlasLit", "Universal Render Pipeline/Lit");
         MakeMaterial("AtlasUnlit", "Universal Render Pipeline/Unlit");
         MakeMaterial("AtlasLitTransparent", "Universal Render Pipeline/Lit");
+        MakeMaterial("AtlasLitNormal", "Universal Render Pipeline/Lit");
         MakeMaterial("AtlasSky", "Skybox/Procedural");
         MakeMaterial("AtlasUnlitTransparent", "Universal Render Pipeline/Unlit");
         try
         {
             MakeMaterial("AtlasHighlight", "Atlas/Highlight");
+            MakeMaterial("AtlasOverlay", "Atlas/Overlay");
         }
         catch (Exception e)
         {
@@ -142,7 +144,7 @@ public static class AtlasBuild
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "3.1.0";
+        PlayerSettings.bundleVersion = "3.2.0";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;
@@ -161,6 +163,7 @@ public static class AtlasBuild
         Branding();
         CrispIcons();
         IncludeGltfShaders();
+        NativePlugins();
         AssetDatabase.SaveAssets();
     }
 
@@ -177,6 +180,15 @@ public static class AtlasBuild
             // variants no material uses are stripped from the APK.
             m.EnableKeyword("_EMISSION");
             m.SetColor("_EmissionColor", Color.black);
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+        }
+        else if (name == "AtlasLitNormal")
+        {
+            // Keeps the normal-map variant (imported models with relief).
+            m.EnableKeyword("_EMISSION");
+            m.EnableKeyword("_NORMALMAP");
+            m.SetColor("_EmissionColor", Color.black);
+            m.SetTexture("_BumpMap", Texture2D.normalTexture);
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
         }
         else if (name == "AtlasLitTransparent")
@@ -203,6 +215,26 @@ public static class AtlasBuild
             m.SetFloat("_Exposure", 1.2f);
         }
         AssetDatabase.CreateAsset(m, path);
+    }
+
+    /// The FBX reader (ufbx, C source): compiled into the Android app by
+    /// IL2CPP, not loaded by the editor.
+    static void NativePlugins()
+    {
+        foreach (var p in new[] { "Assets/Plugins/Atlas/atlas_fbx.c", "Assets/Plugins/Atlas/ufbx.c" })
+        {
+            var imp = AssetImporter.GetAtPath(p) as PluginImporter;
+            if (imp == null)
+            {
+                Debug.LogWarning("ATLAS: plugin no encontrado: " + p);
+                continue;
+            }
+            imp.SetCompatibleWithAnyPlatform(false);
+            imp.SetCompatibleWithEditor(false);
+            imp.SetCompatibleWithPlatform(BuildTarget.Android, true);
+            imp.SaveAndReimport();
+            Debug.Log("ATLAS: plugin nativo para Android: " + p);
+        }
     }
 
     static void SetBool(SerializedObject so, string prop, bool v)

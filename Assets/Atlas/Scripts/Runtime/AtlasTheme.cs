@@ -602,6 +602,68 @@ namespace Atlas
             card.gameObject.AddComponent<Button>().transition = Selectable.Transition.None;
             return go;
         }
+
+        public class MenuItem
+        {
+            public string icon, text;
+            public System.Action action;
+            public bool check, on, header;
+
+            public MenuItem(string icon, string text, System.Action action) { this.icon = icon; this.text = text; this.action = action; }
+            public static MenuItem Check(string icon, string text, bool on, System.Action action) { return new MenuItem(icon, text, action) { check = true, on = on }; }
+            public static MenuItem Header(string text) { return new MenuItem(null, text, null) { header = true }; }
+        }
+
+        /// Pop-up menu next to `screenPos` (like Godot's PopupMenu); a tap
+        /// outside closes it.
+        public static GameObject Popup(RectTransform root, Vector2 screenPos, List<MenuItem> entries, float width = 330f)
+        {
+            var dim = Box(root, "Dialogo", new Color(0f, 0f, 0f, 0.15f));
+            Fill(dim.rectTransform);
+            var go = dim.gameObject;
+            var close = dim.gameObject.AddComponent<Button>();
+            close.transition = Selectable.Transition.None;
+            close.onClick.AddListener(() => Object.Destroy(go));
+            float h = 16f;
+            foreach (var e in entries) h += (e.header ? 28f : 46f) + 2f;
+            float maxH = root.rect.height * 0.8f;
+            float ch = Mathf.Min(h, maxH);
+            var card = Box(dim.transform, "Menu", Panel2, 14);
+            card.gameObject.AddComponent<Button>().transition = Selectable.Transition.None;
+            var cr = card.rectTransform;
+            cr.anchorMin = cr.anchorMax = new Vector2(0f, 0f);
+            cr.pivot = new Vector2(0f, 0f);
+            cr.sizeDelta = new Vector2(width, ch);
+            Vector2 local;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screenPos, null, out local);
+            // root pivot -> bottom-left coordinates
+            float lx = local.x - root.rect.xMin, ly = local.y - root.rect.yMin;
+            float x = Mathf.Clamp(lx - width * 0.5f, 8f, root.rect.width - width - 8f);
+            float y = ly + 12f;
+            if (y + ch > root.rect.height - 8f) y = ly - ch - 12f;
+            y = Mathf.Clamp(y, 8f, root.rect.height - ch - 8f);
+            cr.anchoredPosition = new Vector2(x, y);
+            ScrollRect sr;
+            var content = ScrollArea(card.transform, out sr, 2f, new RectOffset(8, 8, 8, 8));
+            foreach (var e0 in entries)
+            {
+                var e = e0;
+                if (e.header)
+                {
+                    var hl = Label(content, e.text.ToUpperInvariant(), 13, TextDim, true);
+                    Le(hl.gameObject, 28f);
+                    continue;
+                }
+                string text = e.check ? (e.on ? "✓  " : "     ") + e.text : e.text;
+                var b = TextButton(content, e.icon, text, () =>
+                {
+                    Object.Destroy(go);
+                    if (e.action != null) e.action();
+                }, false, 46f, 16);
+                b.GetComponent<Image>().color = new Color(0, 0, 0, 0);
+            }
+            return go;
+        }
     }
 
     /// Calls `onUp` when the finger that pressed this control is lifted.

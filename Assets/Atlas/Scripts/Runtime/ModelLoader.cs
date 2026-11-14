@@ -37,7 +37,7 @@ namespace Atlas
                 await Task.Yield();
                 return "";
             }
-            var gltf = new GLTFast.GltfImport();
+            var gltf = new GLTFast.GltfImport(null, null, new AtlasMaterialGenerator(), null);
             bool ok;
             try
             {

@@ -207,25 +207,59 @@ namespace Atlas
         }
 
         // ------------------------------------------------------------------
-        // Keys
+        // Keys. Each key can hold position, rotation and scale (or only some:
+        // `skip`) and any posed bones: they behave like the separate tracks
+        // of the Godot timeline.
+
+        public const int ChPos = 1, ChRot = 2, ChScale = 4;
 
         public bool Animated { get { return keys.Count > 0; } }
 
-        /// Stores the object's transform and its posed bones as a key.
+        public KeyData KeyAt(int frame)
+        {
+            foreach (var k in keys) if (k.frame == frame) return k;
+            return null;
+        }
+
+        public KeyData GetOrAddKey(int frame)
+        {
+            var k = KeyAt(frame);
+            if (k != null) return k;
+            k = new KeyData { frame = frame, skip = ChPos | ChRot | ChScale, position = transform.position, rotation = transform.rotation, scale = transform.localScale };
+            for (int i = 0; i < keys.Count; i++)
+                if (keys[i].frame > frame) { keys.Insert(i, k); return k; }
+            keys.Add(k);
+            return k;
+        }
+
+        /// Key of the object's transform (all of it by default) and the
+        /// posed bones.
         public void SetKey(int frame)
         {
-            var k = new KeyData { frame = frame, position = transform.position, rotation = transform.rotation, scale = transform.localScale };
-            foreach (var b in pose)
+            SetKey(frame, ChPos | ChRot | ChScale, null);
+        }
+
+        /// `channels`: ChPos | ChRot | ChScale (0 = none). `bonePaths`: null =
+        /// every posed bone, empty = none, or the bones to store.
+        public void SetKey(int frame, int channels, List<string> bonePaths)
+        {
+            var k = GetOrAddKey(frame);
+            if ((channels & ChPos) != 0) { k.position = transform.position; k.skip &= ~ChPos; }
+            if ((channels & ChRot) != 0) { k.rotation = transform.rotation; k.skip &= ~ChRot; }
+            if ((channels & ChScale) != 0) { k.scale = transform.localScale; k.skip &= ~ChScale; }
+            if (k.bones == null) k.bones = new List<BonePose>();
+            var paths = new List<string>();
+            if (bonePaths == null) foreach (var b in pose) paths.Add(b.path);
+            else paths.AddRange(bonePaths);
+            foreach (var path in paths)
             {
-                var t = Bone(b.path);
-                k.bones.Add(t != null ? BonePose.From(b.path, t) : b.Copy());
+                var t = Bone(path);
+                BonePose v = t != null ? BonePose.From(path, t) : (FindPose(path) != null ? FindPose(path).Copy() : null);
+                if (v == null) continue;
+                k.bones.RemoveAll(b => b.path == path);
+                k.bones.Add(v);
             }
-            for (int i = 0; i < keys.Count; i++)
-            {
-                if (keys[i].frame == frame) { keys[i] = k; return; }
-                if (keys[i].frame > frame) { keys.Insert(i, k); return; }
-            }
-            keys.Add(k);
+            if (k.Empty) keys.Remove(k);
         }
 
         public bool RemoveKey(int frame)
@@ -235,13 +269,105 @@ namespace Atlas
 
         public bool HasKey(int frame)
         {
-            foreach (var k in keys) if (k.frame == frame) return true;
-            return false;
+            return KeyAt(frame) != null;
         }
 
-        static float Ease(float t)
+        /// Frames that have something on a track: "" any, "T" / "R" / "S" the
+        /// object's position / rotation / scale, "b:<path>" a bone.
+        public List<int> TrackFrames(string track)
         {
-            return t * t * (3f - 2f * t);
+            var l = new List<int>();
+            foreach (var k in keys)
+                if (k.Has(track)) l.Add(k.frame);
+            return l;
+        }
+
+        /// Tracks that have keys (for the expanded timeline).
+        public List<string> Tracks()
+        {
+            var l = new List<string>();
+            bool tp = false, tr = false, ts = false;
+            var bonesSeen = new List<string>();
+            foreach (var k in keys)
+            {
+                if ((k.skip & ChPos) == 0) tp = true;
+                if ((k.skip & ChRot) == 0) tr = true;
+                if ((k.skip & ChScale) == 0) ts = true;
+                if (k.bones != null)
+                    foreach (var b in k.bones) if (!bonesSeen.Contains(b.path)) bonesSeen.Add(b.path);
+            }
+            if (tp) l.Add("T");
+            if (tr) l.Add("R");
+            if (ts) l.Add("S");
+            // Bones in skeleton order.
+            foreach (var path in boneOrder) if (bonesSeen.Contains(path)) l.Add("b:" + path);
+            foreach (var path in bonesSeen) if (!boneOrder.Contains(path)) l.Add("b:" + path);
+            return l;
+        }
+
+        /// Moves one track's value from one frame to another (merging into
+        /// the key there). "" moves the whole key.
+        public void MoveTrackKey(string track, int from, int to)
+        {
+            if (from == to) return;
+            var src = KeyAt(from);
+            if (src == null || !src.Has(track)) return;
+            if (track == "")
+            {
+                var other = KeyAt(to);
+                if (other != null) keys.Remove(other);
+                src.frame = to;
+                keys.Sort((a, b) => a.frame.CompareTo(b.frame));
+                return;
+            }
+            var dst = GetOrAddKey(to);
+            KeyData.CopyTrack(src, dst, track);
+            src.ClearTrack(track);
+            if (src.Empty) keys.Remove(src);
+        }
+
+        public void DeleteTrackKey(string track, int frame)
+        {
+            var k = KeyAt(frame);
+            if (k == null) return;
+            if (track == "") { keys.Remove(k); return; }
+            k.ClearTrack(track);
+            if (k.Empty) keys.Remove(k);
+        }
+
+        public void SetInterp(int frame, string mode)
+        {
+            var k = KeyAt(frame);
+            if (k != null) k.interp = mode;
+        }
+
+        /// The keys around `frame` that hold `track`: before (a), after (b)
+        /// and their neighbours (for the cubic curve).
+        bool Segment(string track, float frame, out KeyData a0, out KeyData a, out KeyData b, out KeyData b1)
+        {
+            a0 = a = b = b1 = null;
+            int ia = -1, ib = -1;
+            var list = new List<KeyData>();
+            foreach (var k in keys) if (k.Has(track)) list.Add(k);
+            if (list.Count == 0) return false;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i].frame <= frame) ia = i;
+                if (list[i].frame >= frame && ib < 0) ib = i;
+            }
+            if (ia < 0) ia = ib;
+            if (ib < 0) ib = ia;
+            a = list[ia];
+            b = list[ib];
+            a0 = list[Mathf.Max(0, ia - 1)];
+            b1 = list[Mathf.Min(list.Count - 1, ib + 1)];
+            return true;
+        }
+
+        float SegT(KeyData a, KeyData b, float frame)
+        {
+            if (a == b || b.frame == a.frame) return 0f;
+            return Mathf.Clamp01(Mathf.InverseLerp(a.frame, b.frame, frame));
         }
 
         /// Everything at `frame`: the model's own animation, the object's
@@ -251,40 +377,32 @@ namespace Atlas
             if (!string.IsNullOrEmpty(clip)) SampleClip(frame / Mathf.Max(1f, fps));
             if (keys.Count > 0)
             {
-                KeyData a = keys[0], b = keys[keys.Count - 1];
-                if (frame <= a.frame) Apply(a);
-                else if (frame >= b.frame) Apply(b);
-                else
-                {
-                    for (int i = 0; i < keys.Count - 1; i++)
-                        if (frame >= keys[i].frame && frame <= keys[i + 1].frame) { a = keys[i]; b = keys[i + 1]; break; }
-                    float t = Ease(Mathf.InverseLerp(a.frame, b.frame, frame));
-                    transform.position = Vector3.Lerp(a.position, b.position, t);
-                    transform.rotation = Quaternion.Slerp(a.rotation, b.rotation, t);
-                    transform.localScale = Vector3.Lerp(a.scale, b.scale, t);
-                }
+                KeyData a0, a, b, b1;
+                if (Segment("T", frame, out a0, out a, out b, out b1))
+                    transform.position = Interp.Blend(a.interp, a0.position, a.position, b.position, b1.position, SegT(a, b, frame));
+                if (Segment("R", frame, out a0, out a, out b, out b1))
+                    transform.rotation = Interp.Blend(a.interp, a.rotation, b.rotation, SegT(a, b, frame));
+                if (Segment("S", frame, out a0, out a, out b, out b1))
+                    transform.localScale = Interp.Blend(a.interp, a0.scale, a.scale, b.scale, b1.scale, SegT(a, b, frame));
             }
             if (bones.Count == 0) return;
             // Bones with keys follow them; the other posed bones keep the pose.
             var done = new HashSet<string>();
-            if (keys.Count > 0)
+            foreach (var k in keys)
             {
-                foreach (var k in keys)
+                if (k.bones == null) continue;
+                foreach (var kb in k.bones)
                 {
-                    if (k.bones == null) continue;
-                    foreach (var kb in k.bones)
-                    {
-                        if (done.Contains(kb.path)) continue;
-                        done.Add(kb.path);
-                        var t = Bone(kb.path);
-                        if (t == null) continue;
-                        var v = BoneAt(kb.path, frame);
-                        if (v == null) continue;
-                        v.ApplyTo(t);
-                        // The pose shows what is on screen now.
-                        var p = FindPose(kb.path);
-                        if (p != null) { p.p = v.p; p.r = v.r; p.s = v.s; }
-                    }
+                    if (done.Contains(kb.path)) continue;
+                    done.Add(kb.path);
+                    var t = Bone(kb.path);
+                    if (t == null) continue;
+                    var v = BoneAt(kb.path, frame);
+                    if (v == null) continue;
+                    v.ApplyTo(t);
+                    // The pose shows what is on screen now.
+                    var p = FindPose(kb.path);
+                    if (p != null) { p.p = v.p; p.r = v.r; p.s = v.s; }
                 }
             }
             foreach (var b in pose)
@@ -297,34 +415,22 @@ namespace Atlas
 
         BonePose BoneAt(string path, float frame)
         {
-            BonePose before = null, after = null;
-            int fb = 0, fa = 0;
-            foreach (var k in keys)
-            {
-                if (k.bones == null) continue;
-                BonePose v = null;
-                foreach (var b in k.bones) if (b.path == path) { v = b; break; }
-                if (v == null) continue;
-                if (k.frame <= frame) { before = v; fb = k.frame; }
-                if (k.frame >= frame && after == null) { after = v; fa = k.frame; }
-            }
-            if (before == null) return after;
-            if (after == null || fa == fb) return before;
-            float t = Ease(Mathf.InverseLerp(fb, fa, frame));
+            KeyData a0, a, b, b1;
+            string track = "b:" + path;
+            if (!Segment(track, frame, out a0, out a, out b, out b1)) return null;
+            var va = a.GetBone(path);
+            var vb = b.GetBone(path);
+            if (a == b || va == null || vb == null) return va ?? vb;
+            var v0 = a0.GetBone(path) ?? va;
+            var v3 = b1.GetBone(path) ?? vb;
+            float t = SegT(a, b, frame);
             return new BonePose
             {
                 path = path,
-                p = Vector3.Lerp(before.p, after.p, t),
-                r = Quaternion.Slerp(before.r, after.r, t),
-                s = Vector3.Lerp(before.s, after.s, t),
+                p = Interp.Blend(a.interp, v0.p, va.p, vb.p, v3.p, t),
+                r = Interp.Blend(a.interp, va.r, vb.r, t),
+                s = Interp.Blend(a.interp, v0.s, va.s, vb.s, v3.s, t),
             };
-        }
-
-        void Apply(KeyData k)
-        {
-            transform.position = k.position;
-            transform.rotation = k.rotation;
-            transform.localScale = k.scale;
         }
 
         void OnDestroy()
@@ -346,6 +452,58 @@ namespace Atlas
         public Quaternion rotation = Quaternion.identity;
         public Vector3 scale = Vector3.one;
         public List<BonePose> bones = new List<BonePose>();
+        /// Channels this key does NOT hold (AtlasItem.ChPos / ChRot / ChScale);
+        /// 0 = the whole transform (also what older saves mean).
+        public int skip;
+        /// Curve from this key to the next ("" = smooth ease in-out).
+        public string interp = "";
+
+        public bool Empty { get { return skip == 7 && (bones == null || bones.Count == 0); } }
+
+        public BonePose GetBone(string path)
+        {
+            if (bones != null) foreach (var b in bones) if (b.path == path) return b;
+            return null;
+        }
+
+        public bool Has(string track)
+        {
+            switch (track)
+            {
+                case "": return true;
+                case "T": return (skip & 1) == 0;
+                case "R": return (skip & 2) == 0;
+                case "S": return (skip & 4) == 0;
+            }
+            return track.StartsWith("b:") && GetBone(track.Substring(2)) != null;
+        }
+
+        public void ClearTrack(string track)
+        {
+            switch (track)
+            {
+                case "T": skip |= 1; return;
+                case "R": skip |= 2; return;
+                case "S": skip |= 4; return;
+            }
+            if (track.StartsWith("b:") && bones != null) bones.RemoveAll(b => b.path == track.Substring(2));
+        }
+
+        public static void CopyTrack(KeyData src, KeyData dst, string track)
+        {
+            switch (track)
+            {
+                case "T": dst.position = src.position; dst.skip &= ~1; return;
+                case "R": dst.rotation = src.rotation; dst.skip &= ~2; return;
+                case "S": dst.scale = src.scale; dst.skip &= ~4; return;
+            }
+            if (!track.StartsWith("b:")) return;
+            var v = src.GetBone(track.Substring(2));
+            if (v == null) return;
+            if (dst.bones == null) dst.bones = new List<BonePose>();
+            dst.bones.RemoveAll(b => b.path == v.path);
+            dst.bones.Add(v.Copy());
+        }
     }
 
     /// A bone's local transform (by its path inside the model).

@@ -16,13 +16,6 @@ namespace Atlas
         Image badge;
         RectTransform toastHolder;
         UnityEngine.Rect lastSafe;
-        // Timeline
-        Slider frameSlider;
-        Text timeText, frameText;
-        Button playBtn, keyBtn;
-        RectTransform keyMarks;
-        InputField durationField;
-        bool sliderLock;
         // Axis gizmo
         RectTransform nav;
         readonly RectTransform[] navBalls = new RectTransform[6];
@@ -117,6 +110,7 @@ namespace Atlas
             SetTool(Tool.Move);
             RefreshUndo();
             timeline.SetActive(false);
+            SetTimelineState(1);
             propsPanel.SetActive(false);
         }
 
@@ -247,129 +241,6 @@ namespace Atlas
             for (int i = 0; i < 6; i++) navBalls[navOrder[i]].SetSiblingIndex(i);
         }
 
-        void BuildTimeline()
-        {
-            var tl = AtlasTheme.Box(viewArea, "LineaDeTiempo", AtlasTheme.Panel);
-            var r = tl.rectTransform;
-            r.anchorMin = new Vector2(0f, 0f);
-            r.anchorMax = new Vector2(1f, 0f);
-            r.pivot = new Vector2(0.5f, 0f);
-            r.sizeDelta = new Vector2(0f, 124f);
-            r.anchoredPosition = Vector2.zero;
-            timeline = tl.gameObject;
-            var col = AtlasTheme.Column(timeline, 6f, new RectOffset(14, 14, 8, 10));
-            col.childForceExpandWidth = true;
-
-            var row = AtlasTheme.Rect(timeline.transform, "Controles").gameObject;
-            AtlasTheme.Row(row, 6f, new RectOffset(0, 0, 0, 0));
-            row.AddComponent<LayoutElement>().preferredHeight = 54f;
-            AtlasTheme.IconButton(row.transform, "to_start", () => SetFrame(0f));
-            playBtn = AtlasTheme.IconButton(row.transform, "play", TogglePlay, 54f, 26f);
-            playBtn.GetComponent<Image>().color = AtlasTheme.AccentButton;
-            AtlasTheme.IconButton(row.transform, "step_back", () => JumpKey(-1));
-            AtlasTheme.IconButton(row.transform, "step_fwd", () => JumpKey(1));
-            keyBtn = AtlasTheme.IconButton(row.transform, "key_fill", InsertKey);
-            AtlasTheme.IconButton(row.transform, "delete", DeleteKey);
-            var fbox = AtlasTheme.Box(row.transform, "Fotograma", AtlasTheme.Panel2, 10);
-            var fle = fbox.gameObject.AddComponent<LayoutElement>();
-            fle.preferredWidth = 70f;
-            fle.preferredHeight = 44f;
-            frameText = AtlasTheme.Label(fbox.transform, "0", 19, AtlasTheme.TextColor, true, TextAnchor.MiddleCenter);
-            AtlasTheme.Fill(frameText.rectTransform);
-            timeText = AtlasTheme.Label(row.transform, "0.0 / 5.0 s", 18, AtlasTheme.TextColor, true);
-            timeText.horizontalOverflow = HorizontalWrapMode.Overflow;
-            var tle = timeText.gameObject.AddComponent<LayoutElement>();
-            tle.preferredWidth = 130f;
-            AtlasTheme.Spacer(row.transform);
-            var dl = AtlasTheme.Label(row.transform, "Duración (s)", 16, AtlasTheme.TextDim);
-            dl.horizontalOverflow = HorizontalWrapMode.Overflow;
-            dl.gameObject.AddComponent<LayoutElement>().preferredWidth = 104f;
-            durationField = AtlasTheme.NumberField(row.transform, endFrame / (float)fps, v =>
-            {
-                endFrame = Mathf.Clamp(Mathf.RoundToInt(v * fps), 1, 600 * fps);
-                SetFrame(Mathf.Min(frame, endFrame));
-                RefreshKeys();
-                Commit(true);
-            }, 70f);
-
-            // Ruler: slider with the selected object's keys.
-            var bar = AtlasTheme.Rect(timeline.transform, "Regla");
-            bar.gameObject.AddComponent<LayoutElement>().preferredHeight = 40f;
-            var track = AtlasTheme.Box(bar, "Pista", AtlasTheme.Panel3, 5);
-            var trr = track.rectTransform;
-            trr.anchorMin = new Vector2(0f, 0.5f);
-            trr.anchorMax = new Vector2(1f, 0.5f);
-            trr.sizeDelta = new Vector2(0f, 10f);
-            track.raycastTarget = false;
-            keyMarks = AtlasTheme.Rect(bar, "Claves");
-            AtlasTheme.Fill(keyMarks, 12f, 12f);
-            var area = AtlasTheme.Rect(bar, "Deslizador");
-            AtlasTheme.Fill(area, 12f, 12f);
-            var hitArea = area.gameObject.AddComponent<Image>();
-            hitArea.color = new Color(0, 0, 0, 0);
-            var handleArea = AtlasTheme.Rect(area, "Zona");
-            AtlasTheme.Fill(handleArea);
-            var handle = AtlasTheme.Box(handleArea, "Cabezal", AtlasTheme.Accent, 4);
-            handle.rectTransform.anchorMin = new Vector2(0f, 0f);
-            handle.rectTransform.anchorMax = new Vector2(0f, 1f);
-            handle.rectTransform.sizeDelta = new Vector2(8f, 0f);
-            frameSlider = area.gameObject.AddComponent<Slider>();
-            frameSlider.handleRect = handle.rectTransform;
-            frameSlider.targetGraphic = handle;
-            frameSlider.direction = Slider.Direction.LeftToRight;
-            frameSlider.minValue = 0f;
-            frameSlider.maxValue = endFrame;
-            frameSlider.wholeNumbers = true;
-            var nav2 = frameSlider.navigation;
-            nav2.mode = Navigation.Mode.None;
-            frameSlider.navigation = nav2;
-            frameSlider.onValueChanged.AddListener(v =>
-            {
-                if (sliderLock) return;
-                if (playing) TogglePlay();
-                SetFrame(v);
-            });
-        }
-
-        void RefreshTimeline()
-        {
-            if (frameSlider == null) return;
-            sliderLock = true;
-            frameSlider.maxValue = endFrame;
-            frameSlider.value = frame;
-            sliderLock = false;
-            frameText.text = Mathf.RoundToInt(frame).ToString();
-            timeText.text = (frame / fps).ToString("0.0") + " / " + ((float)endFrame / fps).ToString("0.0") + " s";
-            AtlasTheme.SetNumber(durationField, (float)endFrame / fps);
-            if (keyBtn != null)
-            {
-                bool here = selected != null && selected.HasKey(Mathf.RoundToInt(frame));
-                foreach (var ri in keyBtn.GetComponentsInChildren<RawImage>()) ri.color = here ? AtlasTheme.Key : new Color(0.75f, 0.62f, 0.32f);
-            }
-        }
-
-        /// Yellow marks on the timeline where the selected object has keys.
-        void RefreshKeys()
-        {
-            if (keyMarks == null) return;
-            AtlasTheme.Clear(keyMarks);
-            if (selected != null)
-            {
-                foreach (var k in selected.keys)
-                {
-                    var m = AtlasTheme.Box(keyMarks, "Clave", AtlasTheme.Key, 3);
-                    var r = m.rectTransform;
-                    float x = endFrame > 0 ? (float)k.frame / endFrame : 0f;
-                    r.anchorMin = r.anchorMax = new Vector2(x, 0.5f);
-                    r.sizeDelta = new Vector2(12f, 12f);
-                    r.anchoredPosition = Vector2.zero;
-                    r.localRotation = Quaternion.Euler(0f, 0f, 45f);
-                    m.raycastTarget = false;
-                }
-            }
-            RefreshTimeline();
-        }
-
         void BuildAddMenu()
         {
             var menu = AtlasTheme.Box(viewArea, "MenuAnadir", AtlasTheme.Panel2, 18);
@@ -393,7 +264,7 @@ namespace Atlas
             AtlasTheme.TextButton(lights, "spot", "Foco", () => AddShape("spot"), false, 46f, 16);
             AtlasTheme.TextButton(lights, "sun", "Sol", () => AddShape("sun"), false, 46f, 16);
             AtlasTheme.TextButton(menu.transform, "import", "Importar modelo…", ImportModel, true, 50f);
-            var formats = AtlasTheme.Label(menu.transform, "GLB · glTF · OBJ · STL · PLY · ZIP", 14, AtlasTheme.TextDim, false, TextAnchor.MiddleCenter);
+            var formats = AtlasTheme.Label(menu.transform, "GLB · glTF · FBX · OBJ · 3DS · BLEND · STL · PLY · ZIP", 14, AtlasTheme.TextDim, false, TextAnchor.MiddleCenter);
             AtlasTheme.Le(formats.gameObject, 20f);
             addMenu = menu.gameObject;
             addMenu.SetActive(false);
@@ -408,10 +279,11 @@ namespace Atlas
             fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             var t1 = AtlasTheme.Label(menu.transform, "PROYECTO", 15, AtlasTheme.TextDim, true);
             AtlasTheme.Le(t1.gameObject, 22f);
-            AtlasTheme.TextButton(menu.transform, "home", "Mis proyectos", () => ShowHome(true), false, 46f);
-            AtlasTheme.TextButton(menu.transform, "import", "Importar modelo…", ImportModel, false, 46f);
+            // The same entries as the Godot «more» menu (importing lives in +).
             AtlasTheme.TextButton(menu.transform, "save", "Guardar", () => { CloseMenus(); SaveNow(true); }, false, 46f);
-            AtlasTheme.TextButton(menu.transform, "close", "Vaciar la escena", NewScene, false, 46f);
+            AtlasTheme.TextButton(menu.transform, "edit", "Renombrar…", () => { CloseMenus(); RenameCurrentProject(); }, false, 46f);
+            AtlasTheme.TextButton(menu.transform, "info", "Información", () => { CloseMenus(); ShowProjectInfo(); }, false, 46f);
+            AtlasTheme.TextButton(menu.transform, "camera", "Renderizar imagen o vídeo…", () => ToggleMenu(renderPanel), false, 46f);
             var t2 = AtlasTheme.Label(menu.transform, "EXPORTAR MODELO 3D", 15, AtlasTheme.TextDim, true);
             AtlasTheme.Le(t2.gameObject, 22f);
             var grid = AtlasTheme.Grid(menu.transform, 3, 306f, 44f);
@@ -420,7 +292,10 @@ namespace Atlas
                 string fmt = f;
                 AtlasTheme.Chip(grid, fmt, () => ExportAs(fmt));
             }
-            var about = AtlasTheme.Label(menu.transform, "ATLAS 3D · versión " + Version + " (Unity)", 14, AtlasTheme.AccentLight, false, TextAnchor.MiddleCenter);
+            AtlasTheme.Separator(menu.transform, false);
+            AtlasTheme.TextButton(menu.transform, "help", "Guía de inicio", () => { CloseMenus(); ShowGuide(); }, false, 46f);
+            AtlasTheme.TextButton(menu.transform, "home", "Cerrar proyecto", () => ShowHome(true), false, 46f);
+            var about = AtlasTheme.Label(menu.transform, "ATLAS 3D · versión " + Version, 14, AtlasTheme.AccentLight, false, TextAnchor.MiddleCenter);
             AtlasTheme.Le(about.gameObject, 22f);
             mainMenu = menu.gameObject;
             mainMenu.SetActive(false);
@@ -439,21 +314,6 @@ namespace Atlas
             if (addMenu != null) addMenu.SetActive(false);
             if (mainMenu != null) mainMenu.SetActive(false);
             if (renderPanel != null) renderPanel.SetActive(false);
-        }
-
-        void ToggleTimeline()
-        {
-            timeline.SetActive(!timeline.activeSelf);
-            AtlasTheme.SetActive(animBtn, timeline.activeSelf);
-            toastHolder.anchoredPosition = new Vector2(RailWidth * 0.5f, timeline.activeSelf ? 136f : 20f);
-            var pr = propsPanel.GetComponent<RectTransform>();
-            pr.offsetMin = new Vector2(pr.offsetMin.x, timeline.activeSelf ? 134f : 10f);
-            if (timeline.activeSelf)
-            {
-                RefreshKeys();
-                Toast("Animar: elige un fotograma, coloca el objeto y pulsa la clave amarilla");
-            }
-            else if (playing) TogglePlay();
         }
 
         void ToggleProps()

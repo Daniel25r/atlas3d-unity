@@ -290,12 +290,64 @@ namespace Atlas
             toastHolder.SetAsLastSibling();
         }
 
+        void RenameCurrentProject()
+        {
+            if (store == null) return;
+            string oldName = store.name;
+            AtlasTheme.Dialog(canvasRoot, "Renombrar proyecto", null, oldName, "Guardar", false, v =>
+            {
+                if (string.IsNullOrEmpty(v.Trim()) || store == null) return;
+                try
+                {
+                    SaveNow(false);
+                    SaveThumbnail();
+                    var keepSel = selected != null ? selected.id : null;
+                    string n = SceneStore.Rename(oldName, v);
+                    OpenProject(n);
+                    foreach (var it in items) if (it != null && it.id == keepSel) Select(it);
+                    Toast("Ahora se llama «" + n + "»");
+                }
+                catch (System.Exception e) { Toast("No se pudo cambiar el nombre: " + e.Message, true); }
+            });
+            toastHolder.SetAsLastSibling();
+        }
+
+        void ShowProjectInfo()
+        {
+            if (store == null) return;
+            int shapes = 0, lights = 0, models = 0, keys = 0;
+            foreach (var it in items)
+            {
+                if (it == null) continue;
+                if (it.IsLight) lights++; else if (it.kind == "model") models++; else shapes++;
+                keys += it.keys.Count;
+            }
+            AtlasTheme.Dialog(canvasRoot, store.name,
+                "Formas: " + shapes + " · Luces: " + lights + " · Modelos: " + models +
+                "\nClaves de animación: " + keys + " · Duración: " + ((float)endFrame / fps).ToString("0.0") + " s a " + fps + " fps" +
+                "\nAmbiente: " + Ambience.Find(env.preset).name, null, "Cerrar", false, null);
+            toastHolder.SetAsLastSibling();
+        }
+
+        void ShowGuide()
+        {
+            AtlasTheme.Dialog(canvasRoot, "Guía de inicio",
+                "• Un dedo gira la vista; dos dedos acercan y desplazan.\n" +
+                "• Toca un objeto para seleccionarlo (brilla en naranja).\n" +
+                "• Barra izquierda: Seleccionar, Mover, Girar, Escalar; + añade formas, luces y modelos.\n" +
+                "• Modelos con huesos: botón del hueso → toca una articulación y gírala.\n" +
+                "• Animar: elige un fotograma, coloca el objeto y pulsa la clave amarilla.\n" +
+                "• Engranaje: propiedades, materiales y «Ambiente rápido».\n" +
+                "• Render: imagen o la animación completa.", null, "Entendido", false, null);
+            toastHolder.SetAsLastSibling();
+        }
+
         void ShowAbout()
         {
             AtlasTheme.Dialog(canvasRoot, "ATLAS 3D " + Version,
                 "Estudio de creación y animación 3D para móviles.\n\n" +
                 "Esta es la nueva versión hecha en Unity: más fluida y con mejor imagen (URP, sombras suaves, efectos de cine). " +
-                "Importa GLB, glTF, OBJ, STL, PLY y ZIP; exporta GLB, glTF, OBJ, STL, PLY y 3MF.\n\n" +
+                "Importa GLB, glTF, FBX, OBJ (+MTL), 3DS, BLEND, STL, PLY y ZIP; exporta GLB, glTF, OBJ, STL, PLY y 3MF.\n\n" +
                 "Letra Inter (licencia OFL).", null, "Cerrar", false, null);
             toastHolder.SetAsLastSibling();
         }

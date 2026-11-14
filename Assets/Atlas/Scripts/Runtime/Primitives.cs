@@ -9,7 +9,14 @@ namespace Atlas
 {
     public static class Primitives
     {
-        static Mesh cone, pyramid, torus;
+        static Mesh cone, pyramid, torus, ring;
+
+        /// Thin ring on the ground plane (the rotate manipulator).
+        public static Mesh Ring(float radius, float tube)
+        {
+            if (ring == null) ring = Torus(72, 6, radius, tube);
+            return ring;
+        }
 
         public static Mesh Get(string kind)
         {

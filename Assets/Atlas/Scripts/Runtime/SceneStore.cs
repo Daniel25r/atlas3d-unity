@@ -86,6 +86,7 @@ namespace Atlas
         public float cameraDistance = 7f;
         public int fps = 24;
         public int endFrame = 120;
+        public int startFrame;
         public bool showGrid = true;
         public EnvData env = new EnvData();
     }
@@ -332,13 +333,61 @@ namespace Atlas
         {
             Directory.CreateDirectory(ModelsDir);
             string ext = Path.GetExtension(source).ToLowerInvariant();
-            if (ext == ".zip") return MeshFormats.ExtractPackage(source, ModelsDir);
+            string why = Import.ModelConverter.Unsupported(ext);
+            if (why != "") throw new Exception(why);
             if (System.Array.IndexOf(MeshFormats.Importable, ext) < 0) ext = MeshFormats.Sniff(source);
-            string baseName = Path.GetFileNameWithoutExtension(source);
-            if (string.IsNullOrEmpty(baseName)) baseName = "modelo";
-            string name = baseName + "_" + NewId().Substring(0, 6) + ext;
-            File.Copy(source, Path.Combine(ModelsDir, name), true);
+            string name;
+            if (ext == ".zip") name = MeshFormats.ExtractPackage(source, ModelsDir);
+            else
+            {
+                string baseName = Path.GetFileNameWithoutExtension(source);
+                if (string.IsNullOrEmpty(baseName)) baseName = "modelo";
+                // OBJ / FBX / 3DS look for their textures next to them: keep
+                // them in their own folder with whatever was next to them.
+                if (System.Array.IndexOf(Import.ModelConverter.Convertible, ext) >= 0)
+                {
+                    string folder = "modelo_" + NewId().Substring(0, 8);
+                    Directory.CreateDirectory(Path.Combine(ModelsDir, folder));
+                    name = folder + "/" + baseName + ext;
+                    File.Copy(source, Path.Combine(ModelsDir, name), true);
+                    CopySidecars(source, Path.Combine(ModelsDir, folder));
+                }
+                else
+                {
+                    name = baseName + "_" + NewId().Substring(0, 6) + ext;
+                    File.Copy(source, Path.Combine(ModelsDir, name), true);
+                }
+            }
+            // Other formats become one GLB with everything inside.
+            string inExt = Path.GetExtension(name).ToLowerInvariant();
+            if (System.Array.IndexOf(Import.ModelConverter.Convertible, inExt) >= 0)
+            {
+                string full = Path.Combine(ModelsDir, name);
+                string glb = Import.ModelConverter.ToGlb(full, inExt);
+                if (glb != null) name = Path.GetDirectoryName(name).Replace('\\', '/') + (Path.GetDirectoryName(name) != "" ? "/" : "") + Path.GetFileName(glb);
+            }
             return name;
+        }
+
+        /// The files next to a picked model (its .mtl and textures), when the
+        /// phone lets us see the folder; small images and .mtl only.
+        static void CopySidecars(string source, string destDir)
+        {
+            try
+            {
+                string dir = Path.GetDirectoryName(source);
+                if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return;
+                int copied = 0;
+                foreach (var f in Directory.GetFiles(dir))
+                {
+                    string e = Path.GetExtension(f).ToLowerInvariant();
+                    if (e != ".mtl" && e != ".png" && e != ".jpg" && e != ".jpeg" && e != ".tga" && e != ".bmp") continue;
+                    if (new FileInfo(f).Length > 64L * 1024 * 1024) continue;
+                    File.Copy(f, Path.Combine(destDir, Path.GetFileName(f)), true);
+                    if (++copied > 200) break;
+                }
+            }
+            catch (Exception) { }
         }
 
         /// Copies a picked image into the project. Returns its file name.

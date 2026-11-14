@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "3.1.0";
+        public const string Version = "3.2.0";
 
         Camera cam;
         Light sunLight;
@@ -428,23 +428,35 @@ namespace Atlas
             NativeFilePicker.PickFile(path =>
             {
                 if (string.IsNullOrEmpty(path) || store == null) return;
-                string file;
-                try
-                {
-                    file = store.AddModelFile(path);
-                }
-                catch (System.Exception e)
-                {
-                    Toast("No se pudo importar: " + e.Message, true);
-                    return;
-                }
+                ImportFile(path);
+            }, new string[] { "*/*" });
+        }
+
+        /// Copies (and converts, for FBX / OBJ / 3DS) the model in the
+        /// background, then puts it in the scene.
+        async void ImportFile(string path)
+        {
+            var st = store;
+            string ext = Path.GetExtension(path).ToLowerInvariant();
+            Toast(System.Array.IndexOf(Import.ModelConverter.Convertible, ext) >= 0 ? "Convirtiendo «" + Path.GetFileName(path) + "»…" : "Importando «" + Path.GetFileName(path) + "»…");
+            string file;
+            try
+            {
+                file = await System.Threading.Tasks.Task.Run(() => st.AddModelFile(path));
+            }
+            catch (System.Exception e)
+            {
+                Toast("No se pudo importar: " + e.Message, true);
+                return;
+            }
+            if (store != st) return;   // the project was closed meanwhile
+            {
                 count++;
                 string nm = Path.GetFileNameWithoutExtension(path);
                 var d = new ItemData { v = 3, kind = "model", name = string.IsNullOrEmpty(nm) ? "Modelo" : nm, position = Vector3.zero, modelFile = file };
                 Select(Create(d));
-                Toast("Importando «" + d.name + "»…");
                 Commit(true);
-            }, new string[] { "*/*" });
+            }
         }
 
         void PickTexture(AtlasItem it)
@@ -555,6 +567,7 @@ namespace Atlas
             d.cameraDistance = distance;
             d.fps = fps;
             d.endFrame = endFrame;
+            d.startFrame = startFrame;
             d.showGrid = ground.activeSelf;
             d.env = JsonUtility.FromJson<EnvData>(JsonUtility.ToJson(env));
             return d;
@@ -619,6 +632,7 @@ namespace Atlas
             distance = d.cameraDistance;
             fps = Mathf.Max(1, d.fps);
             endFrame = Mathf.Max(1, d.endFrame);
+            startFrame = Mathf.Clamp(d.startFrame, 0, endFrame - 1);
             ground.SetActive(d.showGrid);
             AtlasTheme.SetButtonIcon(eyeBtn, ground.activeSelf ? "eye" : "eye_off");
             env = d.env != null ? JsonUtility.FromJson<EnvData>(JsonUtility.ToJson(d.env)) : new EnvData();
@@ -667,8 +681,11 @@ namespace Atlas
         /// this frame (otherwise the animation would put it back).
         void AutoKey()
         {
-            if (selected != null && selected.Animated)
-                selected.SetKey(Mathf.RoundToInt(frame));
+            if (selected == null || !(autoKey || selected.Animated)) return;
+            int f = Mathf.RoundToInt(frame);
+            if (poseMode && activeBone != "") selected.SetKey(f, 0, new List<string> { activeBone });
+            else selected.SetKey(f, AtlasItem.ChPos | AtlasItem.ChRot | AtlasItem.ChScale, new List<string>());
+            RefreshKeys();
         }
 
         // ------------------------------------------------------------------
@@ -688,29 +705,10 @@ namespace Atlas
         void TogglePlay()
         {
             playing = !playing;
-            if (playing && frame >= endFrame) frame = 0f;
+            if (playing && frame >= endFrame) frame = startFrame;
             AtlasTheme.SetButtonIcon(playBtn, playing ? "pause" : "play");
             ShowGizmo();
-        }
-
-        void InsertKey()
-        {
-            if (selected == null) { Toast("Selecciona un objeto para guardar su clave"); return; }
-            selected.SetKey(Mathf.RoundToInt(frame));
-            Commit(true);
-            RefreshProps();
-            Toast("Clave guardada en el fotograma " + Mathf.RoundToInt(frame));
-        }
-
-        void DeleteKey()
-        {
-            if (selected == null || !selected.RemoveKey(Mathf.RoundToInt(frame)))
-            {
-                Toast("No hay clave en este fotograma");
-                return;
-            }
-            Commit(true);
-            RefreshProps();
+            RefreshTimeline();
         }
 
         void JumpKey(int dir)
@@ -743,8 +741,12 @@ namespace Atlas
             if (store == null || home.activeSelf || rendering) return;
             if (playing)
             {
-                float f = frame + Time.deltaTime * fps;
-                if (f > endFrame) f = 0f;
+                float f = frame + Time.deltaTime * fps * speed;
+                if (f > endFrame)
+                {
+                    if (loopPlay) f = startFrame;
+                    else { f = endFrame; TogglePlay(); }
+                }
                 SetFrame(f);
             }
             UpdateNav();
@@ -805,6 +807,8 @@ namespace Atlas
             if (selected != null && propsPanel != null && propsPanel.activeSelf && tf[0] != null) FillTransformFields();
             if (poseMode && propsPanel != null && propsPanel.activeSelf) FillBoneFields();
             UpdateBoneOverlay();
+            UpdateOnion();
+            if (canvasRoot != null) gizmo.pxScale = canvasRoot.GetComponent<Canvas>().scaleFactor;
         }
 
         /// Android «back»: closes a dialog or a menu, or goes to the projects.

@@ -64,7 +64,7 @@ namespace Atlas
         static string N(float v)
         {
             if (float.IsNaN(v) || float.IsInfinity(v)) v = 0f;
-            return v.ToString("0.#######", Inv);
+            return v.ToString("R", Inv);
         }
 
         static string Join(float[] f)
