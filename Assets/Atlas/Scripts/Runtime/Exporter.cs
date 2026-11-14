@@ -1,6 +1,6 @@
 // ATLAS 3D (Unity) - «Exportar»: the scene's objects to six formats.
 //   GLB  (one file, textures inside: the most compatible)
-//   glTF (text + .bin + textures, in a .zip)
+//   glTF (one text file with the data inside)
 //   OBJ  (+ MTL + textures, in a .zip)
 //   STL  (3D printing, no colour)
 //   PLY  (vertex colours)
@@ -10,7 +10,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -39,38 +38,23 @@ namespace Atlas
             string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             string baseName = Safe(name) + "_" + stamp;
             string dir = ExportDir;
-            switch (format)
-            {
-                case "GLB":
-                {
-                    string path = Path.Combine(dir, baseName + ".glb");
-                    await Gltf(objs, path, true);
-                    return path;
-                }
-                case "glTF":
-                {
-                    string tmp = Path.Combine(dir, baseName + "_gltf");
-                    Directory.CreateDirectory(tmp);
-                    await Gltf(objs, Path.Combine(tmp, baseName + ".gltf"), false);
-                    string zip = Path.Combine(dir, baseName + "_gltf.zip");
-                    using (var z = new ZipArchive(File.Create(zip), ZipArchiveMode.Create))
-                        foreach (var f in Directory.GetFiles(tmp))
-                        {
-                            var e = z.CreateEntry(Path.GetFileName(f), System.IO.Compression.CompressionLevel.Optimal);
-                            using (var s = e.Open())
-                            {
-                                var data = File.ReadAllBytes(f);
-                                s.Write(data, 0, data.Length);
-                            }
-                        }
-                    Directory.Delete(tmp, true);
-                    return zip;
-                }
-            }
             int skipped;
             var parts = MeshFormats.Collect(objs, out skipped);
             if (parts.Count == 0)
-                throw new Exception(skipped > 0 ? "las mallas de los modelos importados no se pueden leer para este formato: usa GLB" : "no hay mallas que exportar");
+                throw new Exception(skipped > 0 ? "las mallas de los modelos importados no se pueden leer" : "no hay mallas que exportar");
+            await Task.Yield();
+            string outPath;
+            switch (format)
+            {
+                case "GLB":
+                    outPath = Path.Combine(dir, baseName + ".glb");
+                    GltfWriter.Write(parts, outPath, true);
+                    return outPath;
+                case "glTF":
+                    outPath = Path.Combine(dir, baseName + ".gltf");
+                    GltfWriter.Write(parts, outPath, false);
+                    return outPath;
+            }
             byte[] bytes;
             string ext;
             switch (format)
@@ -80,25 +64,9 @@ namespace Atlas
                 case "PLY": bytes = MeshFormats.WritePly(parts); ext = ".ply"; break;
                 default: bytes = MeshFormats.Write3mf(parts); ext = ".3mf"; break;
             }
-            string outPath = Path.Combine(dir, baseName + ext);
+            outPath = Path.Combine(dir, baseName + ext);
             File.WriteAllBytes(outPath, bytes);
             return outPath;
-        }
-
-        static async Task Gltf(List<AtlasItem> objs, string path, bool binary)
-        {
-            var settings = new GLTFast.Export.ExportSettings
-            {
-                Format = binary ? GLTFast.Export.GltfFormat.Binary : GLTFast.Export.GltfFormat.Json,
-                FileConflictResolution = GLTFast.Export.FileConflictResolution.Overwrite,
-            };
-            var goSettings = new GLTFast.Export.GameObjectExportSettings { OnlyActiveInHierarchy = true };
-            var export = new GLTFast.Export.GameObjectExport(settings, goSettings);
-            var roots = new GameObject[objs.Count];
-            for (int i = 0; i < objs.Count; i++) roots[i] = objs[i].gameObject;
-            export.AddScene(roots, "ATLAS 3D");
-            bool ok = await export.SaveToFileAndDispose(path);
-            if (!ok) throw new Exception("glTFast no pudo escribir el archivo");
         }
 
         static string Safe(string s)
