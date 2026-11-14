@@ -7,6 +7,7 @@
 //                range, FPS, speed, loop) and one row per track
 // Keys are diamonds: tap to select, drag to move, hold for the key menu.
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -303,6 +304,9 @@ namespace Atlas
                     rows.Add(new TimelineRow { item = it, track = track, label = "   " + TrackName(track), frames = it.TrackFrames(track) });
                 }
             }
+            float a0, a1;
+            if (AudioBar(out a0, out a1))
+                rows.Insert(0, new TimelineRow { item = null, track = "audio", label = "♪ " + Path.GetFileNameWithoutExtension(audioFile), barStart = a0, barEnd = a1 });
             tlView.rows = rows;
             RefreshTimeline();
         }
@@ -603,7 +607,11 @@ namespace Atlas
                     SetRange(startFrame, endFrame + 5 * fps);
                     Toast("La animación ahora termina en el fotograma " + endFrame);
                 }),
+                string.IsNullOrEmpty(audioFile)
+                    ? new AtlasTheme.MenuItem("music", "Añadir audio (MP3, OGG, WAV)…", PickAudio)
+                    : new AtlasTheme.MenuItem("music", "Audio: empezar en el fotograma " + Mathf.RoundToInt(frame), () => { audioStart = Mathf.RoundToInt(frame); Commit(true); RefreshKeys(); }),
                 AtlasTheme.MenuItem.Check("loop", "Repetir en bucle", loopPlay, () => { loopPlay = !loopPlay; AtlasTheme.SetActive(loopBtn, loopPlay); }),
+                new AtlasTheme.MenuItem("close", string.IsNullOrEmpty(audioFile) ? "(sin audio)" : "Quitar el audio", () => { if (!string.IsNullOrEmpty(audioFile)) RemoveAudio(); }),
                 AtlasTheme.MenuItem.Check("timeline", "Hoja de animación (todos los objetos)", showAllKeys, () =>
                 {
                     showAllKeys = !showAllKeys;

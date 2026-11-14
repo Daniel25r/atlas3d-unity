@@ -43,6 +43,45 @@ namespace Atlas
         Plane grabPlane;
         Vector3 grabOrigin;
         static readonly Dictionary<string, Mesh> originalMeshes = new Dictionary<string, Mesh>();
+        LineRenderer brushRing;
+
+        /// Circle on the surface showing the brush's size while sculpting.
+        void ShowBrushRing(Vector3 localPoint, Vector3 localNormal)
+        {
+            if (brushRing == null)
+            {
+                var go = new GameObject("Pincel");
+                go.layer = Gizmo.Layer;
+                brushRing = go.AddComponent<LineRenderer>();
+                brushRing.useWorldSpace = true;
+                brushRing.loop = true;
+                brushRing.positionCount = 40;
+                brushRing.widthMultiplier = 0.01f;
+                brushRing.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                brushRing.receiveShadows = false;
+                var m = new Material(unlitTemplate);
+                m.SetColor("_BaseColor", new Color(1f, 0.85f, 0.4f));
+                brushRing.sharedMaterial = m;
+            }
+            var t = selected.transform;
+            Vector3 p = t.TransformPoint(localPoint);
+            Vector3 n = t.TransformDirection(localNormal).normalized;
+            float r = BrushRadius() * t.lossyScale.magnitude / 1.732f;
+            Vector3 u = Vector3.Cross(n, Mathf.Abs(n.y) < 0.9f ? Vector3.up : Vector3.right).normalized;
+            Vector3 v = Vector3.Cross(n, u);
+            for (int i = 0; i < 40; i++)
+            {
+                float a = i / 40f * Mathf.PI * 2f;
+                brushRing.SetPosition(i, p + n * r * 0.02f + (u * Mathf.Cos(a) + v * Mathf.Sin(a)) * r);
+            }
+            brushRing.widthMultiplier = Mathf.Max(0.004f, r * 0.04f);
+            brushRing.enabled = true;
+        }
+
+        void HideBrushRing()
+        {
+            if (brushRing != null) brushRing.enabled = false;
+        }
 
         bool MeshEditable(AtlasItem it)
         {
@@ -221,6 +260,14 @@ namespace Atlas
                 BarButton("mode_face", "Caras", () => { selMode = "face"; selVerts.Clear(); BuildMeshBar(); ShowGizmo(); }, selMode == "face");
                 AtlasTheme.Separator(meshBarContent, true);
                 BarButton("extrude", "Extruir", ExtrudeSelected);
+                BarButton("inset", "Insertar", InsetSelected);
+                BarButton("merge", "Unir", () =>
+                {
+                    var vs = SelectedVertsOrNull();
+                    if (vs == null || vs.Count < 2) { Toast("Elige dos o más vértices para unirlos"); return; }
+                    MeshOp("Unir vértices", m => m.Merge(vs), true);
+                });
+                BarButton("mirror", "Espejo X", () => MeshOp("Espejo X (lado +X copiado)", m => m.MirrorX(), true));
                 BarButton("subdivide", "Subdividir", () => MeshOp("Subdividir", m => m.Subdivide(), true));
                 BarButton("smooth", "Suavizar", () => MeshOp("Suavizar", m => m.Smooth(0.5f, SelectedVertsOrNull()), false));
                 BarButton("flip", "Invertir", () => MeshOp("Invertir caras", m => m.Flip(selMode == "face" ? selFaces : null), false));
@@ -278,6 +325,19 @@ namespace Atlas
             SetTool(Tool.Move);
             ShowGizmo();
             Toast("Extruido: muévelo con el manipulador");
+        }
+
+        void InsetSelected()
+        {
+            if (selected == null || selected.edit == null) return;
+            if (selMode != "face" || selFaces.Count == 0) { Toast("Pasa a «Caras», elige las que quieras y pulsa Insertar"); return; }
+            var nf = selected.edit.Inset(selFaces, 0.25f);
+            selFaces.Clear();
+            foreach (int f in nf) selFaces.Add(f);
+            selected.edit.ToMesh(selected.editMesh);
+            SaveEdit(selected);
+            ShowGizmo();
+            Toast("Caras insertadas: ahora puedes extruirlas o moverlas");
         }
 
         void DeleteSelectedFaces()
@@ -460,6 +520,7 @@ namespace Atlas
             Vector3 p, n;
             if (!SculptRay(screen, out p, out n)) return false;
             sculpting = true;
+            ShowBrushRing(p, n);
             strokeNb = selected.edit.Neighbors();
             strokeVn = selected.edit.VertexNormals();
             lastDab = p + Vector3.one * 1e6f;
@@ -511,6 +572,7 @@ namespace Atlas
             }
             Vector3 p, n;
             if (!SculptRay(screen, out p, out n)) return;
+            ShowBrushRing(p, n);
             // Dabs every bit of the brush radius along the stroke.
             if ((p - lastDab).magnitude < BrushRadius() * 0.18f) return;
             SculptAt(p, n);
@@ -532,6 +594,7 @@ namespace Atlas
         {
             if (!sculpting) return;
             sculpting = false;
+            HideBrushRing();
             SaveEdit(selected);
         }
 

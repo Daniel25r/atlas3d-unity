@@ -17,11 +17,11 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "3.5.0";
+        public const string Version = "3.7.0";
 
         Camera cam;
         Light sunLight;
-        Material litTemplate, unlitTemplate, aeroTemplate;
+        Material litTemplate, unlitTemplate, aeroTemplate, normalTemplate;
         ReflectionProbe probe;
         bool reflDirty = true;
         float nextRefl;
@@ -59,6 +59,7 @@ namespace Atlas
             Input.simulateMouseWithTouches = false;   // a touch is not also a mouse click
             litTemplate = Resources.Load<Material>("AtlasLit");
             aeroTemplate = Resources.Load<Material>("AtlasAero");
+            normalTemplate = Resources.Load<Material>("AtlasLitNormal");
             if (aeroTemplate != null && (aeroTemplate.shader == null || !aeroTemplate.shader.isSupported)) aeroTemplate = null;
             unlitTemplate = Resources.Load<Material>("AtlasUnlit");
             BuildWorld();
@@ -282,6 +283,17 @@ namespace Atlas
             it.fov = d.fov > 1f ? d.fov : 50f;
             it.shader = d.shader ?? "";
             it.modelGloss = d.modelGloss;
+            it.noShadow = d.noShadow;
+            it.matOverrides = new List<MatOverride>();
+            if (d.mats != null) foreach (var mo in d.mats) it.matOverrides.Add(mo.Copy());
+            it.normalMap = d.normalMap ?? "";
+            it.emissionMap = d.emissionMap ?? "";
+            it.bumpStrength = d.bumpStrength > 0f ? d.bumpStrength : 1f;
+            it.lookAtId = d.lookAtId ?? "";
+            it.followId = d.followId ?? "";
+            it.followOffset = d.followOffset;
+            it.shake = d.shake;
+            it.shakeSpeed = d.shakeSpeed > 0f ? d.shakeSpeed : 0.6f;
             string mf = d.meshFile ?? "";
             if (mf != (it.meshFile ?? ""))
             {
@@ -321,14 +333,16 @@ namespace Atlas
             l.shadows = LightShadows.Soft;
             if (kind == "spot")
             {
+                // Light cone drawn as thin lines: its real angle and reach.
                 var beam = new GameObject("Haz");
                 beam.transform.SetParent(go.transform, false);
-                beam.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
-                beam.transform.localScale = Vector3.one * 1.6f;
-                beam.transform.localPosition = new Vector3(0f, 0f, 0.8f);
-                beam.AddComponent<MeshFilter>().sharedMesh = Primitives.Get("cone");
-                var r = beam.AddComponent<MeshRenderer>();
-                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                var lr = beam.AddComponent<LineRenderer>();
+                lr.useWorldSpace = false;
+                lr.widthMultiplier = 0.015f;
+                lr.numCapVertices = 0;
+                lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                lr.receiveShadows = false;
+                lr.sharedMaterial = new Material(unlitTemplate);
             }
             else if (kind == "sun")
             {
@@ -355,6 +369,7 @@ namespace Atlas
             else
             {
                 it.loaded = true;
+                it.modelMats = CollectMaterials(it);
                 it.BuildBones();
                 it.Evaluate(frame, fps);
                 ApplyLook(it);
@@ -374,9 +389,14 @@ namespace Atlas
         void ApplyLook(AtlasItem it)
         {
             if (it == null) return;
-            foreach (var r in it.GetComponentsInChildren<Renderer>(true)) r.enabled = it.visible;
+            foreach (var r in it.GetComponentsInChildren<Renderer>(true))
+            {
+                r.enabled = it.visible;
+                if (!it.IsLight && it.kind != "camera")
+                    r.shadowCastingMode = it.noShadow || env.shadowsOff ? UnityEngine.Rendering.ShadowCastingMode.Off : UnityEngine.Rendering.ShadowCastingMode.On;
+            }
             foreach (var c in it.GetComponentsInChildren<Collider>(true)) c.enabled = it.visible;
-            if (it.kind == "model") { ApplyModelGloss(it); return; }
+            if (it.kind == "model") { if (it.loaded) ApplyModelMaterials(it); return; }
             // The material's kind follows the item (lit / Frutiger Aero glass).
             bool wantAero = it.shader == "aero" && aeroTemplate != null && it.IsShape;
             bool isAero = it.material != null && aeroTemplate != null && it.material.shader == aeroTemplate.shader;
@@ -385,7 +405,13 @@ namespace Atlas
                 Destroy(it.material);
                 it.material = null;
             }
-            if (it.material == null) it.material = new Material(wantAero ? aeroTemplate : litTemplate);
+            bool wantNormal = !wantAero && !string.IsNullOrEmpty(it.normalMap) && normalTemplate != null && it.IsShape;
+            if (it.material != null && !wantAero && it.IsShape && it.material.IsKeywordEnabled("_NORMALMAP") != wantNormal)
+            {
+                Destroy(it.material);
+                it.material = null;
+            }
+            if (it.material == null) it.material = new Material(wantAero ? aeroTemplate : (wantNormal ? normalTemplate : litTemplate));
             if (wantAero)
             {
                 var am = it.material;
@@ -427,9 +453,11 @@ namespace Atlas
                     l.range = Mathf.Max(0.1f, it.lightRange);
                     l.spotAngle = Mathf.Clamp(it.spotAngle, 1f, 179f);
                     l.innerSpotAngle = l.spotAngle * 0.6f;
-                    l.shadows = it.shadows ? LightShadows.Soft : LightShadows.None;
+                    l.shadows = it.shadows && !env.shadowsOff ? LightShadows.Soft : LightShadows.None;
                     l.enabled = it.visible;
                 }
+                var cone = it.GetComponentInChildren<LineRenderer>(true);
+                if (cone != null) SpotCone(it, cone, col);
             }
             else
             {
@@ -440,11 +468,57 @@ namespace Atlas
                 m.EnableKeyword("_EMISSION");
                 m.SetColor("_EmissionColor", new Color(it.color.r, it.color.g, it.color.b) * it.emission);
                 m.SetTexture("_BaseMap", LoadTexture(it.texture));
+                var nmap = LoadTexture(it.normalMap, true);
+                if (m.HasProperty("_BumpMap"))
+                {
+                    m.SetTexture("_BumpMap", nmap);
+                    m.SetFloat("_BumpScale", it.bumpStrength);
+                }
+                var emap = LoadTexture(it.emissionMap);
+                if (m.HasProperty("_EmissionMap")) m.SetTexture("_EmissionMap", emap);
+                if (emap != null)
+                    m.SetColor("_EmissionColor", new Color(it.color.r, it.color.g, it.color.b) * Mathf.Max(1f, it.emission));
                 MatUtil.SetTransparent(m, it.opacity < 0.995f);
                 // Pictures are seen from both sides.
                 if (m.HasProperty("_Cull")) m.SetFloat("_Cull", it.kind == "image" ? 0f : 2f);
             }
-            foreach (var r in it.GetComponentsInChildren<Renderer>(true)) r.sharedMaterial = m;
+            foreach (var r in it.GetComponentsInChildren<Renderer>(true))
+                if (!(r is LineRenderer)) r.sharedMaterial = m;
+        }
+
+        /// Spotlight lines: a ring where the light reaches (up to 4 m) and
+        /// four rays from the lamp to it.
+        static void SpotCone(AtlasItem it, LineRenderer lr, Color col)
+        {
+            float s = Mathf.Max(0.0001f, it.transform.lossyScale.x);
+            float len = Mathf.Min(it.lightRange, 4f) / s;
+            float rad = len * Mathf.Tan(Mathf.Clamp(it.spotAngle, 1f, 170f) * 0.5f * Mathf.Deg2Rad);
+            const int seg = 32;
+            var pts = new List<Vector3>();
+            for (int i = 0; i <= seg; i++)
+            {
+                float a = i / (float)seg * Mathf.PI * 2f;
+                pts.Add(new Vector3(Mathf.Cos(a) * rad, Mathf.Sin(a) * rad, len));
+            }
+            for (int k = 0; k < 4; k++)
+            {
+                float a = k * Mathf.PI * 0.5f;
+                pts.Add(Vector3.zero);
+                pts.Add(new Vector3(Mathf.Cos(a) * rad, Mathf.Sin(a) * rad, len));
+                // along the ring to the next ray
+                float a2 = (k + 1) * Mathf.PI * 0.5f;
+                for (int j = 1; j <= seg / 4; j++)
+                {
+                    float b = a + (a2 - a) * j / (seg / 4f);
+                    pts.Add(new Vector3(Mathf.Cos(b) * rad, Mathf.Sin(b) * rad, len));
+                }
+            }
+            lr.positionCount = pts.Count;
+            lr.SetPositions(pts.ToArray());
+            lr.widthMultiplier = 0.015f;
+            col.a = 0.9f;
+            lr.sharedMaterial.SetColor("_BaseColor", col);
+            lr.enabled = it.visible;
         }
 
         /// «Brillo» of an imported model: its own materials, or all of them
@@ -471,14 +545,16 @@ namespace Atlas
                 }
         }
 
-        Texture2D LoadTexture(string file)
+        /// `linear`: data maps (normal maps) are not colours.
+        Texture2D LoadTexture(string file, bool linear = false)
         {
             if (string.IsNullOrEmpty(file) || store == null) return null;
             Texture2D t;
-            if (textures.TryGetValue(file, out t) && t != null) return t;
+            string key = linear ? file + "|lineal" : file;
+            if (textures.TryGetValue(key, out t) && t != null) return t;
             string path = store.TexturePath(file);
             if (!File.Exists(path)) return null;
-            t = new Texture2D(2, 2, TextureFormat.RGBA32, true);
+            t = new Texture2D(2, 2, TextureFormat.RGBA32, true, linear);
             if (!t.LoadImage(File.ReadAllBytes(path)))
             {
                 Destroy(t);
@@ -487,7 +563,7 @@ namespace Atlas
             t.wrapMode = TextureWrapMode.Repeat;
             t.filterMode = FilterMode.Trilinear;
             t.anisoLevel = 4;
-            textures[file] = t;
+            textures[key] = t;
             return t;
         }
 
@@ -495,13 +571,14 @@ namespace Atlas
         {
             count++;
             float a = count * 1.3f;
-            float rad = items.Count > 0 ? 1.8f : 0f;
+            // New things appear in the middle of the view, on the ground.
+            Vector3 c = new Vector3(target.position.x, 0f, target.position.z);
             var d = new ItemData
             {
                 v = 3,
                 kind = kind,
                 name = DisplayName(kind) + " " + count,
-                position = new Vector3(Mathf.Cos(a) * rad, 0.5f, Mathf.Sin(a) * rad),
+                position = c + new Vector3(0f, 0.5f, 0f),
                 color = Color.HSVToRGB((count * 0.17f) % 1f, 0.45f, 0.9f),
             };
             switch (kind)
@@ -518,8 +595,8 @@ namespace Atlas
                     d.lightRange = 10f;
                     break;
                 case "spot":
-                    d.position = new Vector3(Mathf.Cos(a) * 2.5f, 3.2f, Mathf.Sin(a) * 2.5f);
-                    d.rotation = Quaternion.LookRotation(new Vector3(0f, 0.5f, 0f) - d.position).eulerAngles;
+                    d.position = c + new Vector3(Mathf.Cos(a) * 2.5f, 3.2f, Mathf.Sin(a) * 2.5f);
+                    d.rotation = Quaternion.LookRotation(c + new Vector3(0f, 0.5f, 0f) - d.position).eulerAngles;
                     d.scale = Vector3.one * 0.25f;
                     d.color = new Color(1f, 0.95f, 0.85f);
                     d.lightIntensity = 10f;
@@ -527,7 +604,7 @@ namespace Atlas
                     d.spotAngle = 45f;
                     break;
                 case "sun":
-                    d.position = new Vector3(0f, 4.5f, 0f);
+                    d.position = c + new Vector3(0f, 4.5f, 0f);
                     d.rotation = new Vector3(50f, 150f, 0f);
                     d.scale = Vector3.one * 0.35f;
                     d.color = Mathf.CorrelatedColorTemperatureToRGB(5600f);
@@ -571,9 +648,83 @@ namespace Atlas
             {
                 count++;
                 string nm = Path.GetFileNameWithoutExtension(path);
-                var d = new ItemData { v = 3, kind = "model", name = string.IsNullOrEmpty(nm) ? "Modelo" : nm, position = Vector3.zero, modelFile = file };
+                var d = new ItemData { v = 3, kind = "model", name = string.IsNullOrEmpty(nm) ? "Modelo" : nm, position = new Vector3(target.position.x, 0f, target.position.z), modelFile = file };
                 Select(Create(d));
                 Commit(true);
+            }
+        }
+
+        /// Image for a map of the material: "normal" (normal map), "bump"
+        /// (black and white relief, turned into a normal map) or "emission".
+        void PickMap(AtlasItem it, string slot)
+        {
+            if (store == null || it == null || NativeFilePicker.IsFilePickerBusy()) return;
+            NativeFilePicker.PickFile(path =>
+            {
+                if (string.IsNullOrEmpty(path) || store == null || it == null) return;
+                string file;
+                try { file = store.AddTextureFile(path); }
+                catch (System.Exception e) { Toast("No se pudo usar la imagen: " + e.Message, true); return; }
+                if (slot == "bump")
+                {
+                    string made = BumpToNormal(file);
+                    if (made == null) { Toast("Esa imagen no se puede leer (usa PNG o JPG)", true); return; }
+                    it.normalMap = made;
+                }
+                else if (slot == "normal")
+                {
+                    if (LoadTexture(file, true) == null) { Toast("Esa imagen no se puede leer (usa PNG o JPG)", true); return; }
+                    it.normalMap = file;
+                }
+                else
+                {
+                    if (LoadTexture(file) == null) { Toast("Esa imagen no se puede leer (usa PNG o JPG)", true); return; }
+                    it.emissionMap = file;
+                    if (it.emission < 1f) it.emission = 1f;
+                }
+                ApplyLook(it);
+                Commit(true);
+                RefreshProps();
+                Toast(slot == "emission" ? "Mapa de emisión puesto" : "Relieve puesto");
+            }, new string[] { "image/*" });
+        }
+
+        /// Height (black low, white high) -> tangent-space normal map PNG.
+        string BumpToNormal(string file)
+        {
+            var src = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
+            try
+            {
+                if (!src.LoadImage(File.ReadAllBytes(store.TexturePath(file)))) return null;
+                int w = src.width, h = src.height;
+                var px = src.GetPixels32();
+                var hgt = new float[w * h];
+                for (int i = 0; i < px.Length; i++) hgt[i] = (px[i].r * 0.299f + px[i].g * 0.587f + px[i].b * 0.114f) / 255f;
+                var outp = new Color32[w * h];
+                const float strength = 3f;
+                for (int y = 0; y < h; y++)
+                    for (int x = 0; x < w; x++)
+                    {
+                        float l = hgt[y * w + (x + w - 1) % w], r = hgt[y * w + (x + 1) % w];
+                        float d = hgt[((y + h - 1) % h) * w + x], u = hgt[((y + 1) % h) * w + x];
+                        Vector3 n = new Vector3((l - r) * strength, (d - u) * strength, 1f).normalized;
+                        outp[y * w + x] = new Color32((byte)((n.x * 0.5f + 0.5f) * 255f), (byte)((n.y * 0.5f + 0.5f) * 255f), (byte)((n.z * 0.5f + 0.5f) * 255f), 255);
+                    }
+                var dst = new Texture2D(w, h, TextureFormat.RGBA32, false, true);
+                dst.SetPixels32(outp);
+                dst.Apply();
+                string name = Path.GetFileNameWithoutExtension(file) + "_normal.png";
+                File.WriteAllBytes(store.TexturePath(name), dst.EncodeToPNG());
+                Destroy(dst);
+                return name;
+            }
+            catch (System.Exception)
+            {
+                return null;
+            }
+            finally
+            {
+                Destroy(src);
             }
         }
 
@@ -608,6 +759,7 @@ namespace Atlas
 
         void Select(AtlasItem it)
         {
+            if (it != selected) activeMat = -1;
             if (meshMode != "" && it != selected)
             {
                 if (sculpting) EndSculpt();
@@ -689,6 +841,9 @@ namespace Atlas
             HideBoneOverlay();
             highlighter.Clear();
             gizmo.Show(null);
+            if (audioSrc != null) { audioSrc.Stop(); audioSrc.clip = null; }
+            audioFile = "";
+            loadedAudio = "";
             foreach (var t in textures.Values) if (t != null) Destroy(t);
             textures.Clear();
             count = 0;
@@ -707,6 +862,9 @@ namespace Atlas
             d.fps = fps;
             d.endFrame = endFrame;
             d.startFrame = startFrame;
+            d.audioFile = audioFile;
+            d.audioStart = audioStart;
+            d.audioVolume = audioVolume;
             d.showGrid = ground.activeSelf;
             d.env = JsonUtility.FromJson<EnvData>(JsonUtility.ToJson(env));
             return d;
@@ -778,6 +936,7 @@ namespace Atlas
             fps = Mathf.Max(1, d.fps);
             endFrame = Mathf.Max(1, d.endFrame);
             startFrame = Mathf.Clamp(d.startFrame, 0, endFrame - 1);
+            RestoreAudio(d);
             ground.SetActive(d.showGrid);
             AtlasTheme.SetButtonIcon(eyeBtn, ground.activeSelf ? "eye" : "eye_off");
             env = d.env != null ? JsonUtility.FromJson<EnvData>(JsonUtility.ToJson(d.env)) : new EnvData();
@@ -844,6 +1003,7 @@ namespace Atlas
                 if (it == null) continue;
                 it.Evaluate(frame, fps);
             }
+            ApplyCameraRigs();
             RefreshTimeline();
         }
 
@@ -894,6 +1054,7 @@ namespace Atlas
                 }
                 SetFrame(f);
             }
+            SyncAudio();
             UpdateNav();
             if (Input.touchCount == 1)
             {
@@ -917,6 +1078,13 @@ namespace Atlas
                 Touch a = Input.GetTouch(0), b = Input.GetTouch(1);
                 Vector2 pa = a.position - a.deltaPosition, pb = b.position - b.deltaPosition;
                 float before = (pa - pb).magnitude, now = (a.position - b.position).magnitude;
+                if (lookThrough != null)
+                {
+                    // Inside the camera: two fingers move it, pinching pushes it forward.
+                    LookThroughTwoFingers((a.deltaPosition + b.deltaPosition) * 0.5f, now - before);
+                    if (a.phase == TouchPhase.Ended || b.phase == TouchPhase.Ended || a.phase == TouchPhase.Canceled || b.phase == TouchPhase.Canceled) LookThroughEnd();
+                    return;
+                }
                 if (before > 1f && now > 1f)
                     distance = Mathf.Clamp(distance * before / now, 0.3f, 400f);
                 Vector2 pan = (a.deltaPosition + b.deltaPosition) * 0.5f;
@@ -936,7 +1104,12 @@ namespace Atlas
                 else if (Input.GetMouseButtonUp(0) && moved >= 0f)
                     EndPointer(Input.mousePosition);
                 float wheel = Input.mouseScrollDelta.y;
-                if (Mathf.Abs(wheel) > 0.01f && !OverUi(-1))
+                if (Mathf.Abs(wheel) > 0.01f && !OverUi(-1) && lookThrough != null)
+                {
+                    LookThroughTwoFingers(Vector2.zero, wheel * 40f);
+                    LookThroughEnd();
+                }
+                else if (Mathf.Abs(wheel) > 0.01f && !OverUi(-1))
                 {
                     distance = Mathf.Clamp(distance * (1f - wheel * 0.1f), 0.3f, 400f);
                     UpdateCamera();
@@ -994,6 +1167,11 @@ namespace Atlas
         {
             moved += delta.magnitude;
             if (sculpting) { SculptMove(pos); return; }
+            if (lookThrough != null && !draggingGizmo)
+            {
+                if (moved > 6f) LookThroughDrag(delta);
+                return;
+            }
             if (draggingGizmo)
             {
                 gizmo.Drag(pos);
@@ -1011,6 +1189,7 @@ namespace Atlas
         void EndPointer(Vector2 pos)
         {
             if (sculpting) { EndSculpt(); moved = -1f; return; }
+            if (lookThrough != null && cameraDragging) { LookThroughEnd(); moved = -1f; orbiting = false; return; }
             if (draggingGizmo && meshDragging)
             {
                 gizmo.End();
@@ -1036,6 +1215,7 @@ namespace Atlas
             moved = -1f;
             if (!tap) return;
             CloseMenus();
+            if (lookThrough != null) return;
             if (MeshTap(pos)) return;
             if (meshMode == "sculpt") return;   // taps do not change the selection while sculpting
             if (poseMode)
@@ -1044,6 +1224,16 @@ namespace Atlas
                 if (bone != "") { SetActiveBone(bone); return; }
             }
             AtlasItem it = PickItem(pos);
+            if (!poseMode && meshMode == "" && it != null && it == selected && it.kind == "model" && it.loaded)
+            {
+                int mi = PickModelMaterial(it, pos);
+                if (mi >= 0)
+                {
+                    SetActiveMaterial(mi == activeMat ? -1 : mi);
+                    if (activeMat >= 0) Toast("Material «" + it.modelMats[mi].name.Replace(" (Instance)", "") + "»: cámbialo en Propiedades");
+                    return;
+                }
+            }
             if (poseMode)
             {
                 if (it == null || it == selected) { if (activeBone != "") SetActiveBone(""); return; }

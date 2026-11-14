@@ -220,6 +220,7 @@ namespace Atlas
             // Sun and ambient light
             if (sun != null)
             {
+                sun.shadows = e.shadowsOff ? LightShadows.None : LightShadows.Soft;
                 sun.color = p.sun;
                 sun.intensity = p.sunIntensity;
                 sun.transform.rotation = Quaternion.Euler(p.sunEuler);

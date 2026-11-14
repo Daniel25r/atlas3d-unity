@@ -10,6 +10,7 @@ namespace Atlas
     public partial class AtlasApp
     {
         RectTransform canvasRoot, safeRoot, viewArea;
+        Button camViewBtn;
         Button selectBtn, moveBtn, rotateBtn, scaleBtn, undoBtn, redoBtn, animBtn, propsBtn, eyeBtn, renderBtn;
         GameObject addMenu, mainMenu, timeline;
         Text modeText, badgeText;
@@ -61,6 +62,8 @@ namespace Atlas
                 badgeText.text = "OBJETO";
                 badge.color = AtlasTheme.Badge;
                 string what = selected != null ? selected.gameObject.name + (selected.locked ? " (bloqueado)" : "") : "Nada seleccionado";
+                if (selected != null && activeMat >= 0 && activeMat < selected.modelMats.Count)
+                    what = selected.gameObject.name + " · " + selected.modelMats[activeMat].name.Replace(" (Instance)", "");
                 modeFull = toolName + " · " + what;
             }
             LayoutModePill();
@@ -179,6 +182,7 @@ namespace Atlas
             undoBtn = AtlasTheme.IconButton(bar.transform, "undo", Undo);
             redoBtn = AtlasTheme.IconButton(bar.transform, "redo", Redo);
             eyeBtn = AtlasTheme.IconButton(bar.transform, "eye", ToggleGrid);
+            camViewBtn = AtlasTheme.IconButton(bar.transform, "camera", ToggleCameraView);
             animBtn = AtlasTheme.TextButton(bar.transform, "timeline", "Animar", ToggleTimeline);
             animBtn.GetComponent<Image>().color = new Color(0, 0, 0, 0);
             propsBtn = AtlasTheme.IconButton(bar.transform, "settings", ToggleProps);
@@ -310,6 +314,7 @@ namespace Atlas
             var others = AtlasTheme.Grid(content, 2, 316f, 46f);
             AtlasTheme.TextButton(others, "camera", "Cámara", AddCamera, false, 46f, 16);
             AtlasTheme.TextButton(others, "image", "Imagen…", AddImagePlane, false, 46f, 16);
+            AtlasTheme.TextButton(others, "music", "Audio…", PickAudio, false, 46f, 16);
             AtlasTheme.TextButton(content, "import", "Importar modelo…", ImportModel, true, 50f);
             var formats = AtlasTheme.Label(content, "GLB · glTF · FBX · OBJ · BLEND · PRISMA · 3DS · STL · PLY · ZIP", 14, AtlasTheme.TextDim, false, TextAnchor.MiddleCenter);
             AtlasTheme.Le(formats.gameObject, 20f);

@@ -71,6 +71,7 @@ namespace Atlas.Import
     {
         public byte[] data;   // PNG or JPEG
         public string mime;
+        public bool nearest;  // pixel art: sharp pixels, no blur
     }
 
     public class MAnimation
@@ -229,7 +230,7 @@ namespace Atlas.Import
                 var t = textures[i];
                 if (t == null || t.data == null || t.mime == null) continue;
                 imageJson.Add("{\"bufferView\":" + bin.View(t.data, 0) + ",\"mimeType\":\"" + t.mime + "\"}");
-                texJson.Add("{\"source\":" + (imageJson.Count - 1) + ",\"sampler\":0}");
+                texJson.Add("{\"source\":" + (imageJson.Count - 1) + ",\"sampler\":" + (t.nearest ? 1 : 0) + "}");
                 texIndex[i] = texJson.Count - 1;
             }
             var matJson = new List<string>();
@@ -323,7 +324,7 @@ namespace Atlas.Import
             if (animJson.Count > 0) js.Append(",\"animations\":[").Append(string.Join(",", animJson)).Append(']');
             if (texJson.Count > 0)
             {
-                js.Append(",\"samplers\":[{\"magFilter\":9729,\"minFilter\":9987,\"wrapS\":10497,\"wrapT\":10497}]");
+                js.Append(",\"samplers\":[{\"magFilter\":9729,\"minFilter\":9987,\"wrapS\":10497,\"wrapT\":10497},{\"magFilter\":9728,\"minFilter\":9728,\"wrapS\":10497,\"wrapT\":10497}]");
                 js.Append(",\"images\":[").Append(string.Join(",", imageJson)).Append(']');
                 js.Append(",\"textures\":[").Append(string.Join(",", texJson)).Append(']');
             }

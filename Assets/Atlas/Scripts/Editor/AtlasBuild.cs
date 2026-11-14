@@ -146,12 +146,13 @@ public static class AtlasBuild
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "3.5.0";
+        PlayerSettings.bundleVersion = "3.7.0";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;
         PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
-        PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+        // 64-bit and 32-bit phones («no es compatible con tu teléfono»).
+        PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64 | AndroidArchitecture.ARMv7;
         PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
         PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.Vulkan, GraphicsDeviceType.OpenGLES3 });
         PlayerSettings.colorSpace = ColorSpace.Linear;

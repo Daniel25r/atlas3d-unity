@@ -20,11 +20,19 @@ namespace Atlas
         public float opacity = 1f;
         public string texture = "";  // file inside the project's «textures» folder
         public string shader = "";   // "" lit (PBR), "aero" glossy Frutiger Aero glass
+        public string normalMap = "", emissionMap = "";   // more maps of the material
+        public float bumpStrength = 1f;
         public float modelGloss = -1f;
-        public string meshFile = "";     // shapes changed with Modelar / Esculpir (project «meshes» folder)
+        public string meshFile = "";
+        public bool noShadow;     // shapes changed with Modelar / Esculpir (project «meshes» folder)
         public EditMesh edit;
         public Mesh editMesh;   // imported models: -1 their own shine, else 0 (matte) .. 1 (glossy)
         public readonly Dictionary<Material, Vector2> originalGloss = new Dictionary<Material, Vector2>();
+        // Imported models: their materials one by one.
+        public List<MatOverride> matOverrides = new List<MatOverride>();
+        public List<Material> modelMats = new List<Material>();
+        public readonly Dictionary<Material, MatOriginal> matOriginals = new Dictionary<Material, MatOriginal>();
+        public readonly Dictionary<Renderer, Material[]> rendererMats = new Dictionary<Renderer, Material[]>();
         public Material material;    // this object's own material
         // Light
         public float lightIntensity = 3f;
@@ -38,6 +46,9 @@ namespace Atlas
         // Scene camera
         public float fov = 50f;
         public bool renderCam;       // renders are made from this camera
+        public string lookAtId = "", followId = "";
+        public Vector3 followOffset;
+        public float shake, shakeSpeed = 0.6f;
         public string modelFile;     // models: file name inside the project's «models» folder
         public IDisposable importer; // keeps the imported model's resources alive
         public bool loaded;          // models: the file is in the scene

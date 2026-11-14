@@ -44,8 +44,9 @@ namespace Atlas
             RefreshSizeChips();
             AtlasTheme.Switch(content, "Mostrar el suelo", renderGround, on => renderGround = on);
             AtlasTheme.TextButton(content, "image", "Imagen (PNG)", RenderPicture, true, 50f);
+            AtlasTheme.TextButton(content, "video", "Vídeo MP4", () => StartCoroutine(RenderVideo()), true, 50f);
             AtlasTheme.TextButton(content, "film", "Animación (fotogramas en ZIP)", () => StartCoroutine(RenderFrames()), false, 50f, 17);
-            var hint = AtlasTheme.Label(content, "Los fotogramas JPG numerados se convierten en vídeo con CapCut, VN o cualquier editor.", 14, AtlasTheme.TextDim);
+            var hint = AtlasTheme.Label(content, "El MP4 se guarda en tu galería o donde elijas. Los fotogramas JPG (con el audio en el ZIP) sirven para editarlos en CapCut, VN o cualquier editor.", 14, AtlasTheme.TextDim);
             AtlasTheme.Le(hint.gameObject, 40f);
             renderPanel = menu.gameObject;
             renderPanel.SetActive(false);
@@ -80,7 +81,10 @@ namespace Atlas
             float keepFov = cam.fieldOfView;
             if (rc != null)
             {
-                cam.transform.SetPositionAndRotation(rc.transform.position, rc.transform.rotation);
+                Vector3 cp;
+                Quaternion cq;
+                CameraPose(rc, frame, out cp, out cq);
+                cam.transform.SetPositionAndRotation(cp, cq);
                 cam.fieldOfView = rc.fov;
             }
             bool gr = ground.activeSelf;
@@ -175,6 +179,21 @@ namespace Atlas
                 if (f % 24 == 23) Toast("Render: " + (f + 1) + " / " + total);
                 yield return null;
             }
+            // The animation's sound goes in the ZIP too.
+            if (ok && zip != null && !string.IsNullOrEmpty(audioFile))
+            {
+                try
+                {
+                    string ap = Path.Combine(AudioDir, audioFile);
+                    if (File.Exists(ap))
+                    {
+                        var entry = zip.CreateEntry("audio" + Path.GetExtension(ap), System.IO.Compression.CompressionLevel.NoCompression);
+                        using (var dst = entry.Open())
+                        using (var src = File.OpenRead(ap)) src.CopyTo(dst);
+                    }
+                }
+                catch (System.Exception) { }
+            }
             try
             {
                 if (zip != null) zip.Dispose();
@@ -190,5 +209,107 @@ namespace Atlas
             if (ok) Share(path, "Animación (" + total + " fotogramas, " + fps + " fps)");
             else Toast("No se pudo hacer el render de la animación: " + error, true);
         }
+
+        // ------------------------------------------------------------------
+        // MP4 video (Android's encoder; see Plugins/Android/AtlasVideoEncoder)
+
+        IEnumerator RenderVideo()
+        {
+            CloseMenus();
+            if (rendering || store == null) yield break;
+#if UNITY_ANDROID && !UNITY_EDITOR
+            rendering = true;
+            if (playing) TogglePlay();
+            float keep = frame;
+            // Even sizes; phones' encoders go up to about 1920 on the long side.
+            int w = renderW, h = renderH;
+            float big = Mathf.Max(w, h);
+            if (big > 1920f) { w = Mathf.RoundToInt(w * 1920f / big); h = Mathf.RoundToInt(h * 1920f / big); }
+            w &= ~1;
+            h &= ~1;
+            string path = Path.Combine(Exporter.ExportDir, (store.name.Replace(' ', '_')) + "_" + Stamp() + ".mp4");
+            int total = endFrame - startFrame + 1;
+            Toast("Vídeo MP4: " + total + " fotogramas…");
+            string err = "";
+            AndroidJavaObject enc = null;
+            bool ok = StartEncoder(path, w, h, ref enc, ref err);
+            for (int f = startFrame; ok && f <= endFrame; f++)
+            {
+                ok = EncodeFrame(enc, f, w, h, ref err);
+                if ((f - startFrame) % 24 == 23) Toast("Vídeo: " + (f - startFrame + 1) + " / " + total);
+                yield return null;
+            }
+            if (enc != null)
+            {
+                bool fin = FinishEncoder(enc, ref err);
+                ok = ok && fin;
+                enc.Dispose();
+            }
+            SetFrame(keep);
+            rendering = false;
+            if (ok)
+            {
+                Share(path, "Vídeo MP4 (" + total + " fotogramas" + (string.IsNullOrEmpty(audioFile) ? "" : ", sin el audio") + ")");
+                yield break;
+            }
+            Toast("El MP4 no funcionó en este teléfono (" + err + "): se guardan los fotogramas en ZIP", true);
+            yield return RenderFrames();
+#else
+            Toast("El vídeo MP4 se hace en Android: aquí se guardan los fotogramas en ZIP");
+            yield return RenderFrames();
+#endif
+        }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        bool StartEncoder(string path, int w, int h, ref AndroidJavaObject enc, ref string err)
+        {
+            try
+            {
+                enc = new AndroidJavaObject("org.atlas3d.AtlasVideoEncoder");
+                int bitrate = Mathf.Clamp(Mathf.RoundToInt(w * h * fps * 0.18f), 2000000, 20000000);
+                if (enc.Call<bool>("start", path, w, h, fps, bitrate)) return true;
+                err = enc.Call<string>("getError");
+            }
+            catch (System.Exception e)
+            {
+                err = e.Message;
+            }
+            return false;
+        }
+
+        bool EncodeFrame(AndroidJavaObject enc, int f, int w, int h, ref string err)
+        {
+            try
+            {
+                SetFrame(f);
+                var tex = Capture(w, h, renderGround);
+                byte[] raw = tex.GetRawTextureData();
+                Destroy(tex);
+                var sb = new sbyte[raw.Length];
+                System.Buffer.BlockCopy(raw, 0, sb, 0, raw.Length);
+                if (enc.Call<bool>("addFrame", sb)) return true;
+                err = enc.Call<string>("getError");
+            }
+            catch (System.Exception e)
+            {
+                err = e.Message;
+            }
+            return false;
+        }
+
+        static bool FinishEncoder(AndroidJavaObject enc, ref string err)
+        {
+            try
+            {
+                if (enc.Call<bool>("finish")) return true;
+                err = enc.Call<string>("getError");
+            }
+            catch (System.Exception e)
+            {
+                err = e.Message;
+            }
+            return false;
+        }
+#endif
     }
 }

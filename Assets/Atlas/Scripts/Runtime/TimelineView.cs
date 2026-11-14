@@ -22,6 +22,7 @@ namespace Atlas
         public bool focus;
         public List<int> frames = new List<int>();
         public float y;
+        public float barStart, barEnd;   // a bar (the audio), when barEnd > barStart
     }
 
     public class TimelineView : MaskableGraphic, IPointerDownHandler, IDragHandler, IPointerUpHandler, IBeginDragHandler, IEndDragHandler, IScrollHandler
@@ -145,6 +146,20 @@ namespace Atlas
                 if (row.focus) Quad(vh, 0, row.y, W, RowH, new Color(AtlasTheme.Accent.r, AtlasTheme.Accent.g, AtlasTheme.Accent.b, 0.14f));
                 else if (row.track == "") Quad(vh, 0, row.y, W, RowH, new Color(1, 1, 1, 0.035f));
                 Quad(vh, 0, row.y + RowH - 1f, W, 1f, new Color(1, 1, 1, 0.04f));
+                if (row.barEnd > row.barStart)
+                {
+                    float bx0 = Mathf.Max(labelWidth, FrameToX(row.barStart)), bx1 = Mathf.Min(W, FrameToX(row.barEnd));
+                    if (bx1 > bx0)
+                    {
+                        Quad(vh, bx0, row.y + 6f, bx1 - bx0, RowH - 12f, new Color(0.18f, 0.55f, 0.45f, 0.85f));
+                        // simple wave marks
+                        for (float x = bx0 + 3f; x < bx1 - 2f; x += 5f)
+                        {
+                            float hgt = 3f + (Mathf.PerlinNoise(x * 0.11f, row.barStart * 0.01f)) * (RowH - 18f);
+                            Quad(vh, x, row.y + RowH * 0.5f - hgt * 0.5f, 2f, hgt, new Color(0.7f, 1f, 0.9f, 0.6f));
+                        }
+                    }
+                }
                 float cy = row.y + RowH * 0.5f;
                 foreach (int f in row.frames)
                 {

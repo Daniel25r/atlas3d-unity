@@ -41,6 +41,13 @@ namespace Atlas
         public string shader = "";
         public float modelGloss = -1f;
         public string meshFile = "";
+        public bool noShadow;      // this object casts no shadow
+        public List<MatOverride> mats = new List<MatOverride>();
+        public string normalMap = "", emissionMap = "";
+        public float bumpStrength = 1f;
+        public string lookAtId = "", followId = "";
+        public Vector3 followOffset;
+        public float shake, shakeSpeed = 0.6f;
 
         public void FixOld()
         {
@@ -78,6 +85,7 @@ namespace Atlas
         public float vignette;
         public float grain;
         public float fog;
+        public bool shadowsOff;   // «Sombras» off for the whole scene (faster on slow phones)
     }
 
     [Serializable]
@@ -92,6 +100,9 @@ namespace Atlas
         public int fps = 24;
         public int endFrame = 120;
         public int startFrame;
+        public string audioFile = "";
+        public int audioStart;
+        public float audioVolume = 1f;
         public bool showGrid = true;
         public EnvData env = new EnvData();
     }
@@ -265,10 +276,27 @@ namespace Atlas
                     shader = it.shader ?? "",
                     modelGloss = it.modelGloss,
                     meshFile = it.meshFile ?? "",
+                    noShadow = it.noShadow,
+                    mats = CopyMats(it.matOverrides),
+                    normalMap = it.normalMap ?? "",
+                    emissionMap = it.emissionMap ?? "",
+                    bumpStrength = it.bumpStrength,
+                    lookAtId = it.lookAtId ?? "",
+                    followId = it.followId ?? "",
+                    followOffset = it.followOffset,
+                    shake = it.shake,
+                    shakeSpeed = it.shakeSpeed,
                     renderCam = it.renderCam,
                 });
             }
             return d;
+        }
+
+        static List<MatOverride> CopyMats(List<MatOverride> src)
+        {
+            var l = new List<MatOverride>();
+            if (src != null) foreach (var m in src) l.Add(m.Copy());
+            return l;
         }
 
         static List<BonePose> CopyPose(List<BonePose> src)

@@ -43,12 +43,25 @@ namespace Atlas
 
         public void Show(AtlasItem it)
         {
+            Show(it, null, null);
+        }
+
+        /// `only`: just the parts that use this material.
+        public void Show(AtlasItem it, Material only, Dictionary<Renderer, Material[]> original)
+        {
             Clear();
             target = it;
             if (it == null || mat == null) return;
             foreach (var r in it.GetComponentsInChildren<Renderer>())
             {
                 if (r.gameObject.layer == Gizmo.Layer) continue;
+                if (r is LineRenderer) continue;
+                if (only != null)
+                {
+                    Material[] arr;
+                    if (original == null || !original.TryGetValue(r, out arr)) arr = r.sharedMaterials;
+                    if (System.Array.IndexOf(arr, only) < 0) continue;
+                }
                 var skin = r as SkinnedMeshRenderer;
                 var mf = r.GetComponent<MeshFilter>();
                 Mesh mesh = skin != null ? skin.sharedMesh : (mf != null ? mf.sharedMesh : null);

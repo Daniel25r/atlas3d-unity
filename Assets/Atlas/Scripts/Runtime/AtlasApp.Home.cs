@@ -80,11 +80,18 @@ namespace Atlas
             RefreshProps();
         }
 
+        /// Asks for the project's name first (a free one is suggested).
         void NewProject(bool import)
         {
-            string name = SceneStore.UniqueName("Proyecto");
-            OpenProject(name);
-            if (import) ImportModel();
+            string suggestion = SceneStore.UniqueName("Proyecto");
+            AtlasTheme.Dialog(canvasRoot, "Nuevo proyecto", "¿Cómo se llama? (lo puedes cambiar después)", suggestion, "Crear", false, v =>
+            {
+                string name = SceneStore.CleanName(string.IsNullOrEmpty(v.Trim()) ? suggestion : v.Trim());
+                if (SceneStore.Exists(name)) name = SceneStore.UniqueName(name);
+                OpenProject(name);
+                if (import) ImportModel();
+            });
+            toastHolder.SetAsLastSibling();
         }
 
         /// Small picture of the view for the project's card.

@@ -39,6 +39,10 @@ namespace Atlas
             if (info == null || info.index < 0) return null;
             try
             {
+                // The texture as glTFast made it: with its sampler (sharp
+                // pixel art stays sharp, repeat / clamp as the file says).
+                var made = gltf.GetTexture(info.index);
+                if (made != null) return made;
                 var t = gltf.GetSourceTexture(info.index);
                 if (t == null) return null;
                 int img = t.GetImageIndex();
@@ -56,7 +60,8 @@ namespace Atlas
             var mode = g.GetAlphaMode();
             bool see = mode != MaterialBase.AlphaMode.Opaque;
             Texture2D normal = Tex(gltf, g.NormalTexture);
-            var tmpl = see ? transparent : (normal != null ? litNormal : lit);
+            // Opaque: the normal-map variant always, so relief can be added later.
+            var tmpl = see ? transparent : litNormal;
             var m = new UnityEngine.Material(tmpl);
             m.name = string.IsNullOrEmpty(g.name) ? "Material" : g.name;
 

@@ -175,10 +175,17 @@ namespace Atlas
             foreach (var ri in del.GetComponentsInChildren<RawImage>()) ri.color = AtlasTheme.Danger;
 
             BuildTransformSection(it);
+            if (!it.IsLight && it.kind != "camera")
+            {
+                var sh = Sec("Sombra", "light", false);
+                AtlasTheme.Switch(sh, "Proyecta sombra", !it.noShadow, on => { it.noShadow = !on; ApplyLook(it); Commit(true); });
+            }
             if (it.kind == "camera") BuildCameraSection(it);
             else if (it.IsLight) BuildLightSection(it);
             else if (it.kind == "model")
             {
+                if (activeMat >= 0 && activeMat < it.modelMats.Count) BuildModelMaterialSection(it, activeMat);
+                BuildModelMaterialsList(it);
                 if (it.HasBones) BuildSkeletonSection(it);
                 BuildModelSection(it);
             }
@@ -315,10 +322,36 @@ namespace Atlas
             var cl = AtlasTheme.Label(box, "Color base", 15, AtlasTheme.TextColor, true);
             AtlasTheme.Le(cl.gameObject, 24f);
             ColorControls(box, it, Swatches);
+            AtlasTheme.SliderRow(box, "Reflejos", 0f, 1f, Mathf.Clamp01(it.metallic / 0.85f), "0.00", x =>
+            {
+                it.metallic = x * 0.85f;
+                it.smoothness = 0.35f + 0.6f * x;
+                ApplyLook(it);
+            }, () => { Commit(true); RefreshProps(); });
             AtlasTheme.SliderRow(box, "Metálico", 0f, 1f, it.metallic, "0.00", x => { it.metallic = x; ApplyLook(it); }, () => Commit(true));
             AtlasTheme.SliderRow(box, "Rugosidad", 0f, 1f, 1f - it.smoothness, "0.00", x => { it.smoothness = 1f - x; ApplyLook(it); }, () => Commit(true));
             AtlasTheme.SliderRow(box, "Emisión", 0f, 8f, it.emission, "0.0", x => { it.emission = x; ApplyLook(it); }, () => Commit(true));
             AtlasTheme.SliderRow(box, "Opacidad", 0.05f, 1f, it.opacity, "0.00", x => { it.opacity = x; ApplyLook(it); }, () => Commit(true));
+            // More maps: relief (normal / bump) and glow (emission).
+            var ml = AtlasTheme.Label(box, "Mapas", 15, AtlasTheme.TextColor, true);
+            AtlasTheme.Le(ml.gameObject, 24f);
+            var mg = AtlasTheme.Grid(box, 2, InnerWidth, 40f);
+            if (string.IsNullOrEmpty(it.normalMap))
+            {
+                AtlasTheme.TextButton(mg, "image", "Mapa normal…", () => PickMap(it, "normal"), false, 40f, 15);
+                AtlasTheme.TextButton(mg, "image", "Relieve (bump)…", () => PickMap(it, "bump"), false, 40f, 15);
+            }
+            else
+            {
+                AtlasTheme.TextButton(mg, "image", "Cambiar relieve…", () => PickMap(it, "normal"), false, 40f, 15);
+                AtlasTheme.TextButton(mg, "close", "Quitar relieve", () => { it.normalMap = ""; ApplyLook(it); Commit(true); RefreshProps(); }, false, 40f, 15);
+            }
+            if (string.IsNullOrEmpty(it.emissionMap))
+                AtlasTheme.TextButton(mg, "sparkle", "Mapa de emisión…", () => PickMap(it, "emission"), false, 40f, 15);
+            else
+                AtlasTheme.TextButton(mg, "close", "Quitar emisión", () => { it.emissionMap = ""; ApplyLook(it); Commit(true); RefreshProps(); }, false, 40f, 15);
+            if (!string.IsNullOrEmpty(it.normalMap))
+                AtlasTheme.SliderRow(box, "Relieve", 0f, 3f, it.bumpStrength, "0.0", x => { it.bumpStrength = x; ApplyLook(it); }, () => Commit(true));
             if (string.IsNullOrEmpty(it.texture))
             {
                 AtlasTheme.TextButton(box, "image", "Poner textura (PNG/JPG)…", () => PickTexture(it), false, 44f, 16);
@@ -522,6 +555,14 @@ namespace Atlas
             }, false, 42f, 16);
 
             var view = Sec("Vista", "view", false);
+            AtlasTheme.Switch(view, "Sombras", !env.shadowsOff, on =>
+            {
+                env.shadowsOff = !on;
+                ApplyEnv();
+                foreach (var o in items) if (o != null) ApplyLook(o);
+                Commit(true);
+                Toast(on ? "Sombras activadas" : "Sombras desactivadas (más fluido en móviles lentos)");
+            });
             AtlasTheme.Switch(view, "Suelo con cuadrícula", ground.activeSelf, on =>
             {
                 ground.SetActive(on);

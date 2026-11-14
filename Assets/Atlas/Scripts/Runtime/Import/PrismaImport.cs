@@ -490,6 +490,9 @@ namespace Atlas.Import
                 if (ti >= 0)
                 {
                     mm.texture = ti;
+                    // «Pixel blending» off in Prisma3D: pixel art, keep it sharp.
+                    object pb;
+                    if (props.TryGetValue("pixelBlending", out pb) && pb is string && (string)pb == "False") m.textures[ti].nearest = true;
                     // PNG with an alpha channel: cut-out (hair, eyelashes…)
                     var d = m.textures[ti].data;
                     if (d.Length > 25 && d[0] == 0x89 && (d[25] == 6 || d[25] == 4)) mm.alphaMask = true;

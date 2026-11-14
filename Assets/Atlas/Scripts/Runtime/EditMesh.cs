@@ -357,6 +357,118 @@ namespace Atlas
             return result;
         }
 
+        /// Each face gets a smaller copy inside it, joined by a ring of
+        /// faces (Blender's Inset). Returns the inner faces.
+        public List<int> Inset(HashSet<int> sel, float amount)
+        {
+            var result = new List<int>();
+            foreach (int fi in new List<int>(sel))
+            {
+                var f = faces[fi];
+                var u = uvs[fi];
+                int n = f.Length;
+                Vector3 c = FaceCenter(fi);
+                Vector2 cu = Vector2.zero;
+                foreach (var x in u) cu += x;
+                cu /= n;
+                var inner = new int[n];
+                var innerUv = new Vector2[n];
+                for (int k = 0; k < n; k++)
+                {
+                    inner[k] = verts.Count;
+                    verts.Add(Vector3.Lerp(verts[f[k]], c, amount));
+                    innerUv[k] = u[k] + (cu - u[k]) * amount;
+                }
+                for (int k = 0; k < n; k++)
+                {
+                    int k2 = (k + 1) % n;
+                    faces.Add(new[] { f[k], f[k2], inner[k2], inner[k] });
+                    uvs.Add(new[] { u[k], u[k2], innerUv[k2], innerUv[k] });
+                }
+                faces[fi] = inner;
+                uvs[fi] = innerUv;
+                result.Add(fi);
+            }
+            return result;
+        }
+
+        /// The vertices become one, in their middle.
+        public void Merge(HashSet<int> sel)
+        {
+            if (sel.Count < 2) return;
+            Vector3 c = Vector3.zero;
+            foreach (int v in sel) c += verts[v];
+            c /= sel.Count;
+            int keep = -1;
+            foreach (int v in sel) { if (keep < 0) keep = v; }
+            verts[keep] = c;
+            var nf = new List<int[]>();
+            var nu = new List<Vector2[]>();
+            for (int i = 0; i < faces.Count; i++)
+            {
+                var f = faces[i];
+                var lf = new List<int>();
+                var lu = new List<Vector2>();
+                for (int k = 0; k < f.Length; k++)
+                {
+                    int v = sel.Contains(f[k]) ? keep : f[k];
+                    if (lf.Count > 0 && lf[lf.Count - 1] == v) continue;
+                    lf.Add(v);
+                    lu.Add(uvs[i][k]);
+                }
+                if (lf.Count > 1 && lf[0] == lf[lf.Count - 1]) { lf.RemoveAt(lf.Count - 1); lu.RemoveAt(lu.Count - 1); }
+                if (lf.Count >= 3) { nf.Add(lf.ToArray()); nu.Add(lu.ToArray()); }
+            }
+            faces = nf;
+            uvs = nu;
+            RemoveUnused();
+        }
+
+        /// Copies the +X half onto the -X side (symmetrical models).
+        public void MirrorX()
+        {
+            const float eps = 1e-4f;
+            var nf = new List<int[]>();
+            var nu = new List<Vector2[]>();
+            for (int i = 0; i < faces.Count; i++)
+                if (FaceCenter(i).x >= -eps) { nf.Add(faces[i]); nu.Add(uvs[i]); }
+            faces = nf;
+            uvs = nu;
+            RemoveUnused();
+            int n = verts.Count;
+            var mirror = new int[n];
+            for (int v = 0; v < n; v++)
+            {
+                if (Mathf.Abs(verts[v].x) <= eps) { verts[v] = new Vector3(0f, verts[v].y, verts[v].z); mirror[v] = v; }
+                else
+                {
+                    mirror[v] = verts.Count;
+                    verts.Add(new Vector3(-verts[v].x, verts[v].y, verts[v].z));
+                }
+            }
+            int count = faces.Count;
+            for (int i = 0; i < count; i++)
+            {
+                var f = faces[i];
+                var u = uvs[i];
+                // Faces across the middle stay as they are (no doubles).
+                bool across = FaceCenter(i).x <= eps;
+                foreach (int vi in f) if (verts[vi].x < -eps) across = true;
+                if (across) continue;
+                // Mirrored, so reversed to keep facing out.
+                var m = new int[f.Length];
+                var mu = new Vector2[f.Length];
+                for (int k = 0; k < f.Length; k++)
+                {
+                    m[k] = mirror[f[f.Length - 1 - k]];
+                    mu[k] = u[f.Length - 1 - k];
+                }
+                faces.Add(m);
+                uvs.Add(mu);
+            }
+            RemoveUnused();
+        }
+
         /// Reverses the faces (inside out).
         public void Flip(HashSet<int> sel)
         {
