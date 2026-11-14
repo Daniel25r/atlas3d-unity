@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Atlas
@@ -319,6 +320,298 @@ namespace Atlas
         {
             if (f != null && !f.isFocused)
                 f.text = v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        }
+            // ------------------------------------------------------------------
+        // Inspector widgets (phase 3)
+
+        public static LayoutElement Le(GameObject go, float height = -1f, float width = -1f, float flexWidth = -1f)
+        {
+            var le = go.GetComponent<LayoutElement>();
+            if (le == null) le = go.AddComponent<LayoutElement>();
+            if (height >= 0f) { le.preferredHeight = height; le.minHeight = height; }
+            if (width >= 0f) { le.preferredWidth = width; le.minWidth = width; }
+            if (flexWidth >= 0f) le.flexibleWidth = flexWidth;
+            return le;
+        }
+
+        /// Vertical scrolling list: returns the content to fill (children
+        /// laid out top to bottom, any height).
+        public static RectTransform ScrollArea(Transform parent, out ScrollRect sr, float spacing = 8f, RectOffset padding = null)
+        {
+            var view = Rect(parent, "Vista");
+            Fill(view);
+            var vimg = view.gameObject.AddComponent<Image>();
+            vimg.color = new Color(0, 0, 0, 0);
+            view.gameObject.AddComponent<RectMask2D>();
+            var content = Rect(view, "Contenido");
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
+            var col = Column(content.gameObject, spacing, padding ?? new RectOffset(0, 0, 0, 0));
+            col.childForceExpandWidth = true;
+            var fit = content.gameObject.AddComponent<ContentSizeFitter>();
+            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            sr = parent.gameObject.AddComponent<ScrollRect>();
+            sr.viewport = view;
+            sr.content = content;
+            sr.horizontal = false;
+            sr.vertical = true;
+            sr.movementType = ScrollRect.MovementType.Elastic;
+            sr.elasticity = 0.08f;
+            sr.inertia = true;
+            sr.decelerationRate = 0.12f;
+            sr.scrollSensitivity = 30f;
+            return content;
+        }
+
+        /// Removes every child now (so the layout never sees the old ones).
+        public static void Clear(Transform t)
+        {
+            for (int i = t.childCount - 1; i >= 0; i--)
+            {
+                var c = t.GetChild(i).gameObject;
+                c.SetActive(false);
+                c.transform.SetParent(null, false);
+                Object.Destroy(c);
+            }
+        }
+
+        /// Collapsible section like the Godot inspector: a header with an
+        /// arrow, and the body that is returned.
+        public static Transform Section(Transform parent, string title, string icon, bool open, UnityAction<bool> toggled)
+        {
+            var sec = Rect(parent, "Seccion_" + title);
+            var col = Column(sec.gameObject, 6f, new RectOffset(0, 0, 0, 4));
+            col.childForceExpandWidth = true;
+            var head = Box(sec, "Cabecera", Panel2, 10);
+            Le(head.gameObject, 42f);
+            var b = MakeButton(head, null);
+            Row(head.gameObject, 8f, new RectOffset(10, 10, 0, 0));
+            var arrow = IconImage(head.transform, open ? "chevron_down" : "chevron_right", 18f, TextDim);
+            Le(arrow.gameObject, 18f, 18f);
+            if (icon != null && Icon(icon) != null)
+            {
+                var ic = IconImage(head.transform, icon, 20f, AccentLight);
+                Le(ic.gameObject, 20f, 20f);
+            }
+            var t = Label(head.transform, title.ToUpperInvariant(), 15, TextColor, true);
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            Le(t.gameObject, 42f, -1f, 1f);
+            var body = Rect(sec, "Cuerpo");
+            var bc = Column(body.gameObject, 8f, new RectOffset(4, 4, 2, 4));
+            bc.childForceExpandWidth = true;
+            body.gameObject.SetActive(open);
+            b.onClick.AddListener(() =>
+            {
+                bool on = !body.gameObject.activeSelf;
+                body.gameObject.SetActive(on);
+                arrow.texture = Icon(on ? "chevron_down" : "chevron_right");
+                if (toggled != null) toggled(on);
+            });
+            return body;
+        }
+
+        /// Label on the left, the control(s) added by the caller on the right.
+        public static Transform FieldRow(Transform parent, string label, float labelWidth = 96f, float height = 40f)
+        {
+            var row = Rect(parent, "Fila_" + label).gameObject;
+            Row(row, 6f, new RectOffset(0, 0, 0, 0));
+            Le(row, height);
+            if (label != null)
+            {
+                var l = Label(row.transform, label, 16, TextDim);
+                Le(l.gameObject, height, labelWidth);
+            }
+            return row.transform;
+        }
+
+        /// Label, slider and its value. `changed` while dragging; `released`
+        /// when the finger leaves (one undo step).
+        public static Slider SliderRow(Transform parent, string label, float min, float max, float value, string format, UnityAction<float> changed, System.Action released)
+        {
+            var row = FieldRow(parent, label, 92f, 40f);
+            var area = Rect(row, "Deslizador");
+            Le(area.gameObject, 40f, -1f, 1f);
+            var hit = area.gameObject.AddComponent<Image>();
+            hit.color = new Color(0, 0, 0, 0);
+            var track = Box(area, "Pista", Panel3, 3);
+            track.raycastTarget = false;
+            var tr = track.rectTransform;
+            tr.anchorMin = new Vector2(0f, 0.5f);
+            tr.anchorMax = new Vector2(1f, 0.5f);
+            tr.sizeDelta = new Vector2(0f, 6f);
+            var fillArea = Rect(area, "Zona");
+            fillArea.anchorMin = new Vector2(0f, 0.5f);
+            fillArea.anchorMax = new Vector2(1f, 0.5f);
+            fillArea.sizeDelta = new Vector2(0f, 6f);
+            var fill = Box(fillArea, "Relleno", Accent, 3);
+            fill.raycastTarget = false;
+            fill.rectTransform.sizeDelta = Vector2.zero;
+            var handleArea = Rect(area, "ZonaCabezal");
+            handleArea.anchorMin = new Vector2(0f, 0.5f);
+            handleArea.anchorMax = new Vector2(1f, 0.5f);
+            handleArea.sizeDelta = new Vector2(-22f, 22f);
+            var handle = Box(handleArea, "Cabezal", Color.white, 11);
+            handle.rectTransform.sizeDelta = new Vector2(22f, 0f);
+            var s = area.gameObject.AddComponent<Slider>();
+            s.fillRect = fill.rectTransform;
+            s.handleRect = handle.rectTransform;
+            s.targetGraphic = handle;
+            s.direction = Slider.Direction.LeftToRight;
+            var nav = s.navigation;
+            nav.mode = Navigation.Mode.None;
+            s.navigation = nav;
+            s.minValue = min;
+            s.maxValue = max;
+            s.SetValueWithoutNotify(Mathf.Clamp(value, min, max));
+            var vt = Label(row, Mathf.Clamp(value, min, max).ToString(format), 15, TextColor, true, TextAnchor.MiddleRight);
+            vt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            Le(vt.gameObject, 40f, 46f);
+            s.onValueChanged.AddListener(v =>
+            {
+                vt.text = v.ToString(format);
+                if (changed != null) changed(v);
+            });
+            if (released != null)
+            {
+                var hook = area.gameObject.AddComponent<PointerUpHook>();
+                hook.onUp = released;
+            }
+            return s;
+        }
+
+        /// On / off switch with its label.
+        public static Button Switch(Transform parent, string label, bool on, UnityAction<bool> changed)
+        {
+            var row = Box(parent, "Interruptor", new Color(0, 0, 0, 0), 8);
+            Le(row.gameObject, 42f);
+            Row(row.gameObject, 8f, new RectOffset(0, 0, 0, 0));
+            var b = MakeButton(row, null);
+            var l = Label(row.transform, label, 16, TextColor);
+            Le(l.gameObject, 42f, -1f, 1f);
+            var pill = Box(row.transform, "Pastilla", on ? AccentButton : Panel3, 14);
+            pill.raycastTarget = false;
+            Le(pill.gameObject, 28f, 50f);
+            var knob = Box(pill.transform, "Bolita", Color.white, 11);
+            knob.raycastTarget = false;
+            var kr = knob.rectTransform;
+            kr.sizeDelta = new Vector2(22f, 22f);
+            kr.anchorMin = kr.anchorMax = new Vector2(on ? 1f : 0f, 0.5f);
+            kr.pivot = new Vector2(on ? 1f : 0f, 0.5f);
+            kr.anchoredPosition = new Vector2(on ? -3f : 3f, 0f);
+            bool state = on;
+            b.onClick.AddListener(() =>
+            {
+                state = !state;
+                pill.color = state ? AccentButton : Panel3;
+                kr.anchorMin = kr.anchorMax = new Vector2(state ? 1f : 0f, 0.5f);
+                kr.pivot = new Vector2(state ? 1f : 0f, 0.5f);
+                kr.anchoredPosition = new Vector2(state ? -3f : 3f, 0f);
+                if (changed != null) changed(state);
+            });
+            return b;
+        }
+
+        /// Small rounded button with centred text (presets, choices).
+        public static Button Chip(Transform parent, string text, UnityAction onClick, bool active = false)
+        {
+            var img = Box(parent, "Chip", active ? AccentDim : Panel3, 10);
+            var b = MakeButton(img, onClick);
+            var t = Label(img.transform, text, 15, active ? AccentLight : TextColor, true, TextAnchor.MiddleCenter);
+            Fill(t.rectTransform, 4f, 4f);
+            t.resizeTextForBestFit = true;
+            t.resizeTextMinSize = 11;
+            t.resizeTextMaxSize = 15;
+            t.horizontalOverflow = HorizontalWrapMode.Wrap;
+            t.verticalOverflow = VerticalWrapMode.Truncate;
+            return b;
+        }
+
+        /// Grid of `columns` equal cells filling `width`.
+        public static Transform Grid(Transform parent, int columns, float width, float cellHeight, float spacing = 6f)
+        {
+            var go = Rect(parent, "Rejilla").gameObject;
+            var g = go.AddComponent<GridLayoutGroup>();
+            g.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            g.constraintCount = columns;
+            g.spacing = new Vector2(spacing, spacing);
+            g.cellSize = new Vector2(Mathf.Floor((width - spacing * (columns - 1)) / columns), cellHeight);
+            g.childAlignment = TextAnchor.UpperLeft;
+            return go.transform;
+        }
+
+        /// Plain text field (names).
+        public static InputField TextField(Transform parent, string value, UnityAction<string> done, float height = 44f)
+        {
+            var box = Box(parent, "Campo", Panel, 10);
+            Le(box.gameObject, height, -1f, 1f);
+            var t = Label(box.transform, "", 18, TextColor, true);
+            Fill(t.rectTransform, 12f, 12f);
+            t.raycastTarget = true;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            var f = box.gameObject.AddComponent<InputField>();
+            f.textComponent = t;
+            f.text = value ?? "";
+            f.characterLimit = 60;
+            if (done != null) f.onEndEdit.AddListener(done);
+            return f;
+        }
+
+        /// Dims the screen and shows a card in the middle: a message, an
+        /// optional text field and the buttons. `ok` gets the field's text.
+        public static GameObject Dialog(Transform root, string title, string message, string input, string okText, bool danger, UnityAction<string> ok)
+        {
+            var dim = Box(root, "Dialogo", new Color(0f, 0f, 0f, 0.6f));
+            Fill(dim.rectTransform);
+            var close = MakeButton(dim, null);
+            var colors = close.colors;
+            colors.pressedColor = Color.white;
+            close.colors = colors;
+            var card = Box(dim.transform, "Tarjeta", Panel2, 18);
+            Pin(card.rectTransform, 0.5f, 0.5f, Vector2.zero, new Vector2(470f, 0f));
+            card.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            var col = Column(card.gameObject, 12f, new RectOffset(22, 22, 20, 20));
+            col.childForceExpandWidth = true;
+            var fit = card.gameObject.AddComponent<ContentSizeFitter>();
+            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            var tl = Label(card.transform, title, 21, TextColor, true);
+            Le(tl.gameObject, 30f);
+            if (!string.IsNullOrEmpty(message))
+            {
+                var ml = Label(card.transform, message, 16, TextDim);
+            }
+            InputField field = null;
+            if (input != null) field = TextField(card.transform, input, null, 48f);
+            var row = Rect(card.transform, "Botones").gameObject;
+            Row(row, 8f, new RectOffset(0, 0, 4, 0), TextAnchor.MiddleRight);
+            Le(row, 54f);
+            Spacer(row.transform);
+            var go = dim.gameObject;
+            TextButton(row.transform, null, "Cancelar", () => Object.Destroy(go), false, 48f, 17, 130f);
+            var okb = TextButton(row.transform, null, okText, () =>
+            {
+                string v = field != null ? field.text : "";
+                Object.Destroy(go);
+                if (ok != null) ok(v);
+            }, !danger, 48f, 17, 150f);
+            if (danger) okb.GetComponent<Image>().color = new Color(0.62f, 0.18f, 0.21f, 1f);
+            close.onClick.AddListener(() => Object.Destroy(go));
+            // The card itself swallows taps (only the dim area closes).
+            card.gameObject.AddComponent<Button>().transition = Selectable.Transition.None;
+            return go;
+        }
+    }
+
+    /// Calls `onUp` when the finger that pressed this control is lifted.
+    public class PointerUpHook : MonoBehaviour, IPointerUpHandler
+    {
+        public System.Action onUp;
+
+        public void OnPointerUp(PointerEventData e)
+        {
+            if (onUp != null) onUp();
         }
     }
 }

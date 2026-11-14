@@ -495,7 +495,7 @@ namespace Atlas
             var parts = new List<Part>();
             foreach (var it in items)
             {
-                if (it == null || it.kind == "light") continue;
+                if (it == null || it.IsLight) continue;
                 foreach (var r in it.GetComponentsInChildren<Renderer>())
                 {
                     Mesh mesh = null;

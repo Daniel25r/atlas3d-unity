@@ -33,7 +33,7 @@ namespace Atlas
         public static async Task<string> Export(string format, List<AtlasItem> items, string name)
         {
             var objs = new List<AtlasItem>();
-            foreach (var it in items) if (it != null && it.kind != "light") objs.Add(it);
+            foreach (var it in items) if (it != null && !it.IsLight) objs.Add(it);
             if (objs.Count == 0) throw new Exception("no hay objetos que exportar");
             string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             string baseName = Safe(name) + "_" + stamp;

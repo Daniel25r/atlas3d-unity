@@ -10,8 +10,64 @@ namespace Atlas
     public class AtlasItem : MonoBehaviour
     {
         public string id;
-        public string kind;          // cube | sphere | cylinder | capsule | plane | light | model
+        public string kind;          // cube | sphere | cylinder | capsule | plane | cone | pyramid | torus | light | spot | sun | model
         public Color color = Color.white;
+        // Material (shapes)
+        public float metallic = 0f;
+        public float smoothness = 0.45f;
+        public float emission = 0f;
+        public float opacity = 1f;
+        public string texture = "";  // file inside the project's «textures» folder
+        public Material material;    // this object's own material
+        // Light
+        public float lightIntensity = 3f;
+        public float lightRange = 10f;
+        public float spotAngle = 45f;
+        public bool shadows = true;
+        // Scene
+        public bool visible = true;
+        public bool locked = false;
+        public string clip = "";     // imported model: animation clip played on the timeline
+        Animation anim;
+
+        public bool IsLight { get { return kind == "light" || kind == "spot" || kind == "sun"; } }
+        public bool IsShape { get { return !IsLight && kind != "model"; } }
+
+        public Animation ModelAnimation
+        {
+            get
+            {
+                if (anim == null) anim = GetComponentInChildren<Animation>();
+                return anim;
+            }
+        }
+
+        /// Names of the animations that came inside an imported model.
+        public List<string> ClipNames()
+        {
+            var list = new List<string>();
+            var a = ModelAnimation;
+            if (a == null) return list;
+            foreach (AnimationState s in a)
+                if (s != null && s.clip != null) list.Add(s.name);
+            return list;
+        }
+
+        /// Poses the model's own animation at `seconds` (looping).
+        public void SampleClip(float seconds)
+        {
+            if (string.IsNullOrEmpty(clip)) return;
+            var a = ModelAnimation;
+            if (a == null) return;
+            AnimationState st = a[clip];
+            if (st == null) return;
+            float len = st.length;
+            st.enabled = true;
+            st.weight = 1f;
+            st.time = len > 0f ? Mathf.Repeat(seconds, len) : 0f;
+            a.Sample();
+            st.enabled = false;
+        }
         public string modelFile;     // models: file name inside the project's «models» folder
         public IDisposable importer; // keeps the imported model's resources alive
         /// Animation: keys sorted by frame (position, rotation, scale).
@@ -75,6 +131,7 @@ namespace Atlas
 
         void OnDestroy()
         {
+            if (material != null) Destroy(material);
             if (importer != null)
             {
                 importer.Dispose();

@@ -92,7 +92,20 @@ public static class AtlasBuild
         urp.supportsHDR = true;
         urp.renderScale = 1f;           // never pixelated
         urp.shadowDistance = 60f;
+        // Image effects (bloom, colour, vignette, grain) need this.
+        if (rendererData.postProcessData == null)
+        {
+            rendererData.postProcessData = AssetDatabase.LoadAssetAtPath<PostProcessData>("Packages/com.unity.render-pipelines.universal/Runtime/Data/PostProcessData.asset");
+            EditorUtility.SetDirty(rendererData);
+        }
+        // Lamps and spotlights cast shadows too; soft shadows.
+        var uso = new SerializedObject(urp);
+        SetBool(uso, "m_AdditionalLightShadowsSupported", true);
+        SetBool(uso, "m_SoftShadowsSupported", true);
+        SetBool(uso, "m_MainLightShadowsSupported", true);
+        uso.ApplyModifiedPropertiesWithoutUndo();
         EditorUtility.SetDirty(urp);
+        KeepFog();
         GraphicsSettings.defaultRenderPipeline = urp;
         int current = QualitySettings.GetQualityLevel();
         for (int i = 0; i < QualitySettings.names.Length; i++)
@@ -106,6 +119,8 @@ public static class AtlasBuild
         // their shaders are always part of the build).
         MakeMaterial("AtlasLit", "Universal Render Pipeline/Lit");
         MakeMaterial("AtlasUnlit", "Universal Render Pipeline/Unlit");
+        MakeMaterial("AtlasLitTransparent", "Universal Render Pipeline/Lit");
+        MakeMaterial("AtlasSky", "Skybox/Procedural");
 
         // --- The one scene: an empty one with the app object.
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -155,7 +170,49 @@ public static class AtlasBuild
             m.SetColor("_EmissionColor", Color.black);
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
         }
+        else if (name == "AtlasLitTransparent")
+        {
+            // Keeps the see-through variant (opacity slider) in the APK.
+            m.EnableKeyword("_EMISSION");
+            m.SetColor("_EmissionColor", Color.black);
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            Atlas.MatUtil.SetTransparent(m, true);
+            m.SetColor("_BaseColor", new Color(1f, 1f, 1f, 0.5f));
+        }
+        else if (name == "AtlasSky")
+        {
+            m.SetFloat("_SunSize", 0.04f);
+            m.SetFloat("_Exposure", 1.2f);
+        }
         AssetDatabase.CreateAsset(m, path);
+    }
+
+    static void SetBool(SerializedObject so, string prop, bool v)
+    {
+        var p = so.FindProperty(prop);
+        if (p != null) p.boolValue = v;
+        else Debug.LogWarning("ATLAS: ajuste no encontrado: " + prop);
+    }
+
+    /// Fog is switched on from code (ambience presets): keep its shader
+    /// variants, which are otherwise stripped because the scene has none.
+    static void KeepFog()
+    {
+        try
+        {
+            var gs = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>("ProjectSettings/GraphicsSettings.asset");
+            var so = new SerializedObject(gs);
+            var strip = so.FindProperty("m_FogStripping");
+            if (strip != null) strip.intValue = 1;   // custom
+            SetBool(so, "m_FogKeepLinear", true);
+            SetBool(so, "m_FogKeepExp", true);
+            SetBool(so, "m_FogKeepExp2", true);
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("ATLAS: niebla no configurada: " + e.Message);
+        }
     }
 
     const string BrandDir = "Assets/Atlas/Branding";

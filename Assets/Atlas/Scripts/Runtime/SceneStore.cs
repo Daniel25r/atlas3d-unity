@@ -21,6 +21,54 @@ namespace Atlas
         public Color color = Color.white;
         public string modelFile;
         public List<KeyData> keys = new List<KeyData>();
+        // Since phase 3 (v = 3); older saves get the defaults.
+        public int v;
+        public float metallic;
+        public float smoothness = 0.45f;
+        public float emission;
+        public float opacity = 1f;
+        public string texture = "";
+        public float lightIntensity = 3f;
+        public float lightRange = 10f;
+        public float spotAngle = 45f;
+        public bool shadows = true;
+        public bool visible = true;
+        public bool locked;
+        public string clip = "";
+
+        public void FixOld()
+        {
+            if (v >= 3) return;
+            v = 3;
+            metallic = 0f;
+            smoothness = 0.45f;
+            emission = 0f;
+            opacity = 1f;
+            texture = "";
+            lightIntensity = 3f;
+            lightRange = 10f;
+            spotAngle = 45f;
+            shadows = true;
+            visible = true;
+            locked = false;
+            clip = "";
+        }
+    }
+
+    /// The scene's look: one of the «Ambiente rápido» presets plus the
+    /// image effects the user moved after picking it.
+    [Serializable]
+    public class EnvData
+    {
+        public bool set;
+        public string preset = "studio";
+        public float exposure;
+        public float contrast;
+        public float saturation;
+        public float bloom;
+        public float vignette;
+        public float grain;
+        public float fog;
     }
 
     [Serializable]
@@ -35,12 +83,24 @@ namespace Atlas
         public int fps = 24;
         public int endFrame = 120;
         public bool showGrid = true;
+        public EnvData env = new EnvData();
+    }
+
+    public class ProjectInfo
+    {
+        public string name;
+        public string dir;
+        public DateTime modified;
+        public string thumbnail;   // "" when there is none yet
     }
 
     public class SceneStore
     {
         public readonly string projectDir;
+        public readonly string name;
         public string ModelsDir { get { return Path.Combine(projectDir, "models"); } }
+        public string TexturesDir { get { return Path.Combine(projectDir, "textures"); } }
+        public string ThumbPath { get { return Path.Combine(projectDir, "thumb.png"); } }
         string ScenePath { get { return Path.Combine(projectDir, "scene.json"); } }
 
         readonly List<string> history = new List<string>();
@@ -49,8 +109,103 @@ namespace Atlas
 
         public SceneStore(string name)
         {
-            projectDir = Path.Combine(Application.persistentDataPath, "Proyectos", name);
+            this.name = name;
+            projectDir = Path.Combine(Root, name);
             Directory.CreateDirectory(ModelsDir);
+        }
+
+        // ------------------------------------------------------------------
+        // The projects folder (home screen)
+
+        public static string Root
+        {
+            get
+            {
+                string d = Path.Combine(Application.persistentDataPath, "Proyectos");
+                Directory.CreateDirectory(d);
+                return d;
+            }
+        }
+
+        /// Every project, the most recently changed first.
+        public static List<ProjectInfo> ListProjects()
+        {
+            var list = new List<ProjectInfo>();
+            foreach (string dir in Directory.GetDirectories(Root))
+            {
+                string scene = Path.Combine(dir, "scene.json");
+                string thumb = Path.Combine(dir, "thumb.png");
+                list.Add(new ProjectInfo
+                {
+                    name = Path.GetFileName(dir),
+                    dir = dir,
+                    modified = File.Exists(scene) ? File.GetLastWriteTime(scene) : Directory.GetLastWriteTime(dir),
+                    thumbnail = File.Exists(thumb) ? thumb : "",
+                });
+            }
+            list.Sort((a, b) => b.modified.CompareTo(a.modified));
+            return list;
+        }
+
+        public static bool Exists(string name)
+        {
+            return Directory.Exists(Path.Combine(Root, name));
+        }
+
+        /// A name not used yet: «Proyecto 1», «Proyecto 2»…
+        public static string UniqueName(string baseName)
+        {
+            baseName = CleanName(baseName);
+            if (!Exists(baseName) && !baseName.StartsWith("Proyecto")) return baseName;
+            for (int i = 1; i < 10000; i++)
+            {
+                string n = baseName + " " + i;
+                if (!Exists(n)) return n;
+            }
+            return baseName + " " + NewId().Substring(0, 4);
+        }
+
+        public static string CleanName(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "Proyecto";
+            foreach (char c in Path.GetInvalidFileNameChars()) s = s.Replace(c, ' ');
+            s = s.Trim().Trim('.');
+            if (s.Length > 40) s = s.Substring(0, 40).Trim();
+            return s.Length == 0 ? "Proyecto" : s;
+        }
+
+        public static void Delete(string name)
+        {
+            string d = Path.Combine(Root, name);
+            if (Directory.Exists(d)) Directory.Delete(d, true);
+        }
+
+        /// Returns the new name (or throws if it is taken).
+        public static string Rename(string name, string newName)
+        {
+            newName = CleanName(newName);
+            if (newName == name) return name;
+            if (Exists(newName)) throw new Exception("ya existe un proyecto con ese nombre");
+            Directory.Move(Path.Combine(Root, name), Path.Combine(Root, newName));
+            return newName;
+        }
+
+        public static string Duplicate(string name)
+        {
+            string copy = name + " (copia)";
+            int i = 2;
+            while (Exists(copy)) copy = name + " (copia " + i++ + ")";
+            CopyDir(Path.Combine(Root, name), Path.Combine(Root, copy));
+            return copy;
+        }
+
+        static void CopyDir(string from, string to)
+        {
+            Directory.CreateDirectory(to);
+            foreach (string f in Directory.GetFiles(from))
+                File.Copy(f, Path.Combine(to, Path.GetFileName(f)), true);
+            foreach (string d in Directory.GetDirectories(from))
+                CopyDir(d, Path.Combine(to, Path.GetFileName(d)));
         }
 
         public bool HasSaved { get { return File.Exists(ScenePath); } }
@@ -81,6 +236,19 @@ namespace Atlas
                     color = it.color,
                     modelFile = it.modelFile,
                     keys = new List<KeyData>(it.keys),
+                    v = 3,
+                    metallic = it.metallic,
+                    smoothness = it.smoothness,
+                    emission = it.emission,
+                    opacity = it.opacity,
+                    texture = it.texture ?? "",
+                    lightIntensity = it.lightIntensity,
+                    lightRange = it.lightRange,
+                    spotAngle = it.spotAngle,
+                    shadows = it.shadows,
+                    visible = it.visible,
+                    locked = it.locked,
+                    clip = it.clip ?? "",
                 });
             }
             return d;
@@ -132,7 +300,13 @@ namespace Atlas
             try
             {
                 if (!File.Exists(ScenePath)) return null;
-                return JsonUtility.FromJson<SceneData>(File.ReadAllText(ScenePath));
+                var d = JsonUtility.FromJson<SceneData>(File.ReadAllText(ScenePath));
+                if (d != null)
+                {
+                    if (d.env == null) d.env = new EnvData();
+                    foreach (var it in d.items) it.FixOld();
+                }
+                return d;
             }
             catch (Exception e)
             {
@@ -153,6 +327,24 @@ namespace Atlas
             string name = baseName + "_" + NewId().Substring(0, 6) + ext;
             File.Copy(source, Path.Combine(ModelsDir, name), true);
             return name;
+        }
+
+        /// Copies a picked image into the project. Returns its file name.
+        public string AddTextureFile(string source)
+        {
+            Directory.CreateDirectory(TexturesDir);
+            string ext = Path.GetExtension(source).ToLowerInvariant();
+            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg") ext = ".png";
+            string baseName = Path.GetFileNameWithoutExtension(source);
+            if (string.IsNullOrEmpty(baseName)) baseName = "textura";
+            string file = baseName + "_" + NewId().Substring(0, 6) + ext;
+            File.Copy(source, Path.Combine(TexturesDir, file), true);
+            return file;
+        }
+
+        public string TexturePath(string file)
+        {
+            return Path.Combine(TexturesDir, file);
         }
 
         public string ModelPath(string file)

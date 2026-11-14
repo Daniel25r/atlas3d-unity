@@ -65,6 +65,13 @@ namespace Atlas
             }
             root.importer = gltf;
             FixMaterials(root.gameObject, litTemplate);
+            // The model's own animations are played by the timeline.
+            var anim = root.GetComponentInChildren<Animation>();
+            if (anim != null)
+            {
+                anim.playAutomatically = false;
+                anim.Stop();
+            }
             Fit(root, placeOnGround);
             return "";
         }
