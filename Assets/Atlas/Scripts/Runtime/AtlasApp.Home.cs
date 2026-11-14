@@ -72,7 +72,7 @@ namespace Atlas
                 ApplyEnv();
                 UpdateCamera();
                 SetFrame(0f);
-                AddShape("cube");
+                if (!skipStarterCube) AddShape("cube");
                 Select(null);
                 Toast("Toca un objeto para seleccionarlo · un dedo gira la vista · dos dedos: zoom y desplazar");
             }

@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "3.7.1";
+        public const string Version = "3.7.2";
 
         Camera cam;
         Light sunLight;
@@ -638,6 +638,8 @@ namespace Atlas
 
         void ImportFile(string path) { ImportFiles(new[] { path }); }
 
+        void ImportFiles(string[] paths) { ImportFiles(paths, null); }
+
         /// A Prisma3D .proj came without its meshes: ask for the .pobject
         /// files of its «content» folder and try again.
         void AskPrismaContent(Import.MissingContentException e, string shownName)
@@ -660,7 +662,8 @@ namespace Atlas
 
         /// Copies (and converts, for FBX / OBJ / 3DS / Prisma3D…) the model
         /// in the background, then puts it in the scene.
-        void ImportFiles(string[] paths)
+        /// `cleanup`: a folder to delete once the files are copied.
+        void ImportFiles(string[] paths, string cleanup)
         {
             string main = paths[0];
             foreach (var p in paths)
@@ -670,10 +673,10 @@ namespace Atlas
             }
             string ext = Path.GetExtension(main).ToLowerInvariant();
             Toast((System.Array.IndexOf(Import.ModelConverter.Convertible, ext) >= 0 ? "Convirtiendo «" : "Importando «") + Path.GetFileName(main) + "»" + (paths.Length > 1 ? " (+" + (paths.Length - 1) + " archivos)" : "") + "…");
-            ImportWith(st => st.AddModelFiles(paths), Path.GetFileNameWithoutExtension(main));
+            ImportWith(st => st.AddModelFiles(paths), Path.GetFileNameWithoutExtension(main), cleanup);
         }
 
-        async void ImportWith(System.Func<SceneStore, string> work, string shownName)
+        async void ImportWith(System.Func<SceneStore, string> work, string shownName, string cleanup = null)
         {
             var st = store;
             string file;
@@ -690,6 +693,10 @@ namespace Atlas
             {
                 Toast("No se pudo importar: " + e.Message, true);
                 return;
+            }
+            finally
+            {
+                if (cleanup != null) TryDelete(cleanup);
             }
             if (store != st) return;   // the project was closed meanwhile
             {
@@ -1092,6 +1099,7 @@ namespace Atlas
         {
             if (Screen.safeArea != lastSafe) ApplySafeArea();
             if (Input.GetKeyDown(KeyCode.Escape)) Back();
+            if (store == null || home.activeSelf) { if (!rendering) CheckIncoming(); }
             if (store == null || home.activeSelf || rendering) return;
             if (playing)
             {
@@ -1105,6 +1113,7 @@ namespace Atlas
             }
             SyncAudio();
             UpdateNav();
+            CheckIncoming();
             if (Input.touchCount == 0) pinchOnUi = false;
             if (Input.touchCount == 1 && pinchOnUi) { }   // one finger lifted from a pinch on the interface
             else if (Input.touchCount == 1)
