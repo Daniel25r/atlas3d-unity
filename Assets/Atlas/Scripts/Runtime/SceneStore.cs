@@ -397,15 +397,79 @@ namespace Atlas
                     File.Copy(source, Path.Combine(ModelsDir, name), true);
                 }
             }
-            // Other formats become one GLB with everything inside.
+            return ConvertStored(name);
+        }
+
+        /// Other formats become one GLB with everything inside.
+        string ConvertStored(string name)
+        {
             string inExt = Path.GetExtension(name).ToLowerInvariant();
             if (System.Array.IndexOf(Import.ModelConverter.Convertible, inExt) >= 0)
             {
                 string full = Path.Combine(ModelsDir, name);
-                string glb = Import.ModelConverter.ToGlb(full, inExt);
+                string glb;
+                try { glb = Import.ModelConverter.ToGlb(full, inExt); }
+                catch (Import.MissingContentException e)
+                {
+                    e.folder = Path.GetDirectoryName(full);
+                    e.file = name;
+                    throw;
+                }
                 if (glb != null) name = Path.GetDirectoryName(name).Replace('\\', '/') + (Path.GetDirectoryName(name) != "" ? "/" : "") + Path.GetFileName(glb);
             }
             return name;
+        }
+
+        static readonly string[] MainOrder = { ".prisma", ".glb", ".gltf", ".proj", ".fbx", ".obj", ".3ds", ".blend", ".zip", ".ply", ".stl", ".pobject" };
+
+        /// Several files picked together (a .proj with its .pobject files, an
+        /// OBJ with its MTL and textures, a glTF with its .bin…): all of them
+        /// go in one folder and the main one is imported.
+        public string AddModelFiles(string[] sources)
+        {
+            if (sources == null || sources.Length == 0) throw new Exception("no se eligió ningún archivo");
+            if (sources.Length == 1) return AddModelFile(sources[0]);
+            string main = null;
+            int rank = 99;
+            foreach (var s in sources)
+            {
+                string e = Path.GetExtension(s).ToLowerInvariant();
+                if (System.Array.IndexOf(MeshFormats.Importable, e) < 0 && Import.ModelConverter.Unsupported(e) == "") e = MeshFormats.Sniff(s);
+                int r = System.Array.IndexOf(MainOrder, e);
+                if (r >= 0 && r < rank) { rank = r; main = s; }
+            }
+            if (main == null) throw new Exception("entre esos archivos no hay ningún modelo (GLB, FBX, OBJ, Prisma3D…)");
+            string mext = Path.GetExtension(main).ToLowerInvariant();
+            if (mext == ".zip" || mext == ".prisma") return AddModelFile(main);
+            Directory.CreateDirectory(ModelsDir);
+            string folder = "modelo_" + NewId().Substring(0, 8);
+            string dir = Path.Combine(ModelsDir, folder);
+            Directory.CreateDirectory(dir);
+            foreach (var s in sources) CopyInto(s, dir);
+            string fn = Path.GetFileName(main);
+            if (Path.GetExtension(fn) == "") fn += System.Array.IndexOf(MainOrder, MeshFormats.Sniff(main)) >= 0 ? MeshFormats.Sniff(main) : "";
+            return ConvertStored(folder + "/" + fn);
+        }
+
+        /// The files a project was missing, put next to it; then converted again.
+        public string AddMissingFiles(string stored, string[] sources)
+        {
+            string dir = Path.GetDirectoryName(Path.Combine(ModelsDir, stored));
+            foreach (var s in sources) CopyInto(s, dir);
+            return ConvertStored(stored);
+        }
+
+        static void CopyInto(string source, string dir)
+        {
+            string n = Path.GetFileName(source);
+            if (string.IsNullOrEmpty(n)) return;
+            string e = Path.GetExtension(n).ToLowerInvariant();
+            if (e == ".pobject")
+            {
+                Directory.CreateDirectory(Path.Combine(dir, "content"));
+                File.Copy(source, Path.Combine(dir, "content", n), true);
+            }
+            else File.Copy(source, Path.Combine(dir, n), true);
         }
 
         /// The files next to a picked model (its .mtl and textures), when the

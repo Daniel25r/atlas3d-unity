@@ -24,6 +24,14 @@ using System.Text;
 
 namespace Atlas.Import
 {
+    /// A .proj picked without the .pobject files of its «content» folder.
+    public class MissingContentException : Exception
+    {
+        public readonly int count;
+        public string folder = "", file = "";   // where the project was copied (set by SceneStore)
+        public MissingContentException(int n) : base("a este proyecto de Prisma3D le faltan sus mallas (archivos .pobject de la carpeta «content»)") { count = n; }
+    }
+
     public static class PrismaImport
     {
         static readonly byte[] Magic = { 0x14, 0xd3, 0x82, 0x1b };
@@ -848,7 +856,7 @@ namespace Atlas.Import
             }
             if (meshesMade == 0)
             {
-                if (missing.Count > 0) throw new Exception("este proyecto no trae sus mallas (archivos .pobject de la carpeta «content»): importa el .prisma completo");
+                if (missing.Count > 0) throw new MissingContentException(missing.Count);
                 throw new Exception("el proyecto de Prisma3D no tiene mallas que ATLAS pueda leer");
             }
             return m;

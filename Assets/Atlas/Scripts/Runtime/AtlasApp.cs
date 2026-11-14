@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "3.7.0";
+        public const string Version = "3.7.1";
 
         Camera cam;
         Light sunLight;
@@ -620,24 +620,71 @@ namespace Atlas
         {
             CloseMenus();
             if (store == null || NativeFilePicker.IsFilePickerBusy()) return;
-            NativeFilePicker.PickFile(path =>
-            {
-                if (string.IsNullOrEmpty(path) || store == null) return;
-                ImportFile(path);
-            }, new string[] { "*/*" });
+            // Several files can be picked at once: a .proj of Prisma3D with
+            // its .pobject files, an OBJ with its MTL and textures…
+            if (NativeFilePicker.CanPickMultipleFiles())
+                NativeFilePicker.PickMultipleFiles(paths =>
+                {
+                    if (paths == null || paths.Length == 0 || store == null) return;
+                    ImportFiles(paths);
+                }, new string[] { "*/*" });
+            else
+                NativeFilePicker.PickFile(path =>
+                {
+                    if (string.IsNullOrEmpty(path) || store == null) return;
+                    ImportFile(path);
+                }, new string[] { "*/*" });
         }
 
-        /// Copies (and converts, for FBX / OBJ / 3DS) the model in the
-        /// background, then puts it in the scene.
-        async void ImportFile(string path)
+        void ImportFile(string path) { ImportFiles(new[] { path }); }
+
+        /// A Prisma3D .proj came without its meshes: ask for the .pobject
+        /// files of its «content» folder and try again.
+        void AskPrismaContent(Import.MissingContentException e, string shownName)
+        {
+            AtlasTheme.Dialog(canvasRoot, "Faltan las mallas del proyecto",
+                "Un .proj de Prisma3D guarda sus modelos aparte, en la carpeta «content» que está junto a él (archivos .pobject). " +
+                "Toca «Elegir archivos», entra en esa carpeta «content» y marca todos los .pobject (y las imágenes de «res» si tiene texturas).\n\n" +
+                "Más fácil: en Prisma3D exporta o comparte el proyecto como .prisma e importa ese archivo.",
+                null, "Elegir archivos", false, _ =>
+                {
+                    if (NativeFilePicker.IsFilePickerBusy()) return;
+                    NativeFilePicker.PickMultipleFiles(paths =>
+                    {
+                        if (paths == null || paths.Length == 0 || store == null) return;
+                        string stored = e.file;
+                        ImportWith(st => st.AddMissingFiles(stored, paths), shownName);
+                    }, new string[] { "*/*" });
+                });
+        }
+
+        /// Copies (and converts, for FBX / OBJ / 3DS / Prisma3D…) the model
+        /// in the background, then puts it in the scene.
+        void ImportFiles(string[] paths)
+        {
+            string main = paths[0];
+            foreach (var p in paths)
+            {
+                string e = Path.GetExtension(p).ToLowerInvariant();
+                if (e != ".pobject" && e != ".png" && e != ".jpg" && e != ".jpeg" && e != ".mtl" && e != ".bin" && e != ".tga") { main = p; break; }
+            }
+            string ext = Path.GetExtension(main).ToLowerInvariant();
+            Toast((System.Array.IndexOf(Import.ModelConverter.Convertible, ext) >= 0 ? "Convirtiendo «" : "Importando «") + Path.GetFileName(main) + "»" + (paths.Length > 1 ? " (+" + (paths.Length - 1) + " archivos)" : "") + "…");
+            ImportWith(st => st.AddModelFiles(paths), Path.GetFileNameWithoutExtension(main));
+        }
+
+        async void ImportWith(System.Func<SceneStore, string> work, string shownName)
         {
             var st = store;
-            string ext = Path.GetExtension(path).ToLowerInvariant();
-            Toast(System.Array.IndexOf(Import.ModelConverter.Convertible, ext) >= 0 ? "Convirtiendo «" + Path.GetFileName(path) + "»…" : "Importando «" + Path.GetFileName(path) + "»…");
             string file;
             try
             {
-                file = await System.Threading.Tasks.Task.Run(() => st.AddModelFile(path));
+                file = await System.Threading.Tasks.Task.Run(() => work(st));
+            }
+            catch (Import.MissingContentException e)
+            {
+                if (store == st) AskPrismaContent(e, shownName);
+                return;
             }
             catch (System.Exception e)
             {
@@ -647,7 +694,7 @@ namespace Atlas
             if (store != st) return;   // the project was closed meanwhile
             {
                 count++;
-                string nm = Path.GetFileNameWithoutExtension(path);
+                string nm = shownName;
                 var d = new ItemData { v = 3, kind = "model", name = string.IsNullOrEmpty(nm) ? "Modelo" : nm, position = new Vector3(target.position.x, 0f, target.position.z), modelFile = file };
                 Select(Create(d));
                 Commit(true);
@@ -1034,6 +1081,8 @@ namespace Atlas
         float moved = -1f;   // < 0: no finger down on the 3D view
         bool draggingGizmo, orbiting;
 
+        bool pinchOnUi;
+
         bool OverUi(int pointerId)
         {
             return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject(pointerId);
@@ -1056,7 +1105,9 @@ namespace Atlas
             }
             SyncAudio();
             UpdateNav();
-            if (Input.touchCount == 1)
+            if (Input.touchCount == 0) pinchOnUi = false;
+            if (Input.touchCount == 1 && pinchOnUi) { }   // one finger lifted from a pinch on the interface
+            else if (Input.touchCount == 1)
             {
                 Touch t = Input.GetTouch(0);
                 if (t.phase == TouchPhase.Began)
@@ -1071,6 +1122,18 @@ namespace Atlas
             }
             else if (Input.touchCount >= 2)
             {
+                // Two fingers that started on the interface (pinching the
+                // timeline, scrolling a panel) are not for the camera.
+                if (!pinchOnUi)
+                {
+                    if (moved < 0f && Input.GetTouch(0).phase != TouchPhase.Began) pinchOnUi = true;
+                    for (int ti = 0; ti < Input.touchCount; ti++)
+                    {
+                        var tt = Input.GetTouch(ti);
+                        if (tt.phase == TouchPhase.Began && OverUi(tt.fingerId)) pinchOnUi = true;
+                    }
+                }
+                if (pinchOnUi) { moved = -1f; return; }
                 if (sculpting) EndSculpt();
                 if (draggingGizmo && meshDragging) { gizmo.End(); draggingGizmo = false; MeshDragEnd(); }
                 if (draggingGizmo) { gizmo.End(); draggingGizmo = false; BoneEdited(); AutoKey(); Commit(true); }
