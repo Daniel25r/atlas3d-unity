@@ -213,7 +213,9 @@ public static class AtlasBuild
         if (!string.IsNullOrEmpty(apass)) apass = apass.Trim();
         PlayerSettings.Android.keystorePass = pass;
         PlayerSettings.Android.keyaliasName = alias;
-        PlayerSettings.Android.keyaliasPass = string.IsNullOrEmpty(apass) ? pass : apass;
+        // atlas3d.keystore uses one password for the store and the key: the
+        // store's (it already opened fine), whatever the alias secret says.
+        PlayerSettings.Android.keyaliasPass = pass;
         Debug.Log("ATLAS: firmado con la llave fija «" + alias + "»");
     }
 
