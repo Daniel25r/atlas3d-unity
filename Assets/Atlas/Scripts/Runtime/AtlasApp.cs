@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.0.1";
+        public const string Version = "1.0.2";
 
         Camera cam;
         Light sunLight;
@@ -1168,6 +1168,8 @@ namespace Atlas
         bool draggingGizmo, orbiting;
 
         bool pinchOnUi;
+        bool panning;
+        Vector2 panLast;
 
         bool OverUi(int pointerId)
         {
@@ -1178,6 +1180,7 @@ namespace Atlas
         {
             if (Screen.safeArea != lastSafe) ApplySafeArea();
             if (Input.GetKeyDown(KeyCode.Escape)) Back();
+            Shortcuts();
             UpdateFps();
             UpdateMatPreview();
             if (store == null || home.activeSelf) { if (!rendering) CheckIncoming(); }
@@ -1256,6 +1259,22 @@ namespace Atlas
                     MovePointer(Input.mousePosition, new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y")) * 12f);
                 else if (Input.GetMouseButtonUp(0) && moved >= 0f)
                     EndPointer(Input.mousePosition);
+                // PC: right or middle button drags the view sideways.
+                if ((Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(2)) && !OverUi(-1)) { panning = true; panLast = Input.mousePosition; }
+                if (panning && (Input.GetMouseButton(1) || Input.GetMouseButton(2)))
+                {
+                    Vector2 m = Input.mousePosition;
+                    Vector2 pd = m - panLast;
+                    panLast = m;
+                    if (lookThrough != null) LookThroughTwoFingers(pd, 0f);
+                    else
+                    {
+                        float pk = distance * 0.0016f * (1280f / Mathf.Max(640f, Screen.width)) * 1.6f;
+                        target.position -= cam.transform.right * pd.x * pk + cam.transform.up * pd.y * pk;
+                        UpdateCamera();
+                    }
+                }
+                if (Input.GetMouseButtonUp(1) || Input.GetMouseButtonUp(2)) { if (panning && lookThrough != null) LookThroughEnd(); panning = false; }
                 float wheel = Input.mouseScrollDelta.y;
                 if (Mathf.Abs(wheel) > 0.01f && !OverUi(-1) && lookThrough != null)
                 {
@@ -1268,6 +1287,44 @@ namespace Atlas
                     UpdateCamera();
                 }
             }
+        }
+
+        /// Keyboard shortcuts (PC, or a keyboard on a tablet), like most 3D
+        /// programs. Not while typing in a text box.
+        void Shortcuts()
+        {
+            if (!Input.anyKeyDown || store == null || home.activeSelf || rendering) return;
+            var es = EventSystem.current;
+            if (es != null && es.currentSelectedGameObject != null && es.currentSelectedGameObject.GetComponent<InputField>() != null) return;
+            bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) || Input.GetKey(KeyCode.LeftCommand);
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            if (ctrl && Input.GetKeyDown(KeyCode.Z)) { if (shift) Redo(); else Undo(); return; }
+            if (ctrl && Input.GetKeyDown(KeyCode.Y)) { Redo(); return; }
+            if (ctrl && Input.GetKeyDown(KeyCode.S)) { SaveNow(true); return; }
+            if (ctrl && Input.GetKeyDown(KeyCode.D)) { DuplicateSelected(); return; }
+            if (ctrl) return;
+            if (Input.GetKeyDown(KeyCode.Delete) || Input.GetKeyDown(KeyCode.Backspace)) { if (selected != null && meshMode == "") DeleteSelected(); return; }
+            if (Input.GetKeyDown(KeyCode.Q)) SetTool(Tool.Select);
+            else if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.G)) SetTool(Tool.Move);
+            else if (Input.GetKeyDown(KeyCode.E)) SetTool(Tool.Rotate);
+            else if (Input.GetKeyDown(KeyCode.R)) SetTool(Tool.Scale);
+            else if (Input.GetKeyDown(KeyCode.F)) FocusSelected();
+            else if (Input.GetKeyDown(KeyCode.Space)) TogglePlay();
+            else if (Input.GetKeyDown(KeyCode.K)) { if (selected != null) { AutoKeyNow(); } }
+            else if (Input.GetKeyDown(KeyCode.LeftArrow)) StepFrame(-1);
+            else if (Input.GetKeyDown(KeyCode.RightArrow)) StepFrame(1);
+            else if (Input.GetKeyDown(KeyCode.Tab)) { if (selected != null && MeshEditable(selected)) SetMeshMode(meshMode == "model" ? "" : "model"); }
+        }
+
+        /// «K»: a key of the selection at this frame.
+        void AutoKeyNow()
+        {
+            int f = Mathf.RoundToInt(frame);
+            if (poseMode && activeBone != "") selected.SetKey(f, 0, new List<string> { activeBone });
+            else selected.SetKey(f, AtlasItem.ChPos | AtlasItem.ChRot | AtlasItem.ChScale, new List<string>());
+            Commit(true);
+            RefreshKeys();
+            Toast("Clave en el fotograma " + f);
         }
 
         void LateUpdate()

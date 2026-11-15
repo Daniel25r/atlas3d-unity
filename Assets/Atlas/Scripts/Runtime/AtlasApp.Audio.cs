@@ -71,7 +71,7 @@ namespace Atlas
             }
             string ext = Path.GetExtension(path).ToLowerInvariant();
             AudioType type = ext == ".mp3" ? AudioType.MPEG : ext == ".ogg" ? AudioType.OGGVORBIS : AudioType.WAV;
-            using (var req = UnityWebRequestMultimedia.GetAudioClip("file://" + path, type))
+            using (var req = UnityWebRequestMultimedia.GetAudioClip(new System.Uri(path).AbsoluteUri, type))
             {
                 yield return req.SendWebRequest();
                 if (req.result != UnityWebRequest.Result.Success)

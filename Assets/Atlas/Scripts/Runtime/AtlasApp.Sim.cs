@@ -177,7 +177,7 @@ namespace Atlas
             vp.waitForFirstFrame = true;
             vp.audioOutputMode = VideoAudioOutputMode.None;
             vp.source = VideoSource.Url;
-            vp.url = "file://" + full;
+            vp.url = new System.Uri(full).AbsoluteUri;
             if (it.videoRT == null) it.videoRT = new RenderTexture(1280, 720, 0, RenderTextureFormat.ARGB32);
             vp.renderMode = VideoRenderMode.RenderTexture;
             vp.targetTexture = it.videoRT;

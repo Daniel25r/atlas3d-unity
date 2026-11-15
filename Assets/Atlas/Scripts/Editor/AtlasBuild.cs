@@ -53,6 +53,43 @@ public static class AtlasBuild
         }
     }
 
+    /// PC version (Windows 64 bits): the same app in a resizable window,
+    /// with mouse and keyboard.
+    [MenuItem("ATLAS/Build Windows")]
+    public static void BuildWindows()
+    {
+        try
+        {
+            Prepare();
+            PlayerSettings.SetScriptingBackend(NamedBuildTarget.Standalone, ScriptingImplementation.Mono2x);
+            PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
+            PlayerSettings.defaultScreenWidth = 1600;
+            PlayerSettings.defaultScreenHeight = 900;
+            PlayerSettings.resizableWindow = true;
+            PlayerSettings.runInBackground = true;
+            PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Standalone, "org.atlas3d.unity");
+            string path = Arg("-customBuildPath") ?? "build/Windows/ATLAS3D.exe";
+            if (!path.EndsWith(".exe")) path = Path.Combine(path, "ATLAS3D.exe");
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
+            var options = new BuildPlayerOptions
+            {
+                scenes = new[] { ScenePath },
+                locationPathName = path,
+                target = BuildTarget.StandaloneWindows64,
+                targetGroup = BuildTargetGroup.Standalone,
+                options = BuildOptions.None,
+            };
+            BuildReport report = BuildPipeline.BuildPlayer(options);
+            Debug.Log("ATLAS build (Windows): " + report.summary.result + " -> " + path + " (" + report.summary.totalSize + " bytes)");
+            Exit(report.summary.result == BuildResult.Succeeded ? 0 : 1);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("ATLAS build (Windows) failed: " + e);
+            Exit(1);
+        }
+    }
+
     static void Exit(int code)
     {
         if (Application.isBatchMode)
@@ -159,7 +196,7 @@ public static class AtlasBuild
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "1.0.1";
+        PlayerSettings.bundleVersion = "1.0.2";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;
@@ -289,6 +326,20 @@ public static class AtlasBuild
             imp.SetCompatibleWithPlatform(BuildTarget.Android, true);
             imp.SaveAndReimport();
             Debug.Log("ATLAS: plugin nativo para Android: " + p);
+        }
+        // The same FBX reader built for Windows (64 bits).
+        var dll = AssetImporter.GetAtPath("Assets/Plugins/Atlas/x86_64/atlas_ufbx.dll") as PluginImporter;
+        if (dll != null)
+        {
+            dll.SetCompatibleWithAnyPlatform(false);
+            dll.SetCompatibleWithEditor(true);
+            dll.SetEditorData("CPU", "x86_64");
+            dll.SetEditorData("OS", "Windows");
+            dll.SetCompatibleWithPlatform(BuildTarget.StandaloneWindows64, true);
+            dll.SetPlatformData(BuildTarget.StandaloneWindows64, "CPU", "x86_64");
+            dll.SetCompatibleWithPlatform(BuildTarget.Android, false);
+            dll.SaveAndReimport();
+            Debug.Log("ATLAS: lector FBX para Windows listo");
         }
     }
 

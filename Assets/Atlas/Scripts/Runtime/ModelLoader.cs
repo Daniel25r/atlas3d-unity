@@ -41,7 +41,7 @@ namespace Atlas
             bool ok;
             try
             {
-                var uri = new Uri("file://" + path);
+                var uri = new Uri(path);
                 if (ext == ".glb")
                     ok = await gltf.LoadGltfBinary(File.ReadAllBytes(path), uri);
                 else
