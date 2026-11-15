@@ -121,6 +121,7 @@ namespace Atlas
                     var m = mats[i];
                     if (m != null && m.shader != null && m.shader.isSupported && m.shader.name != "Hidden/InternalErrorShader") continue;
                     var n = new Material(litTemplate);
+                    n.SetFloat("_Smoothness", 0.18f);   // soft finish, not «oiled»
                     if (m != null)
                     {
                         foreach (var p in TexProps)

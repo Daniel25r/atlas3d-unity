@@ -456,12 +456,12 @@ namespace Atlas
                 Hint(box, "La animación elegida se reproduce con la línea de tiempo y sale en el render.");
             }
             var gbox = Sec("Aspecto del modelo", "material");
-            AtlasTheme.SliderRow(gbox, "Brillo", 0f, 1f, it.modelGloss < 0f ? 0.35f : it.modelGloss, "0.00", x => { it.modelGloss = x; ApplyLook(it); }, () => Commit(true));
+            AtlasTheme.SliderRow(gbox, "Brillo", 0f, 1f, it.modelGloss < 0f ? 0.2f : it.modelGloss, "0.00", x => { it.modelGloss = x; ApplyLook(it); }, () => Commit(true));
             var gg = AtlasTheme.Grid(gbox, 3, InnerWidth, 38f);
             AtlasTheme.Chip(gg, "Mate", () => { it.modelGloss = 0.05f; ApplyLook(it); Commit(true); RefreshProps(); }, it.modelGloss >= 0f && it.modelGloss < 0.15f);
             AtlasTheme.Chip(gg, "Satinado", () => { it.modelGloss = 0.4f; ApplyLook(it); Commit(true); RefreshProps(); }, Mathf.Abs(it.modelGloss - 0.4f) < 0.01f);
-            AtlasTheme.Chip(gg, "Original", () => { it.modelGloss = -1f; ApplyLook(it); Commit(true); RefreshProps(); }, it.modelGloss < 0f);
-            Hint(gbox, "Si el modelo se ve demasiado brillante o como de plástico, bájale el brillo.");
+            AtlasTheme.Chip(gg, "Natural", () => { it.modelGloss = -1f; ApplyLook(it); Commit(true); RefreshProps(); }, it.modelGloss < 0f);
+            Hint(gbox, "«Natural» es un acabado suave, sin aspecto aceitoso. Sube el brillo para plástico, charol o metal; «Mate» lo deja como tela o goma.");
             var mbox = Sec("Modelo", "import", false);
             Hint(mbox, "Los modelos importados conservan sus propios materiales y texturas.");
             var tl = AtlasTheme.Label(mbox, "Archivo: " + it.modelFile, 14, AtlasTheme.TextDim);

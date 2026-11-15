@@ -86,8 +86,14 @@ namespace Atlas
             }
             // Painted surfaces never look like polished chrome by accident.
             if (baseTex != null) metal = Mathf.Min(metal, 0.3f);
+            // Imported characters looked «oiled»: most exporters write a
+            // medium roughness (Blender: 0.5) that on a phone's lighting
+            // shines like plastic. A soft, matte finish by default; real
+            // metals keep some shine. «Aspecto del modelo» can raise it.
+            float smooth = Mathf.Clamp01(1f - rough);
+            smooth = Mathf.Min(smooth, metal >= 0.5f ? 0.5f : 0.18f);
             m.SetFloat("_Metallic", Mathf.Clamp01(metal));
-            m.SetFloat("_Smoothness", Mathf.Clamp01(1f - rough));
+            m.SetFloat("_Smoothness", smooth);
 
             Color e = g.Emissive;
             Texture2D emisTex = Tex(gltf, g.EmissiveTexture);

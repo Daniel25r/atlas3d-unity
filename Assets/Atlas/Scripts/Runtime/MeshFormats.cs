@@ -136,7 +136,7 @@ namespace Atlas
         {
             var m = new Material(lit);
             m.SetColor("_BaseColor", c);
-            m.SetFloat("_Smoothness", 0.3f);
+            m.SetFloat("_Smoothness", 0.18f);
             if (tex != null) m.SetTexture("_BaseMap", tex);
             return m;
         }
