@@ -7,7 +7,9 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using UnityEditor;
-using UnityEditor.Android;
+#if UNITY_ANDROID
+using UnityEditor.Android;   // only in the Android editor module
+#endif
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
@@ -400,11 +402,15 @@ public static class AtlasBuild
             if (icon != null)
             {
                 PlayerSettings.SetIcons(NamedBuildTarget.Unknown, new[] { icon }, IconKind.Any);
+#if UNITY_ANDROID
                 SetAndroidIcons(AndroidPlatformIconKind.Legacy, new[] { icon });
                 SetAndroidIcons(AndroidPlatformIconKind.Round, new[] { icon });
+#endif
             }
+#if UNITY_ANDROID
             if (fg != null && bg != null)
                 SetAndroidIcons(AndroidPlatformIconKind.Adaptive, new[] { bg, fg });
+#endif
         }
         catch (Exception e)
         {
@@ -429,6 +435,7 @@ public static class AtlasBuild
         }
     }
 
+#if UNITY_ANDROID
     static void SetAndroidIcons(PlatformIconKind kind, Texture2D[] layers)
     {
         var icons = PlayerSettings.GetPlatformIcons(NamedBuildTarget.Android, kind);
@@ -436,6 +443,7 @@ public static class AtlasBuild
             ic.SetTextures(layers);
         PlayerSettings.SetPlatformIcons(NamedBuildTarget.Android, kind, icons);
     }
+#endif
 
     /// Interface icons: uncompressed with mipmaps (sharp at any size).
     static void CrispIcons()

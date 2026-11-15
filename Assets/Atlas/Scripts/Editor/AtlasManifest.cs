@@ -1,3 +1,4 @@
+#if UNITY_ANDROID
 // ATLAS 3D (Unity) - puts ATLAS in Android's "Open with" and "Share" lists
 // (Prisma3D, the file manager, Drive, WhatsApp…): adds the AtlasOpenFile
 // activity (Assets/Plugins/Android/AtlasOpenFile.java) to the generated
@@ -63,3 +64,4 @@ public class AtlasManifest : IPostGenerateGradleAndroidProject
         Debug.Log("ATLAS: «Abrir con / Compartir» añadido al manifiesto");
     }
 }
+#endif
