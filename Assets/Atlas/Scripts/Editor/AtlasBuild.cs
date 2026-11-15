@@ -189,7 +189,9 @@ public static class AtlasBuild
     {
         string name = Arg("-androidKeystoreName") ?? Environment.GetEnvironmentVariable("ANDROID_KEYSTORE_NAME");
         string pass = Arg("-androidKeystorePass") ?? Environment.GetEnvironmentVariable("ANDROID_KEYSTORE_PASS");
-        string alias = Arg("-androidKeyaliasName") ?? Environment.GetEnvironmentVariable("ANDROID_KEYALIAS_NAME");
+        // The key inside atlas3d.keystore is always called «atlas3d» (not a
+        // secret): fixed here so a typo in the secret cannot break the build.
+        string alias = "atlas3d";
         string apass = Arg("-androidKeyaliasPass") ?? Environment.GetEnvironmentVariable("ANDROID_KEYALIAS_PASS");
         if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(pass) || string.IsNullOrEmpty(alias))
         {
@@ -207,6 +209,8 @@ public static class AtlasBuild
         }
         PlayerSettings.Android.useCustomKeystore = true;
         PlayerSettings.Android.keystoreName = file;
+        pass = pass.Trim();
+        if (!string.IsNullOrEmpty(apass)) apass = apass.Trim();
         PlayerSettings.Android.keystorePass = pass;
         PlayerSettings.Android.keyaliasName = alias;
         PlayerSettings.Android.keyaliasPass = string.IsNullOrEmpty(apass) ? pass : apass;
