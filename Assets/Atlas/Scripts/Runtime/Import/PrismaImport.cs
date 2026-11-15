@@ -48,7 +48,8 @@ namespace Atlas.Import
         {
             if (h == null || h.Length < 6) return false;
             bool magic = true;
-            for (int k = 0; k < 4; k++) if (h[k] != Magic[k]) magic = false;
+            // The 4th byte changes between Prisma3D versions (0x1b, 0x18…).
+            for (int k = 0; k < 3; k++) if (h[k] != Magic[k]) magic = false;
             return (magic && IsArr(h[4])) || (h[0] == 0x00 && h[1] == 0x20 && IsArr(h[4]));
         }
 

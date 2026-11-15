@@ -170,6 +170,51 @@ namespace Atlas.Import
             }
         }
 
+        /// Skin data as glTF wants it: one weight per joint (repeated joints
+        /// merged), weights adding up to exactly 1, joints out of range and
+        /// unused slots on joint 0 with weight 0, and bind matrices with an
+        /// exact last row (0, 0, 0, 1). Bad skins deform characters.
+        static void CleanSkin(MMesh m)
+        {
+            int n = m.weights.Length / 4, nj = m.skinJoints.Length;
+            var jj = new int[4];
+            var ww = new float[4];
+            for (int v = 0; v < n; v++)
+            {
+                int c = 0;
+                for (int k = 0; k < 4; k++)
+                {
+                    int j = m.joints[v * 4 + k];
+                    float w = m.weights[v * 4 + k];
+                    if (!(w > 0f) || float.IsNaN(w) || j >= nj) continue;
+                    int found = -1;
+                    for (int q = 0; q < c; q++) if (jj[q] == j) found = q;
+                    if (found >= 0) ww[found] += w;
+                    else { jj[c] = j; ww[c] = w; c++; }
+                }
+                float sum = 0f;
+                for (int q = 0; q < c; q++) sum += ww[q];
+                if (c == 0 || sum <= 0f) { c = 1; jj[0] = 0; ww[0] = 1f; sum = 1f; }
+                float acc = 0f;
+                for (int k = 0; k < 4; k++)
+                {
+                    if (k < c)
+                    {
+                        float w = k == c - 1 ? 1f - acc : ww[k] / sum;
+                        acc += w;
+                        m.joints[v * 4 + k] = (ushort)jj[k];
+                        m.weights[v * 4 + k] = w;
+                    }
+                    else { m.joints[v * 4 + k] = 0; m.weights[v * 4 + k] = 0f; }
+                }
+            }
+            if (m.skinIbm != null)
+                for (int j = 0; j + 15 < m.skinIbm.Length; j += 16)
+                {
+                    m.skinIbm[j + 3] = 0f; m.skinIbm[j + 7] = 0f; m.skinIbm[j + 11] = 0f; m.skinIbm[j + 15] = 1f;
+                }
+        }
+
         public void WriteGlb(string path)
         {
             if (meshes.Count == 0) throw new Exception("el archivo no tiene mallas");
@@ -188,6 +233,7 @@ namespace Atlas.Import
                 if (m.uv != null && m.uv.Length == n * 2) attrs += ",\"TEXCOORD_0\":" + bin.Floats(m.uv, 2, "VEC2", 34962, false);
                 if (m.joints != null && m.weights != null && m.joints.Length == n * 4 && m.skinJoints != null && m.skinJoints.Length > 0)
                 {
+                    CleanSkin(m);
                     var jb = new byte[m.joints.Length * 2];
                     Buffer.BlockCopy(m.joints, 0, jb, 0, jb.Length);
                     attrs += ",\"JOINTS_0\":" + bin.Acc(bin.View(jb, 34962), 5123, n, "VEC4", "");

@@ -118,32 +118,24 @@ namespace Atlas
             }
             bool gr = ground.activeSelf;
             ground.SetActive(showGround && gr);
-            // Supersampling: drawn bigger and reduced (finer edges and
-            // textures), as far as the phone allows.
-            int ss = renderQuality > 0 && (long)w * h * 4 <= 16000000L && w * 2 <= SystemInfo.maxTextureSize && h * 2 <= SystemInfo.maxTextureSize ? 2 : 1;
-            int aa = renderQuality == 2 ? 8 : (long)w * h * ss * ss > 4000000L ? 2 : 4;
-            var big = RenderTexture.GetTemporary(w * ss, h * ss, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default, aa);
-            var prevTarget = cam.targetTexture;
-            cam.targetTexture = big;
-            cam.aspect = (float)w / h;
-            cam.Render();
-            cam.targetTexture = prevTarget;
-            cam.ResetAspect();
-            var rt = big;
-            if (ss > 1)
+            // Supersampling (drawn bigger, reduced here on the CPU: no blit
+            // shader that a phone may lack) as far as the phone allows.
+            bool roomy = SystemInfo.systemMemorySize >= 3500;
+            int ss = renderQuality > 0 && roomy && (long)w * h * 4 <= 9000000L && w * 2 <= SystemInfo.maxTextureSize && h * 2 <= SystemInfo.maxTextureSize ? 2 : 1;
+            int aa = ss > 1 ? (renderQuality == 2 ? 2 : 1) : (renderQuality == 2 ? 8 : 4);
+            Texture2D tex = null;
+            try { tex = Shot(w, h, ss, aa, true); }
+            catch (System.Exception e) { Debug.LogWarning("ATLAS: render: " + e.Message); }
+            // A black picture means the phone could not draw it that way:
+            // again, the simplest way (no supersampling, no MSAA, no HDR).
+            if (tex == null || LooksBlack(tex))
             {
-                rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default, 1);
-                big.filterMode = FilterMode.Bilinear;
-                Graphics.Blit(big, rt);   // half size: each pixel = average of 2×2
-                RenderTexture.ReleaseTemporary(big);
+                if (tex != null) Destroy(tex);
+                bool hdr = cam.allowHDR;
+                cam.allowHDR = false;
+                try { tex = Shot(w, h, 1, 1, false); }
+                finally { cam.allowHDR = hdr; }
             }
-            var prev = RenderTexture.active;
-            RenderTexture.active = rt;
-            var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
-            tex.ReadPixels(new UnityEngine.Rect(0, 0, w, h), 0, 0);
-            tex.Apply();
-            RenderTexture.active = prev;
-            RenderTexture.ReleaseTemporary(rt);
             ground.SetActive(gr);
             gizmo.gameObject.SetActive(g);
             highlighter.SetVisible(true);
@@ -152,6 +144,58 @@ namespace Atlas
             cam.fieldOfView = keepFov;
             FitClip(cam, distance);
             return tex;
+        }
+
+        Texture2D Shot(int w, int h, int ss, int aa, bool depth)
+        {
+            int bw = w * ss, bh = h * ss;
+            var rt = RenderTexture.GetTemporary(bw, bh, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default, aa);
+            var prevTarget = cam.targetTexture;
+            cam.targetTexture = rt;
+            cam.aspect = (float)w / h;
+            try { cam.Render(); }
+            finally
+            {
+                cam.targetTexture = prevTarget;
+                cam.ResetAspect();
+            }
+            var prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            var big = new Texture2D(bw, bh, TextureFormat.RGB24, false);
+            big.ReadPixels(new UnityEngine.Rect(0, 0, bw, bh), 0, 0);
+            big.Apply();
+            RenderTexture.active = prev;
+            RenderTexture.ReleaseTemporary(rt);
+            if (ss == 1) return big;
+            // 2×2 → 1 pixel average.
+            var src = big.GetPixels32();
+            var dst = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+            {
+                int r0 = (y * 2) * bw, r1 = r0 + bw;
+                for (int x = 0; x < w; x++)
+                {
+                    var a = src[r0 + x * 2]; var b = src[r0 + x * 2 + 1]; var c = src[r1 + x * 2]; var d = src[r1 + x * 2 + 1];
+                    dst[y * w + x] = new Color32((byte)((a.r + b.r + c.r + d.r + 2) >> 2), (byte)((a.g + b.g + c.g + d.g + 2) >> 2), (byte)((a.b + b.b + c.b + d.b + 2) >> 2), 255);
+                }
+            }
+            Destroy(big);
+            var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+            tex.SetPixels32(dst);
+            tex.Apply();
+            return tex;
+        }
+
+        /// Every sampled pixel (nearly) black: the render failed.
+        static bool LooksBlack(Texture2D t)
+        {
+            int w = t.width, h = t.height;
+            for (int i = 0; i < 97; i++)
+            {
+                var c = t.GetPixel((i * 7919) % w, (i * 104729) % h);
+                if (c.r + c.g + c.b > 0.02f) return false;
+            }
+            return true;
         }
 
         static string Stamp()
