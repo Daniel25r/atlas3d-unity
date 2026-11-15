@@ -50,6 +50,12 @@ namespace Atlas
         public string physics = "";
         public float mass = 1f;
         public string videoFile = "";
+        public string preset = "";
+        public float amount = 1f;
+        public int seed = 1;
+        public int fxStart;
+        public string text = "";
+        public List<AnchorEvent> anchors = new List<AnchorEvent>();
         public string normalMap = "", emissionMap = "";
         public float bumpStrength = 1f;
         public string lookAtId = "", followId = "";
@@ -97,6 +103,12 @@ namespace Atlas
         public Vector3 gravityDir = new Vector3(0f, -1f, 0f);
         public float gravity = 9.81f;
         public float bounce = 0.2f;
+        // Animated weather: "", rain, storm, snow, fog.
+        public string weather = "";
+        // Film camera: depth of field (focus in metres, blur 0..1), motion
+        // blur and chromatic aberration.
+        public bool dof;
+        public float focus = 5f, dofBlur = 0.5f, motionBlur, chroma;
     }
 
     [Serializable]
@@ -296,6 +308,12 @@ namespace Atlas
                     physics = it.physics,
                     mass = it.mass,
                     videoFile = it.videoFile,
+                    preset = it.preset,
+                    amount = it.amount,
+                    seed = it.seed,
+                    fxStart = it.fxStart,
+                    text = it.text,
+                    anchors = CopyAnchors(it.anchors),
                     normalMap = it.normalMap ?? "",
                     emissionMap = it.emissionMap ?? "",
                     bumpStrength = it.bumpStrength,
@@ -308,6 +326,13 @@ namespace Atlas
                 });
             }
             return d;
+        }
+
+        static List<AnchorEvent> CopyAnchors(List<AnchorEvent> src)
+        {
+            var l = new List<AnchorEvent>();
+            if (src != null) foreach (var a in src) l.Add(a.Copy());
+            return l;
         }
 
         static List<MatOverride> CopyMats(List<MatOverride> src)

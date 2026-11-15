@@ -17,6 +17,18 @@ namespace Atlas
         public static float uiScale = 1f, orbitSens = 1f, gizmoSize = 1f, snapMove = 0.25f, snapAngle = 15f, viewRes = 1f;
         public static bool invertY, showFps, viewShadows = true, viewEffects = true;
         public static int profile = 2, maxFps = 60, msaa = 4;
+        public static string lang = "";
+
+        /// The phone's language the first time: Arabic, English or Spanish.
+        static string DefaultLang()
+        {
+            switch (Application.systemLanguage)
+            {
+                case SystemLanguage.Arabic: return "ar";
+                case SystemLanguage.English: return "en";
+            }
+            return "es";
+        }
 
         public static readonly string[] Profiles = { "Tostadora", "Ligero", "Equilibrado", "Avanzado" };
 
@@ -37,6 +49,8 @@ namespace Atlas
             viewEffects = I("viewEffects", 1) == 1;
             profile = Mathf.Clamp(I("profile", 2), 0, 3);
             maxFps = I("maxFps", 60);
+            try { lang = PlayerPrefs.GetString("atlas.lang", ""); } catch (System.Exception) { lang = ""; }
+            if (string.IsNullOrEmpty(lang)) lang = DefaultLang();
             msaa = I("msaa", 4);
         }
 
@@ -57,6 +71,7 @@ namespace Atlas
                 PlayerPrefs.SetInt("atlas.profile", profile);
                 PlayerPrefs.SetInt("atlas.maxFps", maxFps);
                 PlayerPrefs.SetInt("atlas.msaa", msaa);
+                PlayerPrefs.SetString("atlas.lang", lang);
                 PlayerPrefs.Save();
             }
             catch (System.Exception) { }
@@ -177,6 +192,8 @@ namespace Atlas
 
         int prefsTab;
 
+        float PrefsInner { get { return Mathf.Min(500f, canvasRoot.rect.width - 70f); } }
+
         void ShowPrefs(int tab = 0)
         {
             CloseMenus();
@@ -194,7 +211,7 @@ namespace Atlas
             cr.anchorMin = new Vector2(0.5f, 0.06f);
             cr.anchorMax = new Vector2(0.5f, 0.94f);
             cr.pivot = new Vector2(0.5f, 0.5f);
-            cr.sizeDelta = new Vector2(560f, 0f);
+            cr.sizeDelta = new Vector2(Mathf.Min(560f, canvasRoot.rect.width - 24f), 0f);
             cr.anchoredPosition = Vector2.zero;
             // Title and close
             var title = AtlasTheme.Label(card.transform, "Preferencias", 20, AtlasTheme.TextColor, true, TextAnchor.MiddleCenter);
@@ -249,6 +266,18 @@ namespace Atlas
 
         void PrefsInterface(Transform c)
         {
+            var ll = AtlasTheme.Label(c, "Idioma", 16, AtlasTheme.TextColor, true);
+            AtlasTheme.Le(ll.gameObject, 26f);
+            var lg = AtlasTheme.Grid(c, 3, PrefsInner, 42f);
+            for (int i = 0; i < Lang.Codes.Length; i++)
+            {
+                string code = Lang.Codes[i];
+                // Each language's name in its own script.
+                var chip = AtlasTheme.Chip(lg, Lang.Names[i], () => SwitchLanguage(code), Prefs.lang == code);
+                var ct = chip.GetComponentInChildren<Text>();
+                if (code == "ar" && ct != null && Lang.ArabicFont != null) { ct.font = Lang.ArabicFont; ct.text = ArabicShaper.Visual(ArabicShaper.Shape(Lang.Names[i])); }
+                else if (ct != null) ct.text = Lang.Names[i];
+            }
             AtlasTheme.SliderRow(c, "Escala de la interfaz", 0.7f, 1.5f, Prefs.uiScale, "0.00", v => { Prefs.uiScale = v; }, () => { ApplyPrefs(); Prefs.Save(); ShowPrefs(0); });
             PrefHint(c, "Más grande si los botones se ven pequeños; más pequeña para ver más escena. Se aplica al soltar.");
             AtlasTheme.TextButton(c, "help", "Ver la guía de inicio", () => { ClosePrefs(); ShowGuide(); }, false, 44f, 16);
@@ -272,7 +301,7 @@ namespace Atlas
         {
             var t = AtlasTheme.Label(c, "Perfil de calidad", 16, AtlasTheme.TextColor, true);
             AtlasTheme.Le(t.gameObject, 26f);
-            var g = AtlasTheme.Grid(c, 4, 500f, 40f);
+            var g = AtlasTheme.Grid(c, 4, PrefsInner, 40f);
             for (int i = 0; i < Prefs.Profiles.Length; i++)
             {
                 int p = i;
@@ -282,7 +311,7 @@ namespace Atlas
             AtlasTheme.SliderRow(c, "Resolución del visor", 0.5f, 1f, Prefs.viewRes, "0%", v => { Prefs.viewRes = v; ApplyPrefs(); }, Prefs.Save);
             var fl = AtlasTheme.Label(c, "FPS máximos", 16, AtlasTheme.TextColor, true);
             AtlasTheme.Le(fl.gameObject, 26f);
-            var fg = AtlasTheme.Grid(c, 3, 500f, 40f);
+            var fg = AtlasTheme.Grid(c, 3, PrefsInner, 40f);
             foreach (int f0 in new[] { 30, 60, 120 })
             {
                 int f = f0;
@@ -290,7 +319,7 @@ namespace Atlas
             }
             var al = AtlasTheme.Label(c, "Bordes suaves (antialiasing)", 16, AtlasTheme.TextColor, true);
             AtlasTheme.Le(al.gameObject, 26f);
-            var ag = AtlasTheme.Grid(c, 3, 500f, 40f);
+            var ag = AtlasTheme.Grid(c, 3, PrefsInner, 40f);
             int[] levels = { 1, 2, 4 };
             string[] ln = { "No", "×2", "×4" };
             for (int i = 0; i < 3; i++)
@@ -309,6 +338,27 @@ namespace Atlas
             AtlasTheme.TextButton(c, "save", "Copia de todos los proyectos (.zip)", () => { ClosePrefs(); ExportProjectZip(null); }, false, 46f, 16);
             AtlasTheme.TextButton(c, "import", "Recuperar proyectos de una copia…", () => { ClosePrefs(); ImportProjectZip(); }, false, 46f, 16);
             PrefHint(c, "Carpeta de proyectos: " + SceneStore.Root);
+        }
+
+        /// The whole interface is built again in the new language (the open
+        /// project is saved and opened again).
+        void SwitchLanguage(string code)
+        {
+            if (code == Prefs.lang) return;
+            Prefs.lang = code;
+            Prefs.Save();
+            string reopen = store != null ? store.name : null;
+            if (store != null) SaveNow(false);
+            if (reopen != null) PlayerPrefs.SetString("atlas.reopen", reopen);
+            UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+        }
+
+        /// After a language change: the project that was open.
+        void ReopenAfterLanguage()
+        {
+            string name = "";
+            try { name = PlayerPrefs.GetString("atlas.reopen", ""); PlayerPrefs.DeleteKey("atlas.reopen"); } catch (System.Exception) { }
+            if (!string.IsNullOrEmpty(name) && SceneStore.Exists(name)) OpenProject(name);
         }
 
         // ------------------------------------------------------------------

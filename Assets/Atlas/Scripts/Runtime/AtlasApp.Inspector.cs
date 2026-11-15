@@ -114,12 +114,12 @@ namespace Atlas
             nameField = null;
             if (selected == null)
             {
-                propsTitle.text = "ESCENA";
+                Lang.Set(propsTitle, "ESCENA");
                 BuildSceneInspector();
             }
             else
             {
-                propsTitle.text = "PROPIEDADES";
+                Lang.Set(propsTitle, "PROPIEDADES");
                 BuildObjectInspector(selected);
             }
         }
@@ -189,6 +189,9 @@ namespace Atlas
                 if (it.HasBones) BuildSkeletonSection(it);
                 BuildModelSection(it);
             }
+            else if (it.kind == "fx") BuildFxSection(it);
+            else if (it.kind == "text") BuildText3DSection(it);
+            else if (it.kind == "water" || it.kind == "terrain") BuildWorldSection(it);
             else if (it.kind == "video")
             {
                 var vb = Sec("Vídeo", "video");
@@ -197,9 +200,11 @@ namespace Atlas
             }
             else
             {
+                if (it.kind == "flag") BuildWorldSection(it);
                 BuildMaterialSection(it);
                 if (MeshEditable(it)) BuildModellingSection(it);
             }
+            if (!it.IsLight && it.kind != "camera" && it.kind != "model") BuildAnchorSection(it);
             if (!it.IsLight && it.kind != "camera") BuildPhysicsItemSection(it);
             BuildKeysSection(it);
             BuildInfoSection(it);
@@ -424,6 +429,24 @@ namespace Atlas
                 Hint(box, "Gira la luz con la herramienta Girar para apuntarla.");
         }
 
+        /// Focus on the selected object from the camera the render uses.
+        void FocusOnSelected()
+        {
+            var target0 = selected;
+            if (target0 == null) { Toast("Selecciona el objeto que quieres enfocar"); return; }
+            var rc = RenderCamera();
+            Vector3 from = cam.transform.position;
+            if (rc != null) { Vector3 cp; Quaternion cq; CameraPose(rc, frame, out cp, out cq); from = cp; }
+            var rs = target0.GetComponentsInChildren<Renderer>();
+            Vector3 c = target0.transform.position;
+            if (rs.Length > 0) { var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds); c = b.center; }
+            env.focus = Mathf.Max(0.2f, Vector3.Distance(from, c));
+            ApplyEnv();
+            Commit(true);
+            RefreshProps();
+            Toast("Enfocado a " + env.focus.ToString("0.0") + " m");
+        }
+
         void BuildModelSection(AtlasItem it)
         {
             var box = Sec("Animación del modelo", "film");
@@ -560,6 +583,17 @@ namespace Atlas
             AtlasTheme.SliderRow(fx, "Viñeta", 0f, 1f, env.vignette, "0.00", x => { env.vignette = x; ApplyEnv(); }, () => Commit(true));
             AtlasTheme.SliderRow(fx, "Grano", 0f, 1f, env.grain, "0.00", x => { env.grain = x; ApplyEnv(); }, () => Commit(true));
             AtlasTheme.SliderRow(fx, "Niebla", 0f, 0.1f, env.fog, "0.000", x => { env.fog = x; ApplyEnv(); }, () => Commit(true));
+            var cine = AtlasTheme.Label(fx, "Cámara de cine", 15, AtlasTheme.TextColor, true);
+            AtlasTheme.Le(cine.gameObject, 26f);
+            AtlasTheme.Switch(fx, "Desenfoque de fondo (profundidad de campo)", env.dof, on => { env.dof = on; ApplyEnv(); Commit(true); RefreshProps(); });
+            if (env.dof)
+            {
+                AtlasTheme.SliderRow(fx, "Distancia de enfoque (m)", 0.2f, 60f, env.focus, "0.0", x => { env.focus = x; ApplyEnv(); }, () => Commit(true));
+                AtlasTheme.SliderRow(fx, "Cuánto desenfoca", 0f, 1f, env.dofBlur, "0.00", x => { env.dofBlur = x; ApplyEnv(); }, () => Commit(true));
+                AtlasTheme.TextButton(fx, "focus", "Enfocar el objeto seleccionado", FocusOnSelected, false, 42f, 15);
+            }
+            AtlasTheme.SliderRow(fx, "Desenfoque de movimiento", 0f, 1f, env.motionBlur, "0.00", x => { env.motionBlur = x; ApplyEnv(); }, () => Commit(true));
+            AtlasTheme.SliderRow(fx, "Aberración cromática", 0f, 1f, env.chroma, "0.00", x => { env.chroma = x; ApplyEnv(); }, () => Commit(true));
             AtlasTheme.TextButton(fx, "undo", "Valores del ambiente", () =>
             {
                 Ambience.Reset(env, env.preset);
@@ -568,6 +602,7 @@ namespace Atlas
                 RefreshProps();
             }, false, 42f, 16);
 
+            BuildWeatherSection();
             BuildPhysicsSceneSection();
             var view = Sec("Vista", "view", false);
             AtlasTheme.Switch(view, "Sombras", !env.shadowsOff, on =>

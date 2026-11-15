@@ -45,7 +45,7 @@ namespace Atlas
             string toolName = tool == Tool.Select ? "Seleccionar" : tool == Tool.Move ? "Mover" : tool == Tool.Rotate ? "Girar" : "Escalar";
             if (meshMode != "")
             {
-                badgeText.text = meshMode == "model" ? "MODELAR" : "ESCULPIR";
+                Lang.Set(badgeText, meshMode == "model" ? "MODELAR" : "ESCULPIR");
                 badge.color = AtlasTheme.Key * 0.85f;
                 modeFull = meshMode == "model"
                     ? (selMode == "vert" ? "Vértices" : "Caras") + " · " + (selected != null ? selected.gameObject.name : "")
@@ -53,13 +53,13 @@ namespace Atlas
             }
             else if (poseMode)
             {
-                badgeText.text = "POSE";
+                Lang.Set(badgeText, "POSE");
                 badge.color = AtlasTheme.AccentButton;
                 modeFull = activeBone != "" ? toolName + " · " + BoneNames.Display(BoneNames.Leaf(activeBone)) : "Toca una articulación";
             }
             else
             {
-                badgeText.text = "OBJETO";
+                Lang.Set(badgeText, "OBJETO");
                 badge.color = AtlasTheme.Badge;
                 string what = selected != null ? selected.gameObject.name + (selected.locked ? " (bloqueado)" : "") : "Nada seleccionado";
                 if (selected != null && activeMat >= 0 && activeMat < selected.modelMats.Count)
@@ -203,8 +203,9 @@ namespace Atlas
             pillRect.anchoredPosition = new Vector2(12f, below ? -84f : -16f);
             float maxText = Mathf.Max(120f, (below ? W - 160f : W - bar - 150f));
             int maxChars = Mathf.Max(8, Mathf.FloorToInt(maxText / 10.5f));
-            string t = modeFull.Length > maxChars ? modeFull.Substring(0, maxChars - 1) + "…" : modeFull;
-            modeText.text = t;
+            string full = Lang.T(modeFull);
+            string t = full.Length > maxChars ? full.Substring(0, maxChars - 1) + "…" : full;
+            Lang.Set(modeText, t);
             modeLe.preferredWidth = Mathf.Min(maxText, t.Length * 10.5f + 6f);
         }
 
@@ -309,6 +310,21 @@ namespace Atlas
             AtlasTheme.TextButton(lights, "light", "Luz", () => AddShape("light"), false, 46f, 16);
             AtlasTheme.TextButton(lights, "spot", "Foco", () => AddShape("spot"), false, 46f, 16);
             AtlasTheme.TextButton(lights, "sun", "Sol", () => AddShape("sun"), false, 46f, 16);
+            var tf = AtlasTheme.Label(content, "EFECTOS", 15, AtlasTheme.TextDim, true);
+            AtlasTheme.Le(tf.gameObject, 22f);
+            var fxg = AtlasTheme.Grid(content, 2, 316f, 44f);
+            for (int i = 0; i < FxPresets.Length; i++)
+            {
+                string p = FxPresets[i];
+                AtlasTheme.TextButton(fxg, "sparkle", FxNames[i], () => AddFx(p), false, 44f, 16);
+            }
+            var tw = AtlasTheme.Label(content, "MUNDO", 15, AtlasTheme.TextDim, true);
+            AtlasTheme.Le(tw.gameObject, 22f);
+            var wg = AtlasTheme.Grid(content, 3, 316f, 44f);
+            AtlasTheme.TextButton(wg, "plane", "Agua", () => AddWorldPiece("water", "sea"), false, 44f, 16);
+            AtlasTheme.TextButton(wg, "pyramid", "Terreno", () => AddWorldPiece("terrain", "hills"), false, 44f, 16);
+            AtlasTheme.TextButton(wg, "image", "Tela", () => AddWorldPiece("flag", "flag"), false, 44f, 16);
+            AtlasTheme.TextButton(content, "edit", "Texto 3D (títulos)", AddText3D, false, 44f, 16);
             var t3 = AtlasTheme.Label(content, "OTROS", 15, AtlasTheme.TextDim, true);
             AtlasTheme.Le(t3.gameObject, 22f);
             var others = AtlasTheme.Grid(content, 2, 316f, 46f);

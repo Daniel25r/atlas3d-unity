@@ -387,6 +387,7 @@ namespace Atlas
                     AtlasTheme.Chip(ig, n + " huesos" + (n == 2 ? " (bípedo)" : n == 3 ? " (cuadrúpedo)" : ""), () => { ikChain = n; RefreshProps(); }, ikChain == n);
                 }
             }
+            BuildLipSyncSection(it, box);
             int hidden = HiddenBoneCount(it);
             if (hidden > 0 || allBones)
                 AtlasTheme.Switch(box, "Mostrar también pelo, falda y ropa (" + hidden + ")", allBones, on =>

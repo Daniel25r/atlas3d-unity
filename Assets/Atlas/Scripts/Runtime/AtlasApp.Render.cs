@@ -65,6 +65,9 @@ namespace Atlas
             }
             AtlasTheme.TextButton(content, "image", "Imagen (PNG)", RenderPicture, true, 50f);
             AtlasTheme.TextButton(content, "video", "Vídeo MP4", () => StartCoroutine(RenderVideo()), true, 50f);
+            var more = AtlasTheme.Grid(content, 2, 332f, 46f);
+            AtlasTheme.TextButton(more, "film", "GIF animado", () => StartCoroutine(RenderGif()), false, 46f, 16);
+            AtlasTheme.TextButton(more, "image", "PNG (ZIP)", () => StartCoroutine(RenderFrames(true)), false, 46f, 16);
             AtlasTheme.TextButton(content, "film", "Animación (fotogramas en ZIP)", () => StartCoroutine(RenderFrames()), false, 50f, 17);
             var hint = AtlasTheme.Label(content, "El MP4 se guarda en tu galería o donde elijas. Los fotogramas JPG (con el audio en el ZIP) sirven para editarlos en CapCut, VN o cualquier editor.", 14, AtlasTheme.TextDim);
             AtlasTheme.Le(hint.gameObject, 40f);
@@ -102,6 +105,14 @@ namespace Atlas
                 if (it != null && it.IsHelper)
                     foreach (var r in it.GetComponentsInChildren<Renderer>())
                         if (r.enabled && r.gameObject.name != "Volumen") { r.enabled = false; hidden.Add(r); }
+            // Effects show their particles, not their marker.
+            foreach (var it in items)
+                if (it != null && it.kind == "fx")
+                {
+                    var mk = it.transform.Find("Marca");
+                    var mr = mk != null ? mk.GetComponent<Renderer>() : null;
+                    if (mr != null && mr.enabled) { mr.enabled = false; hidden.Add(mr); }
+                }
             // From the scene camera when there is one.
             var rc = RenderCamera();
             Vector3 keepPos = cam.transform.position;
@@ -198,6 +209,49 @@ namespace Atlas
             return true;
         }
 
+        /// Animated GIF (looping), at most 480 px on the long side to stay
+        /// light for sharing.
+        IEnumerator RenderGif()
+        {
+            CloseMenus();
+            if (rendering || store == null) yield break;
+            rendering = true;
+            if (playing) TogglePlay();
+            float keep = frame;
+            float big = Mathf.Max(renderW, renderH);
+            float k = Mathf.Min(1f, 480f / big);
+            int w = Mathf.Max(16, Mathf.RoundToInt(renderW * k)), h = Mathf.Max(16, Mathf.RoundToInt(renderH * k));
+            string path = Path.Combine(Exporter.ExportDir, (store.name.Replace(' ', '_')) + "_" + Stamp() + ".gif");
+            int total = endFrame - startFrame + 1;
+            Toast("GIF: " + total + " fotogramas…");
+            bool ok = true;
+            string err = "";
+            FileStream fs = null;
+            GifWriter gif = null;
+            try { fs = File.Create(path); gif = new GifWriter(fs, w, h, fps); }
+            catch (System.Exception e) { ok = false; err = e.Message; }
+            for (int f = startFrame; ok && f <= endFrame; f++)
+            {
+                SetFrame(f);
+                yield return WaitVideos();
+                try
+                {
+                    var tex = Capture(w, h, renderGround);
+                    gif.AddFrame(tex.GetPixels32());
+                    Destroy(tex);
+                }
+                catch (System.Exception e) { ok = false; err = e.Message; }
+                if ((f - startFrame) % 24 == 23) Toast("GIF: " + (f - startFrame + 1) + " / " + total);
+                yield return null;
+            }
+            try { if (gif != null) gif.Dispose(); if (fs != null) fs.Dispose(); }
+            catch (System.Exception e) { ok = false; err = e.Message; }
+            SetFrame(keep);
+            rendering = false;
+            if (ok) Share(path, "GIF animado (" + total + " fotogramas)");
+            else Toast("No se pudo hacer el GIF: " + err, true);
+        }
+
         static string Stamp()
         {
             return System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
@@ -221,7 +275,7 @@ namespace Atlas
             }
         }
 
-        IEnumerator RenderFrames()
+        IEnumerator RenderFrames(bool png = false)
         {
             CloseMenus();
             if (rendering || store == null) yield break;
@@ -252,9 +306,9 @@ namespace Atlas
                 try
                 {
                     var tex = Capture(renderW, renderH, renderGround);
-                    byte[] jpg = tex.EncodeToJPG(92);
+                    byte[] jpg = png ? tex.EncodeToPNG() : tex.EncodeToJPG(92);
                     Destroy(tex);
-                    var entry = zip.CreateEntry("fotograma_" + f.ToString("0000") + ".jpg", System.IO.Compression.CompressionLevel.NoCompression);
+                    var entry = zip.CreateEntry("fotograma_" + f.ToString("0000") + (png ? ".png" : ".jpg"), System.IO.Compression.CompressionLevel.NoCompression);
                     using (var s = entry.Open()) s.Write(jpg, 0, jpg.Length);
                 }
                 catch (System.Exception e)

@@ -140,13 +140,13 @@ namespace Atlas
             var r = Rect(parent, "Texto");
             var t = r.gameObject.AddComponent<Text>();
             t.font = bold ? FontBold : Font;
-            t.text = text;
             t.fontSize = size;
             t.color = color;
             t.alignment = align;
             t.horizontalOverflow = HorizontalWrapMode.Wrap;
             t.verticalOverflow = VerticalWrapMode.Overflow;
             t.raycastTarget = false;
+            Lang.Set(t, text);
             return t;
         }
 
@@ -570,7 +570,9 @@ namespace Atlas
             colors.pressedColor = Color.white;
             close.colors = colors;
             var card = Box(dim.transform, "Tarjeta", Panel2, 18);
-            Pin(card.rectTransform, 0.5f, 0.5f, Vector2.zero, new Vector2(470f, 0f));
+            // Never wider than the screen (small phones).
+            float rw = root is RectTransform ? ((RectTransform)root).rect.width : 1000f;
+            Pin(card.rectTransform, 0.5f, 0.5f, Vector2.zero, new Vector2(Mathf.Min(470f, Mathf.Max(260f, rw - 32f)), 0f));
             card.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             var col = Column(card.gameObject, 12f, new RectOffset(22, 22, 20, 20));
             col.childForceExpandWidth = true;
@@ -633,6 +635,7 @@ namespace Atlas
             var cr = card.rectTransform;
             cr.anchorMin = cr.anchorMax = new Vector2(0f, 0f);
             cr.pivot = new Vector2(0f, 0f);
+            width = Mathf.Min(width, Mathf.Max(220f, root.rect.width - 20f));
             cr.sizeDelta = new Vector2(width, ch);
             Vector2 local;
             RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screenPos, null, out local);
@@ -650,11 +653,11 @@ namespace Atlas
                 var e = e0;
                 if (e.header)
                 {
-                    var hl = Label(content, e.text.ToUpperInvariant(), 13, TextDim, true);
+                    var hl = Label(content, Lang.T(e.text).ToUpperInvariant(), 13, TextDim, true);
                     Le(hl.gameObject, 28f);
                     continue;
                 }
-                string text = e.check ? (e.on ? "✓  " : "     ") + e.text : e.text;
+                string text = e.check ? (e.on ? "✓  " : "     ") + Lang.T(e.text) : e.text;
                 var b = TextButton(content, e.icon, text, () =>
                 {
                     Object.Destroy(go);

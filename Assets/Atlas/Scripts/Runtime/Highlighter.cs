@@ -55,7 +55,7 @@ namespace Atlas
             foreach (var r in it.GetComponentsInChildren<Renderer>())
             {
                 if (r.gameObject.layer == Gizmo.Layer) continue;
-                if (r is LineRenderer) continue;
+                if (r is LineRenderer || r is ParticleSystemRenderer) continue;
                 if (only != null)
                 {
                     Material[] arr;

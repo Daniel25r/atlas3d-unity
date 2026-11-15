@@ -11,7 +11,7 @@ using UnityEngine.Rendering;
 
 namespace Atlas
 {
-    public class EditMesh
+    public partial class EditMesh
     {
         public List<Vector3> verts = new List<Vector3>();
         public List<int[]> faces = new List<int[]>();
@@ -160,6 +160,15 @@ namespace Atlas
         /// smooth across edges flatter than 40°).
         public void ToMesh(Mesh m)
         {
+            // «Liso»: smooth levels shown, the mesh itself unchanged.
+            if (subdivView > 0 && TriangleCount * (1 << (2 * subdivView)) < 400000)
+            {
+                var c = Copy();
+                c.subdivView = 0;
+                for (int i = 0; i < subdivView; i++) c.SubdivideSmooth();
+                c.ToMesh(m);
+                return;
+            }
             var fn = new Vector3[faces.Count];
             for (int i = 0; i < faces.Count; i++) fn[i] = FaceNormal(i);
             var vf = new List<int>[verts.Count];
@@ -173,7 +182,7 @@ namespace Atlas
             var nor = new List<Vector3>();
             var uv = new List<Vector2>();
             var tri = new List<int>();
-            const float cosSmooth = 0.766f;   // 40°
+            float cosSmooth = smoothAngle >= 179f ? -2f : Mathf.Cos(Mathf.Clamp(smoothAngle, 0f, 180f) * Mathf.Deg2Rad);
             for (int i = 0; i < faces.Count; i++)
             {
                 var f = faces[i];
@@ -556,7 +565,7 @@ namespace Atlas
             using (var w = new BinaryWriter(f))
             {
                 w.Write(0x48534D41);   // "AMSH"
-                w.Write(1);
+                w.Write(2);
                 w.Write(verts.Count);
                 foreach (var v in verts) { w.Write(v.x); w.Write(v.y); w.Write(v.z); }
                 w.Write(faces.Count);
@@ -570,6 +579,8 @@ namespace Atlas
                         w.Write(uvs[i][k].y);
                     }
                 }
+                w.Write(smoothAngle);
+                w.Write(subdivView);
             }
         }
 
@@ -579,7 +590,7 @@ namespace Atlas
             using (var r = new BinaryReader(f))
             {
                 if (r.ReadInt32() != 0x48534D41) throw new Exception("malla dañada");
-                r.ReadInt32();
+                int version = r.ReadInt32();
                 var e = new EditMesh();
                 int nv = r.ReadInt32();
                 for (int i = 0; i < nv; i++) e.verts.Add(new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()));
@@ -592,6 +603,11 @@ namespace Atlas
                     for (int k = 0; k < n; k++) { fa[k] = r.ReadInt32(); ua[k] = new Vector2(r.ReadSingle(), r.ReadSingle()); }
                     e.faces.Add(fa);
                     e.uvs.Add(ua);
+                }
+                if (version >= 2)
+                {
+                    e.smoothAngle = r.ReadSingle();
+                    e.subdivView = r.ReadInt32();
                 }
                 return e;
             }

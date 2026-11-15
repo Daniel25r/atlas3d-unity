@@ -252,7 +252,7 @@ namespace Atlas
                 if (m >= labelPool.Count) labelPool.Add(MakeText(13, AtlasTheme.TextColor, TextAnchor.MiddleLeft));
                 var t = labelPool[m++];
                 t.enabled = true;
-                t.text = row.label;
+                Lang.Set(t, row.label);
                 t.horizontalOverflow = HorizontalWrapMode.Wrap;
                 t.verticalOverflow = VerticalWrapMode.Truncate;
                 t.color = row.focus ? AtlasTheme.AccentLight : (row.track == "" ? AtlasTheme.TextColor : AtlasTheme.TextDim);
@@ -265,7 +265,7 @@ namespace Atlas
             hintText.enabled = showHint;
             if (showHint)
             {
-                hintText.text = rows.Count == 0 ? emptyHint : "Este hueso no tiene claves: pulsa ◆ para guardar una aquí.";
+                Lang.Set(hintText, rows.Count == 0 ? emptyHint : "Este hueso no tiene claves: pulsa ◆ para guardar una aquí.");
                 Place(hintText, labelWidth + 12f, rows.Count == 0 ? RulerH + 6f : rows[0].y, Mathf.Max(50f, W - labelWidth - 20f), RowH);
             }
             // Playhead tag (on top of everything)

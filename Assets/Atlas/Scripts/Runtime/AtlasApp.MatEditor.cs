@@ -203,16 +203,18 @@ namespace Atlas
             left.anchorMax = new Vector2(0f, 1f);
             left.pivot = new Vector2(0f, 1f);
             left.offsetMin = new Vector2(12f, 12f);
-            left.offsetMax = new Vector2(322f, -52f);
+            // Narrow screens: a smaller preview column.
+            float lw = canvasRoot.rect.width < 900f ? 250f : 310f;
+            left.offsetMax = new Vector2(12f + lw, -52f);
             ScrollRect lsr;
             var lc = AtlasTheme.ScrollArea(left, out lsr, 8f, new RectOffset(4, 4, 0, 8));
             var pv = AtlasTheme.Box(lc, "Vista", new Color(0.08f, 0.09f, 0.11f), 14);
-            AtlasTheme.Le(pv.gameObject, 290f);
+            AtlasTheme.Le(pv.gameObject, lw - 20f);
             var raw = AtlasTheme.Rect(pv.transform, "Imagen").gameObject.AddComponent<RawImage>();
             AtlasTheme.Fill(raw.rectTransform, 6f, 6f, 6f, 6f);
             raw.texture = previewRT;
             raw.raycastTarget = false;
-            var sg = AtlasTheme.Grid(lc, 3, 296f, 36f);
+            var sg = AtlasTheme.Grid(lc, 3, lw - 14f, 36f);
             foreach (var sh in new[] { "sphere", "cube", "plane" })
             {
                 string shape = sh;
@@ -224,7 +226,7 @@ namespace Atlas
             if (lib.mats.Count == 0) PrefHint(lc, "Guarda aquí los materiales que te gusten para usarlos en cualquier proyecto.");
             else
             {
-                var lg = AtlasTheme.Grid(lc, 2, 296f, 38f);
+                var lg = AtlasTheme.Grid(lc, 2, lw - 14f, 38f);
                 for (int i = 0; i < lib.mats.Count; i++)
                 {
                     var sm = lib.mats[i];
@@ -238,7 +240,7 @@ namespace Atlas
             var right = AtlasTheme.Rect(card.transform, "Derecha");
             right.anchorMin = new Vector2(0f, 0f);
             right.anchorMax = new Vector2(1f, 1f);
-            right.offsetMin = new Vector2(334f, 12f);
+            right.offsetMin = new Vector2(24f + lw, 12f);
             right.offsetMax = new Vector2(-12f, -52f);
             ScrollRect rsr;
             var rc = AtlasTheme.ScrollArea(right, out rsr, 8f, new RectOffset(6, 10, 0, 12));
@@ -246,7 +248,7 @@ namespace Atlas
             if (toastHolder != null) toastHolder.SetAsLastSibling();
         }
 
-        float RightWidth { get { return Mathf.Max(360f, canvasRoot.rect.width - 28f - 334f - 40f); } }
+        float RightWidth { get { float lw = canvasRoot.rect.width < 900f ? 250f : 310f; return Mathf.Max(300f, canvasRoot.rect.width - 28f - lw - 64f); } }
 
         void BuildMatControls(Transform c)
         {

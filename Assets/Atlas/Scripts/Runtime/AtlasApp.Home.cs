@@ -353,6 +353,30 @@ namespace Atlas
             toastHolder.SetAsLastSibling();
         }
 
+        const string WhatsNew =
+            "• Efectos: lluvia, nieve, humo, fuego, chispas, explosiones, burbujas, confeti y magia.\n" +
+            "• Clima animado con tormenta y relámpagos.\n" +
+            "• Mundo: agua con olas, terrenos con árboles y telas que ondean.\n" +
+            "• Agarrar objetos con la mano (o cualquier hueso) y soltarlos en la animación.\n" +
+            "• Sincronizar labios con el audio.\n" +
+            "• Texto 3D para títulos.\n" +
+            "• Cámara de cine: desenfoque de fondo, de movimiento y aberración.\n" +
+            "• Render en GIF animado y PNG.\n" +
+            "• Modelado: aristas, recuadro, bisel, cuchillo, bucles y más.\n" +
+            "• Inglés y árabe en Preferencias.";
+
+        /// Once per version: what it brings.
+        void ShowWhatsNew()
+        {
+            string seen = "";
+            try { seen = PlayerPrefs.GetString("atlas.seen", ""); } catch (System.Exception) { }
+            if (seen == Version) return;
+            try { PlayerPrefs.SetString("atlas.seen", Version); PlayerPrefs.Save(); } catch (System.Exception) { }
+            if (seen == "") return;   // first install: the guide is enough
+            AtlasTheme.Dialog(canvasRoot, "Novedades · ATLAS 3D " + Version, WhatsNew, null, "Entendido", false, null);
+            toastHolder.SetAsLastSibling();
+        }
+
         void ShowAbout()
         {
             AtlasTheme.Dialog(canvasRoot, "ATLAS 3D " + Version,

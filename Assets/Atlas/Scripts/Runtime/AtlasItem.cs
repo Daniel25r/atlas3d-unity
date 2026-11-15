@@ -52,6 +52,15 @@ namespace Atlas
         public float mass = 1f;
         public string videoFile = "";
         public RenderTexture videoRT;
+        // Effects and world pieces: «fx» (particles), «water», «terrain»,
+        // «flag» (cloth); their style, strength and random seed.
+        public string preset = "";
+        public float amount = 1f;
+        public int seed = 1;
+        public int fxStart;              // frame an explosion (one-shot effect) goes off
+        public string text = "";         // 3D text (titles)
+        // Held by a bone («agarrar»): attach / release events on the timeline.
+        public List<AnchorEvent> anchors = new List<AnchorEvent>();
         public bool renderCam;       // renders are made from this camera
         public string lookAtId = "", followId = "";
         public Vector3 followOffset;
@@ -72,7 +81,9 @@ namespace Atlas
         readonly Dictionary<string, BonePose> rest = new Dictionary<string, BonePose>();
 
         public bool IsLight { get { return kind == "light" || kind == "spot" || kind == "sun"; } }
-        public bool IsShape { get { return !IsLight && kind != "model" && kind != "camera"; } }
+        public bool IsShape { get { return !IsLight && kind != "model" && kind != "camera" && kind != "video" && kind != "fx" && kind != "water" && kind != "terrain" && kind != "text"; } }
+        /// Built by ATLAS (not editable with Modelar).
+        public bool IsGenerated { get { return kind == "fx" || kind == "water" || kind == "terrain" || kind == "flag" || kind == "video" || kind == "text"; } }
         /// Lights and cameras: tools of the scene, not part of exported models.
         public bool IsHelper { get { return IsLight || kind == "camera"; } }
         public bool HasBones { get { return bones.Count > 0; } }
@@ -510,6 +521,20 @@ namespace Atlas
                 importer = null;
             }
         }
+    }
+
+    /// The object is held by `bone` of model `target` from `frame` on (an
+    /// empty target: let go there). `pos` / `rot`: where it sits in the bone.
+    [Serializable]
+    public class AnchorEvent
+    {
+        public int frame;
+        public string target = "", bone = "";
+        public Vector3 pos;
+        public Quaternion rot = Quaternion.identity;
+        public Vector3 scale = Vector3.one;
+
+        public AnchorEvent Copy() { return (AnchorEvent)MemberwiseClone(); }
     }
 
     [Serializable]

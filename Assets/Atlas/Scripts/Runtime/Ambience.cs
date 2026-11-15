@@ -127,6 +127,9 @@ namespace Atlas
         static URP.ColorAdjustments color;
         static URP.Vignette vignette;
         static URP.FilmGrain grain;
+        static URP.DepthOfField dof;
+        static URP.MotionBlur motion;
+        static URP.ChromaticAberration chroma;
         static Material skyMat, cloudMat;
 
         /// Global post-processing volume and the camera's post switch.
@@ -142,6 +145,9 @@ namespace Atlas
             color = profile.Add<URP.ColorAdjustments>(true);
             vignette = profile.Add<URP.Vignette>(true);
             grain = profile.Add<URP.FilmGrain>(true);
+            dof = profile.Add<URP.DepthOfField>(true);
+            motion = profile.Add<URP.MotionBlur>(true);
+            chroma = profile.Add<URP.ChromaticAberration>(true);
             vol.sharedProfile = profile;
             try
             {
@@ -254,6 +260,16 @@ namespace Atlas
             grain.active = e.grain > 0.01f;
             grain.type.Override(URP.FilmGrainLookup.Medium1);
             grain.intensity.Override(e.grain);
+            // Film camera
+            dof.active = e.dof;
+            dof.mode.Override(URP.DepthOfFieldMode.Bokeh);
+            dof.focusDistance.Override(Mathf.Max(0.1f, e.focus));
+            dof.aperture.Override(Mathf.Lerp(16f, 1.2f, Mathf.Clamp01(e.dofBlur)));
+            dof.focalLength.Override(Mathf.Lerp(35f, 120f, Mathf.Clamp01(e.dofBlur)));
+            motion.active = e.motionBlur > 0.01f;
+            motion.intensity.Override(Mathf.Clamp01(e.motionBlur));
+            chroma.active = e.chroma > 0.01f;
+            chroma.intensity.Override(Mathf.Clamp01(e.chroma));
         }
     }
 }

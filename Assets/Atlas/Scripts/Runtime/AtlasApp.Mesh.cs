@@ -17,7 +17,7 @@ namespace Atlas
     public partial class AtlasApp
     {
         string meshMode = "";         // "" | "model" | "sculpt"
-        string selMode = "vert";      // vert | face
+        string selMode = "vert";      // vert | edge | face
         readonly HashSet<int> selVerts = new HashSet<int>();
         readonly HashSet<int> selFaces = new HashSet<int>();
         Transform meshPivot;
@@ -85,7 +85,7 @@ namespace Atlas
 
         bool MeshEditable(AtlasItem it)
         {
-            return it != null && it.IsShape && it.GetComponent<MeshFilter>() != null;
+            return it != null && it.IsShape && !it.IsGenerated && it.GetComponent<MeshFilter>() != null;
         }
 
         // ------------------------------------------------------------------
@@ -187,6 +187,9 @@ namespace Atlas
             meshMode = mode;
             selVerts.Clear();
             selFaces.Clear();
+            selEdges.Clear();
+            vertOrder.Clear();
+            boxSelect = knifeOn = false;
             if (mode != "")
             {
                 EnsureEditable(selected);
@@ -256,11 +259,23 @@ namespace Atlas
             LayoutTimelineNeighbours();
             if (meshMode == "model")
             {
-                BarButton("mode_vert", "Vértices", () => { selMode = "vert"; selFaces.Clear(); BuildMeshBar(); ShowGizmo(); }, selMode == "vert");
-                BarButton("mode_face", "Caras", () => { selMode = "face"; selVerts.Clear(); BuildMeshBar(); ShowGizmo(); }, selMode == "face");
+                BarButton("mode_vert", "Vértices", () => { selMode = "vert"; selFaces.Clear(); selEdges.Clear(); BuildMeshBar(); ShowGizmo(); }, selMode == "vert");
+                BarButton("mode_vert", "Aristas", () => { selMode = "edge"; selFaces.Clear(); selVerts.Clear(); vertOrder.Clear(); BuildMeshBar(); ShowGizmo(); }, selMode == "edge");
+                BarButton("mode_face", "Caras", () => { selMode = "face"; selVerts.Clear(); selEdges.Clear(); vertOrder.Clear(); BuildMeshBar(); ShowGizmo(); }, selMode == "face");
+                BarButton("select", "Recuadro", () => { boxSelect = !boxSelect; if (boxSelect) knifeOn = false; BuildMeshBar(); Toast(boxSelect ? "Recuadro: arrastra un dedo para elegir todo lo que quede dentro" : "Recuadro desactivado"); }, boxSelect);
+                BarButton("multiselect", "Todo", SelectAllElements);
+                BarButton("deselect", "Nada", () => { selVerts.Clear(); selFaces.Clear(); selEdges.Clear(); vertOrder.Clear(); ShowGizmo(); });
                 AtlasTheme.Separator(meshBarContent, true);
                 BarButton("extrude", "Extruir", ExtrudeSelected);
                 BarButton("inset", "Insertar", InsetSelected);
+                BarButton("subdivide", "Bisel", () => BevelMenu(BarPoint()));
+                BarButton("merge", "Conectar", ConnectSelected);
+                BarButton("add", "Crear cara", FillSelected);
+                BarButton("edit", "Cuchillo", () => { knifeOn = !knifeOn; if (knifeOn) boxSelect = false; BuildMeshBar(); Toast(knifeOn ? "Cuchillo: dibuja una línea de lado a lado de la forma (o elige vértices en orden y pulsa Conectar)" : "Cuchillo desactivado"); }, knifeOn);
+                BarButton("loop", "Corte en bucle", LoopCutSelected);
+                BarButton("loop", "Bucle", () => LoopOrRing(false));
+                BarButton("loop", "Anillo", () => LoopOrRing(true));
+                BarButton("delete", "Disolver", DissolveSelected);
                 BarButton("merge", "Unir", () =>
                 {
                     var vs = SelectedVertsOrNull();
@@ -269,11 +284,12 @@ namespace Atlas
                 });
                 BarButton("mirror", "Espejo X", () => MeshOp("Espejo X (lado +X copiado)", m => m.MirrorX(), true));
                 BarButton("subdivide", "Subdividir", () => MeshOp("Subdividir", m => m.Subdivide(), true));
+                BarButton("subdivide", "Subdivisión suave", () => MeshOp("Subdivisión suave", m => m.SubdivideSmooth(), true));
                 BarButton("smooth", "Suavizar", () => MeshOp("Suavizar", m => m.Smooth(0.5f, SelectedVertsOrNull()), false));
+                BarButton("sphere", "Sombreado y liso", () => ShadingMenu(BarPoint()));
+                BarButton("image", "UV automáticas", () => UvMenu(BarPoint()));
                 BarButton("flip", "Invertir", () => MeshOp("Invertir caras", m => m.Flip(selMode == "face" ? selFaces : null), false));
                 BarButton("delete", "Borrar caras", DeleteSelectedFaces);
-                BarButton("multiselect", "Todo", SelectAllElements);
-                BarButton("deselect", "Nada", () => { selVerts.Clear(); selFaces.Clear(); ShowGizmo(); });
             }
             else
             {
@@ -296,6 +312,7 @@ namespace Atlas
         HashSet<int> SelectedVertsOrNull()
         {
             if (selMode == "face" && selFaces.Count > 0) return selected.edit.VertsOfFaces(selFaces);
+            if (selMode == "edge" && selEdges.Count > 0) return VertsOfEdges();
             return selVerts.Count > 0 ? new HashSet<int>(selVerts) : null;
         }
 
@@ -304,7 +321,7 @@ namespace Atlas
             if (selected == null || selected.edit == null) return;
             if (topology && selected.edit.TriangleCount > 60000) { Toast("La malla ya es muy densa para el móvil", true); return; }
             op(selected.edit);
-            if (topology) { selVerts.Clear(); selFaces.Clear(); }
+            if (topology) { selVerts.Clear(); selFaces.Clear(); selEdges.Clear(); vertOrder.Clear(); }
             selected.edit.ToMesh(selected.editMesh);
             SaveEdit(selected);
             ShowGizmo();
@@ -356,6 +373,7 @@ namespace Atlas
         {
             if (selected == null || selected.edit == null) return;
             if (selMode == "face") for (int i = 0; i < selected.edit.faces.Count; i++) selFaces.Add(i);
+            else if (selMode == "edge") foreach (long k in selected.edit.EdgeFaces().Keys) selEdges.Add(k);
             else for (int i = 0; i < selected.edit.verts.Count; i++) selVerts.Add(i);
             ShowGizmo();
         }
@@ -377,6 +395,7 @@ namespace Atlas
         HashSet<int> CurrentSelVerts()
         {
             if (selected == null || selected.edit == null) return new HashSet<int>();
+            if (selMode == "edge") return VertsOfEdges();
             return selMode == "face" ? selected.edit.VertsOfFaces(selFaces) : selVerts;
         }
 
@@ -409,8 +428,15 @@ namespace Atlas
                     float d = (new Vector2(sp.x, sp.y) - screen).magnitude;
                     if (d < best) { best = d; found = i; }
                 }
-                if (found < 0) selVerts.Clear();
-                else if (!selVerts.Remove(found)) selVerts.Add(found);
+                if (found < 0) { selVerts.Clear(); vertOrder.Clear(); }
+                else if (!selVerts.Remove(found)) { selVerts.Add(found); vertOrder.Add(found); }
+                else vertOrder.Remove(found);
+            }
+            else if (selMode == "edge")
+            {
+                long ek;
+                if (PickEdge(screen, out ek) == 0) selEdges.Clear();
+                else if (!selEdges.Remove(ek)) selEdges.Add(ek);
             }
             else
             {
@@ -466,11 +492,13 @@ namespace Atlas
                 var e = selected.edit;
                 var t = selected.transform;
                 bool faces = selMode == "face";
-                int count = faces ? e.faces.Count : e.verts.Count;
+                bool edges = selMode == "edge";
+                List<long> edgeList = edges ? new List<long>(e.EdgeFaces().Keys) : null;
+                int count = edges ? edgeList.Count : faces ? e.faces.Count : e.verts.Count;
                 if (count <= 4000)
                     for (int i = 0; i < count; i++)
                     {
-                        Vector3 w = t.TransformPoint(faces ? e.FaceCenter(i) : e.verts[i]);
+                        Vector3 w = t.TransformPoint(edges ? (e.verts[EditMesh.EdgeA(edgeList[i])] + e.verts[EditMesh.EdgeB(edgeList[i])]) * 0.5f : faces ? e.FaceCenter(i) : e.verts[i]);
                         Vector3 sp = cam.WorldToScreenPoint(w);
                         if (sp.z <= 0f) continue;
                         Vector2 local;
@@ -484,7 +512,7 @@ namespace Atlas
                         }
                         var d = meshDots[n++];
                         d.enabled = true;
-                        bool sel = faces ? selFaces.Contains(i) : selVerts.Contains(i);
+                        bool sel = edges ? selEdges.Contains(edgeList[i]) : faces ? selFaces.Contains(i) : selVerts.Contains(i);
                         d.color = sel ? AtlasTheme.Key : (faces ? new Color(0.85f, 0.7f, 1f, 0.8f) : new Color(1f, 1f, 1f, 0.85f));
                         d.rectTransform.anchoredPosition = local;
                         d.rectTransform.sizeDelta = sel ? new Vector2(14f, 14f) : (faces ? new Vector2(10f, 10f) : new Vector2(8f, 8f));
