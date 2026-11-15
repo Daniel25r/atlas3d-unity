@@ -18,7 +18,7 @@ namespace Atlas
         public bool tint;
         public Color color = Color.white;
         public float metallic = -1f, smoothness = -1f, emission = -1f;
-        public string normalMap = "", emissionMap = "";
+        public string normalMap = "", emissionMap = "", texture = "";
         public float bump = 1f;
         public bool hidden;
 
@@ -29,7 +29,7 @@ namespace Atlas
     {
         public Color color, emission;
         public float metallic, smoothness, bump;
-        public Texture bumpMap, emissionMap;
+        public Texture bumpMap, emissionMap, baseMap;
     }
 
     public partial class AtlasApp
@@ -84,6 +84,7 @@ namespace Atlas
                         bump = GetF(m, "_BumpScale", 1f),
                         bumpMap = m.HasProperty("_BumpMap") ? m.GetTexture("_BumpMap") : null,
                         emissionMap = m.HasProperty("_EmissionMap") ? m.GetTexture("_EmissionMap") : null,
+                        baseMap = m.HasProperty("_BaseMap") ? m.GetTexture("_BaseMap") : null,
                     };
                     it.matOriginals[m] = o;
                 }
@@ -93,8 +94,11 @@ namespace Atlas
                 if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", it.modelGloss < 0f ? o.smoothness : it.modelGloss * 0.85f);
                 if (m.HasProperty("_BumpMap")) { m.SetTexture("_BumpMap", o.bumpMap); m.SetFloat("_BumpScale", o.bump); }
                 if (m.HasProperty("_EmissionMap")) m.SetTexture("_EmissionMap", o.emissionMap);
+                if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", o.baseMap);
                 var ov = OverrideFor(it, i, false);
                 if (ov == null) continue;
+                var btex = LoadTexture(ov.texture);
+                if (btex != null && m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", btex);
                 Color baseCol = ov.tint ? new Color(ov.color.r, ov.color.g, ov.color.b, o.color.a) : o.color;
                 if (ov.tint && m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", baseCol);
                 if (ov.metallic >= 0f && m.HasProperty("_Metallic")) m.SetFloat("_Metallic", ov.metallic);
@@ -221,6 +225,7 @@ namespace Atlas
             var m = it.modelMats[index];
             string name = m != null ? m.name.Replace(" (Instance)", "") : "Material";
             var box = Sec("Material: " + name, "material");
+            AtlasTheme.TextButton(box, "material", "Abrir en el editor de materiales…", () => OpenMatEditor(it, index), true, 44f, 15);
             AtlasTheme.TextButton(box, "undo", "Volver a todo el modelo", () => SetActiveMaterial(-1), false, 40f, 15);
             MatOriginal orig;
             it.matOriginals.TryGetValue(m, out orig);

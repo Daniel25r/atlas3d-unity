@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "3.7.3";
+        public const string Version = "3.8.0";
 
         Camera cam;
         Light sunLight;
@@ -56,6 +56,7 @@ namespace Atlas
                 Screen.orientation = ScreenOrientation.LandscapeLeft;
             Screen.orientation = ScreenOrientation.AutoRotation;
             QualitySettings.vSyncCount = 0;
+            Prefs.Load();
             Input.simulateMouseWithTouches = false;   // a touch is not also a mouse click
             litTemplate = Resources.Load<Material>("AtlasLit");
             aeroTemplate = Resources.Load<Material>("AtlasAero");
@@ -68,8 +69,10 @@ namespace Atlas
             Ambience.Init(cam);
             ApplyEnv();
             BuildUi();
+            BuildFpsLabel();
             BuildHome();
             ShowHome(false);
+            ApplyPrefs();
         }
 
         void OnApplicationPause(bool paused)
@@ -162,6 +165,7 @@ namespace Atlas
         void ApplyEnv()
         {
             Ambience.Apply(env, cam, sunLight);
+            if (!Prefs.viewShadows && !capturing && sunLight != null) sunLight.shadows = LightShadows.None;
             reflDirty = true;
         }
 
@@ -198,6 +202,7 @@ namespace Atlas
                 case "sun": return "Sol";
                 case "camera": return "Cámara";
                 case "image": return "Imagen";
+                case "video": return "Vídeo";
                 default: return "Modelo";
             }
         }
@@ -236,6 +241,7 @@ namespace Atlas
                     go = MakeCameraProp();
                     break;
                 case "image":
+                case "video":
                     go = GameObject.CreatePrimitive(PrimitiveType.Quad);
                     break;
                 default: go = new GameObject(); break;
@@ -248,6 +254,7 @@ namespace Atlas
             items.Add(it);
             if (!string.IsNullOrEmpty(it.meshFile)) LoadItemMesh(it);
             if (d.kind == "model") LoadModel(it);
+            if (d.kind == "video") SetupVideo(it);
             else ApplyLook(it);
             return it;
         }
@@ -284,6 +291,13 @@ namespace Atlas
             it.shader = d.shader ?? "";
             it.modelGloss = d.modelGloss;
             it.noShadow = d.noShadow;
+            it.uv = d.uv.x == 0f && d.uv.y == 0f ? new Vector4(1f, 1f, d.uv.z, d.uv.w) : d.uv;
+            it.uvMat = d.uvMat;
+            it.volumetric = d.volumetric;
+            it.volIntensity = d.volIntensity <= 0f ? 1f : d.volIntensity;
+            it.physics = d.physics ?? "";
+            it.mass = d.mass <= 0f ? 1f : d.mass;
+            it.videoFile = d.videoFile ?? "";
             it.matOverrides = new List<MatOverride>();
             if (d.mats != null) foreach (var mo in d.mats) it.matOverrides.Add(mo.Copy());
             it.normalMap = d.normalMap ?? "";
@@ -369,6 +383,10 @@ namespace Atlas
             else
             {
                 it.loaded = true;
+                // Animated parts are never hidden when their resting box is
+                // out of view (big scenes and characters were cut off).
+                foreach (var sk in it.GetComponentsInChildren<SkinnedMeshRenderer>(true)) sk.updateWhenOffscreen = true;
+                sceneRadiusAt = -1f;
                 it.modelMats = CollectMaterials(it);
                 it.BuildBones();
                 it.Evaluate(frame, fps);
@@ -396,7 +414,19 @@ namespace Atlas
                     r.shadowCastingMode = it.noShadow || env.shadowsOff ? UnityEngine.Rendering.ShadowCastingMode.Off : UnityEngine.Rendering.ShadowCastingMode.On;
             }
             foreach (var c in it.GetComponentsInChildren<Collider>(true)) c.enabled = it.visible;
-            if (it.kind == "model") { if (it.loaded) ApplyModelMaterials(it); return; }
+            if (it.kind == "model") { if (it.loaded) { ApplyModelMaterials(it); it.ApplyUv(); } return; }
+            if (it.kind == "video")
+            {
+                if (it.material == null) it.material = new Material(unlitTemplate != null ? unlitTemplate : litTemplate);
+                var vm = it.material;
+                vm.SetColor("_BaseColor", new Color(it.color.r, it.color.g, it.color.b, Mathf.Clamp01(it.opacity)));
+                vm.SetTexture("_BaseMap", it.videoRT);
+                if (vm.HasProperty("_Cull")) vm.SetFloat("_Cull", 0f);
+                MatUtil.SetTransparent(vm, it.opacity < 0.995f);
+                foreach (var r in it.GetComponentsInChildren<Renderer>(true)) r.sharedMaterial = vm;
+                it.ApplyUv();
+                return;
+            }
             // The material's kind follows the item (lit / Frutiger Aero glass).
             bool wantAero = it.shader == "aero" && aeroTemplate != null && it.IsShape;
             bool isAero = it.material != null && aeroTemplate != null && it.material.shader == aeroTemplate.shader;
@@ -438,6 +468,7 @@ namespace Atlas
                     var acc = CameraAccent(r.gameObject.name);
                     r.sharedMaterial = acc != null ? acc : m;
                 }
+                UpdateFrustum(it);
                 return;
             }
             if (it.IsLight)
@@ -458,11 +489,12 @@ namespace Atlas
                     l.range = Mathf.Max(0.1f, it.lightRange);
                     l.spotAngle = Mathf.Clamp(it.spotAngle, 1f, 179f);
                     l.innerSpotAngle = l.spotAngle * 0.6f;
-                    l.shadows = it.shadows && !env.shadowsOff ? LightShadows.Soft : LightShadows.None;
+                    l.shadows = it.shadows && !env.shadowsOff && (Prefs.viewShadows || capturing) ? LightShadows.Soft : LightShadows.None;
                     l.enabled = it.visible;
                 }
                 var cone = it.GetComponentInChildren<LineRenderer>(true);
                 if (cone != null) SpotCone(it, cone, col);
+                UpdateVolume(it, l, col);
             }
             else
             {
@@ -488,7 +520,8 @@ namespace Atlas
                 if (m.HasProperty("_Cull")) m.SetFloat("_Cull", it.kind == "image" ? 0f : 2f);
             }
             foreach (var r in it.GetComponentsInChildren<Renderer>(true))
-                if (!(r is LineRenderer)) r.sharedMaterial = m;
+                if (!(r is LineRenderer) && r.gameObject.name != "Volumen") r.sharedMaterial = m;
+            it.ApplyUv();
         }
 
         /// Spotlight lines: a ring where the light reaches (up to 4 m) and
@@ -1051,7 +1084,8 @@ namespace Atlas
         {
             if (selected == null || !(autoKey || selected.Animated)) return;
             int f = Mathf.RoundToInt(frame);
-            if (poseMode && activeBone != "") selected.SetKey(f, 0, new List<string> { activeBone });
+            if (poseMode && ikTip != "" && ikBones.Count > 0) selected.SetKey(f, 0, IkKeyBones());
+            else if (poseMode && activeBone != "") selected.SetKey(f, 0, new List<string> { activeBone });
             else selected.SetKey(f, AtlasItem.ChPos | AtlasItem.ChRot | AtlasItem.ChScale, new List<string>());
             RefreshKeys();
         }
@@ -1068,6 +1102,7 @@ namespace Atlas
                 it.Evaluate(frame, fps);
             }
             ApplyCameraRigs();
+            SyncVideos();
             RefreshTimeline();
         }
 
@@ -1109,6 +1144,8 @@ namespace Atlas
         {
             if (Screen.safeArea != lastSafe) ApplySafeArea();
             if (Input.GetKeyDown(KeyCode.Escape)) Back();
+            UpdateFps();
+            UpdateMatPreview();
             if (store == null || home.activeSelf) { if (!rendering) CheckIncoming(); }
             if (store == null || home.activeSelf || rendering) return;
             if (playing)
@@ -1225,6 +1262,8 @@ namespace Atlas
         {
             var dlg = canvasRoot != null ? canvasRoot.Find("Dialogo") : null;
             if (dlg != null) { Destroy(dlg.gameObject); return; }
+            if (matEditor != null) { CloseMatEditor(); return; }
+            if (prefsWindow != null) { ClosePrefs(); return; }
             if (home.activeSelf) return;
             if ((addMenu != null && addMenu.activeSelf) || (mainMenu != null && mainMenu.activeSelf) || (renderPanel != null && renderPanel.activeSelf))
             {
@@ -1242,6 +1281,7 @@ namespace Atlas
             if (BeginSculpt(pos)) { draggingGizmo = false; orbiting = false; return; }
             draggingGizmo = gizmo.TryBegin(pos);
             if (draggingGizmo && meshMode == "model") MeshDragBegin();
+            if (draggingGizmo && poseMode) IkBegin();
             orbiting = !draggingGizmo;
         }
 
@@ -1258,12 +1298,14 @@ namespace Atlas
             {
                 gizmo.Drag(pos);
                 if (meshDragging) MeshDragMove();
+                if (poseMode && ikTip != "") IkSolve();
                 return;
             }
             if (orbiting && moved > 6f)
             {
-                yaw += delta.x * 0.25f;
-                pitch = Mathf.Clamp(pitch - delta.y * 0.25f, -85f, 85f);
+                float k = 0.25f * Prefs.orbitSens;
+                yaw += delta.x * k;
+                pitch = Mathf.Clamp(pitch - delta.y * k * (Prefs.invertY ? -1f : 1f), -85f, 85f);
                 UpdateCamera();
             }
         }
@@ -1329,6 +1371,33 @@ namespace Atlas
             cam.transform.position = target.position + rot * new Vector3(0f, 0f, -distance);
             cam.transform.rotation = rot;
             FitShadows(distance);
+            FitClip(cam, distance);
+        }
+
+        float sceneRadius = 50f, sceneRadiusAt = -1f;
+        Vector3 sceneCenter;
+
+        /// Near and far planes fitted to the scene, so big scenes (terrains,
+        /// cities) are not cut in the distance and small things up close are
+        /// not cut either.
+        void FitClip(Camera c, float viewDistance)
+        {
+            if (sceneRadiusAt < 0f || Time.unscaledTime - sceneRadiusAt > 3f)
+            {
+                sceneRadiusAt = Time.unscaledTime;
+                var bounds = new Bounds(Vector3.zero, Vector3.one * 20f);
+                foreach (var it in items)
+                {
+                    if (it == null) continue;
+                    foreach (var r in it.GetComponentsInChildren<Renderer>())
+                        if (r.enabled && !(r is LineRenderer)) bounds.Encapsulate(r.bounds);
+                }
+                sceneCenter = bounds.center;
+                sceneRadius = bounds.extents.magnitude;
+            }
+            float reach = Vector3.Distance(c.transform.position, sceneCenter) + sceneRadius * 1.2f;
+            c.farClipPlane = Mathf.Max(1000f, reach);
+            c.nearClipPlane = Mathf.Clamp(Mathf.Min(viewDistance * 0.004f, c.farClipPlane / 40000f), 0.01f, 0.5f);
         }
 
         /// Shadows only as far as needed for what is on screen: small models

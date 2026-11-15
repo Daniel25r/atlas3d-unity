@@ -43,6 +43,13 @@ namespace Atlas
         public string meshFile = "";
         public bool noShadow;      // this object casts no shadow
         public List<MatOverride> mats = new List<MatOverride>();
+        public Vector4 uv = new Vector4(1f, 1f, 0f, 0f);
+        public int uvMat = -1;
+        public bool volumetric;
+        public float volIntensity = 1f;
+        public string physics = "";
+        public float mass = 1f;
+        public string videoFile = "";
         public string normalMap = "", emissionMap = "";
         public float bumpStrength = 1f;
         public string lookAtId = "", followId = "";
@@ -86,6 +93,10 @@ namespace Atlas
         public float grain;
         public float fog;
         public bool shadowsOff;   // «Sombras» off for the whole scene (faster on slow phones)
+        // Physics: where gravity pulls (unit direction) and how hard; bounce.
+        public Vector3 gravityDir = new Vector3(0f, -1f, 0f);
+        public float gravity = 9.81f;
+        public float bounce = 0.2f;
     }
 
     [Serializable]
@@ -278,6 +289,13 @@ namespace Atlas
                     meshFile = it.meshFile ?? "",
                     noShadow = it.noShadow,
                     mats = CopyMats(it.matOverrides),
+                    uv = it.uv,
+                    uvMat = it.uvMat,
+                    volumetric = it.volumetric,
+                    volIntensity = it.volIntensity,
+                    physics = it.physics,
+                    mass = it.mass,
+                    videoFile = it.videoFile,
                     normalMap = it.normalMap ?? "",
                     emissionMap = it.emissionMap ?? "",
                     bumpStrength = it.bumpStrength,

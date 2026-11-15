@@ -314,6 +314,7 @@ namespace Atlas
             var others = AtlasTheme.Grid(content, 2, 316f, 46f);
             AtlasTheme.TextButton(others, "camera", "Cámara", AddCamera, false, 46f, 16);
             AtlasTheme.TextButton(others, "image", "Imagen…", AddImagePlane, false, 46f, 16);
+            AtlasTheme.TextButton(others, "video", "Vídeo…", AddVideoPlane, false, 46f, 16);
             AtlasTheme.TextButton(others, "music", "Audio…", PickAudio, false, 46f, 16);
             AtlasTheme.TextButton(content, "import", "Importar modelo…", ImportModel, true, 50f);
             var formats = AtlasTheme.Label(content, "GLB · glTF · FBX · OBJ · BLEND · PRISMA · 3DS · STL · PLY · ZIP", 14, AtlasTheme.TextDim, false, TextAnchor.MiddleCenter);
@@ -345,6 +346,8 @@ namespace Atlas
                 AtlasTheme.Chip(grid, fmt, () => ExportAs(fmt));
             }
             AtlasTheme.Separator(content, false);
+            AtlasTheme.TextButton(content, "save", "Copia del proyecto (.zip)", () => { CloseMenus(); ExportProjectZip(store != null ? store.name : null); }, false, 46f);
+            AtlasTheme.TextButton(content, "settings", "Preferencias…", () => ShowPrefs(0), false, 46f);
             AtlasTheme.TextButton(content, "help", "Guía de inicio", () => { CloseMenus(); ShowGuide(); }, false, 46f);
             AtlasTheme.TextButton(content, "home", "Cerrar proyecto", () => ShowHome(true), false, 46f);
             var about = AtlasTheme.Label(content, "ATLAS 3D · versión " + Version, 14, AtlasTheme.AccentLight, false, TextAnchor.MiddleCenter);

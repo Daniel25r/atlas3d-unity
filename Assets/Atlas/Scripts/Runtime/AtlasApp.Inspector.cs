@@ -189,11 +189,18 @@ namespace Atlas
                 if (it.HasBones) BuildSkeletonSection(it);
                 BuildModelSection(it);
             }
+            else if (it.kind == "video")
+            {
+                var vb = Sec("Vídeo", "video");
+                Hint(vb, "Sigue a la línea de tiempo (empieza en el fotograma 0 y se repite) y sale en el render fotograma a fotograma. El sonido del vídeo no se usa: pon la música con Audio en la línea de tiempo.");
+                AtlasTheme.SliderRow(vb, "Opacidad", 0.05f, 1f, it.opacity, "0.00", x => { it.opacity = x; ApplyLook(it); }, () => Commit(true));
+            }
             else
             {
                 BuildMaterialSection(it);
                 if (MeshEditable(it)) BuildModellingSection(it);
             }
+            if (!it.IsLight && it.kind != "camera") BuildPhysicsItemSection(it);
             BuildKeysSection(it);
             BuildInfoSection(it);
         }
@@ -301,6 +308,7 @@ namespace Atlas
         void BuildMaterialSection(AtlasItem it)
         {
             var box = Sec("Material", "material");
+            AtlasTheme.TextButton(box, "material", "Editor de materiales…", () => OpenMatEditor(it, -1), true, 46f, 16);
             var g = AtlasTheme.Grid(box, 2, InnerWidth, 38f);
             foreach (var p0 in MatPresets)
             {
@@ -406,6 +414,12 @@ namespace Atlas
             if (it.kind == "spot")
                 AtlasTheme.SliderRow(box, "Ángulo", 5f, 170f, it.spotAngle, "0", x => { it.spotAngle = x; ApplyLook(it); }, () => Commit(true));
             AtlasTheme.Switch(box, "Proyecta sombras", it.shadows, on => { it.shadows = on; ApplyLook(it); Commit(true); });
+            if (it.kind != "sun")
+            {
+                AtlasTheme.Switch(box, it.kind == "spot" ? "Haz de luz volumétrico" : "Halo volumétrico", it.volumetric, on => { it.volumetric = on; ApplyLook(it); Commit(true); RefreshProps(); });
+                if (it.volumetric)
+                    AtlasTheme.SliderRow(box, "Densidad del haz", 0.1f, 4f, it.volIntensity, "0.0", x => { it.volIntensity = x; ApplyLook(it); }, () => Commit(true));
+            }
             if (it.kind != "light")
                 Hint(box, "Gira la luz con la herramienta Girar para apuntarla.");
         }
@@ -554,6 +568,7 @@ namespace Atlas
                 RefreshProps();
             }, false, 42f, 16);
 
+            BuildPhysicsSceneSection();
             var view = Sec("Vista", "view", false);
             AtlasTheme.Switch(view, "Sombras", !env.shadowsOff, on =>
             {

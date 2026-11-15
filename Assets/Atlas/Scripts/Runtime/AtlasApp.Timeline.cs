@@ -318,6 +318,7 @@ namespace Atlas
                 case "T": return "Posición";
                 case "R": return "Rotación";
                 case "S": return "Escala";
+                case "U": return "Textura (UV)";
             }
             return track.StartsWith("b:") ? BoneNames.Display(BoneNames.Leaf(track.Substring(2))) : track;
         }
@@ -581,7 +582,7 @@ namespace Atlas
                 var dst = it.GetOrAddKey(f0 + c.rel);
                 if (c.track == "")
                 {
-                    foreach (var t in new[] { "T", "R", "S" }) if (c.data.Has(t)) KeyData.CopyTrack(c.data, dst, t);
+                    foreach (var t in new[] { "T", "R", "S", "U" }) if (c.data.Has(t)) KeyData.CopyTrack(c.data, dst, t);
                     if (c.data.bones != null) foreach (var b in c.data.bones) KeyData.CopyTrack(c.data, dst, "b:" + b.path);
                     dst.interp = c.data.interp;
                 }

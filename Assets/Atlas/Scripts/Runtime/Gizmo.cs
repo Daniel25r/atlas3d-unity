@@ -27,7 +27,8 @@ namespace Atlas
         public Tool tool = Tool.Move;
         public Transform target;
         public float pxScale = 1f;   // logical -> screen pixels (canvas scale)
-        public bool snap;            // «Imán»: 0.25 m, 15°, ×0.1
+        public bool snap;            // «Imán»: 0.25 m, 15°, ×0.1 (Preferencias)
+        public float sizeMul = 1f, snapMove = 0.25f, snapAngle = 15f;
 
         static float Snap(float v, float step) { return Mathf.Round(v / step) * step; }
 
@@ -153,7 +154,7 @@ namespace Atlas
             transform.rotation = tool == Tool.Move ? Quaternion.identity : target.rotation;
             float d = Mathf.Max(0.001f, Vector3.Dot(target.position - cam.transform.position, cam.transform.forward));
             float worldH = 2f * d * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
-            float s = worldH * BaseSizePx * pxScale / Mathf.Max(1f, Screen.height);
+            float s = worldH * BaseSizePx * sizeMul * pxScale / Mathf.Max(1f, Screen.height);
             transform.localScale = Vector3.one * s;
         }
 
@@ -252,7 +253,7 @@ namespace Atlas
             if (tool == Tool.Move)
             {
                 Vector3 d = active < 3 ? AxisTranslation(active, s0, s1) : PlaneTranslation(s0, s1);
-                if (snap) d = Snap(d, 0.25f);
+                if (snap) d = Snap(d, snapMove);
                 target.position = startPos + d;
             }
             else if (tool == Tool.Rotate)
@@ -261,7 +262,7 @@ namespace Atlas
                 {
                     Vector3 axis = startRot * (active == 0 ? Vector3.right : active == 1 ? Vector3.up : Vector3.forward);
                     float ang = AxisRotation(axis, s0, s1);
-                    if (snap) ang = Snap(ang, 15f);
+                    if (snap) ang = Snap(ang, snapAngle);
                     target.rotation = Quaternion.AngleAxis(ang, axis) * startRot;
                 }
                 else target.rotation = FreeRotation(s0, s1) * startRot;

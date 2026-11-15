@@ -3,8 +3,10 @@
 // («DNA»), which is read to find the objects, their meshes (vertices,
 // faces, UVs, materials), the material colours and their image textures
 // (packed in the file or next to it), and where each object is.
-// Meshes of Blender 2.8 - 4.x. Modifiers (subdivision, mirror…), curves,
-// text and armatures are not evaluated: the base meshes come in as they are.
+// Meshes of Blender 2.8 - 4.x, with their Mirror and Subdivision Surface
+// modifiers applied; only the objects the scene shows (hidden objects and
+// excluded collections are left out). Curves, text and armatures are not
+// evaluated.
 // Blender (z up) -> glTF (y up): (x, y, z) -> (x, z, -y).
 using System;
 using System.Collections.Generic;
@@ -32,6 +34,11 @@ namespace Atlas.Import
         readonly List<string> sdnaStruct = new List<string>();
         readonly List<Block> blocks = new List<Block>();
         readonly Dictionary<ulong, int> byPtr = new Dictionary<ulong, int>();
+        // Blender 3.x writes some mesh data from temporary arrays, so one old
+        // address can name blocks of different meshes: a pointer belongs to
+        // the first such block after the data-block that is being read (ctx).
+        readonly Dictionary<ulong, List<int>> byPtrAll = new Dictionary<ulong, List<int>>();
+        int ctx = -1;
         string dir = "";
         MModel model;
         readonly Dictionary<int, int> matCache = new Dictionary<int, int>();
@@ -70,15 +77,22 @@ namespace Atlas.Import
             ReadSdna();
             model = new MModel();
             model.nodes.Add(new MNode { name = Path.GetFileNameWithoutExtension(path) });
+            // The objects the scene shows; every object block if that fails.
+            var shown = SceneObjects();
             for (int bi = 0; bi < blocks.Count; bi++)
             {
                 if (blocks[bi].code != "OB") continue;
+                if (shown != null && !shown.Contains(bi)) continue;
                 var ob = StructAt(bi, 0);
                 if (!ob.ok || Int(ob, "type", 0) != 1) continue;   // OB_MESH
+                ctx = bi;
                 int meBi = BlockOf(Ptr(ob, "data"));
                 if (meBi < 0) continue;
-                if ((Int(ob, "visibility_flag", 0) & 1) != 0) continue;   // hidden in the viewport
-                var mesh = Mesh(meBi, ObjectMatrix(ob));
+                // restrictflag: OB_HIDE_VIEWPORT (1), OB_HIDE_RENDER (4);
+                // visibility_flag: OB_HIDE_CAMERA (1), invisible to the camera.
+                long restrict = Int(ob, "restrictflag", 0);
+                if ((restrict & 1) != 0 || (restrict & 4) != 0 || (Int(ob, "visibility_flag", 0) & 1) != 0) continue;
+                var mesh = Mesh(meBi, ObjectMatrix(ob), ob);
                 if (mesh == null) continue;
                 mesh.name = IdName(ob);
                 model.meshes.Add(mesh);
@@ -120,6 +134,9 @@ namespace Atlas.Import
                 if (length < 0 || p + hsize + length > b.Length) throw new Exception("el .blend está cortado");
                 blocks.Add(new Block { code = code, len = length, old = old, sdna = sdna, nr = nr, off = p + hsize });
                 byPtr[old] = blocks.Count - 1;
+                List<int> all;
+                if (!byPtrAll.TryGetValue(old, out all)) { all = new List<int>(); byPtrAll[old] = all; }
+                all.Add(blocks.Count - 1);
                 p += hsize + length;
             }
         }
@@ -189,8 +206,12 @@ namespace Atlas.Import
 
         int BlockOf(ulong p)
         {
-            int i;
-            return p != 0 && byPtr.TryGetValue(p, out i) ? i : -1;
+            if (p == 0) return -1;
+            List<int> all;
+            if (!byPtrAll.TryGetValue(p, out all)) return -1;
+            if (all.Count == 1 || ctx < 0) return all[all.Count - 1];
+            foreach (int i in all) if (i > ctx) return i;
+            return all[all.Count - 1];
         }
 
         View StructAt(int bi, int idx)
@@ -373,8 +394,90 @@ namespace Atlas.Import
             return null;
         }
 
-        MMesh Mesh(int bi, float[] m)
+        /// Object blocks in the first scene's collections, skipping
+        /// collections that are hidden or excluded; null when not found.
+        HashSet<int> SceneObjects()
         {
+            try
+            {
+                int sc = -1;
+                for (int i = 0; i < blocks.Count; i++) if (blocks[i].code == "SC") { sc = i; break; }
+                if (sc < 0) return null;
+                var scene = StructAt(sc, 0);
+                int master = BlockOf(Ptr(scene, "master_collection"));
+                if (master < 0) return null;
+                // Collections excluded or hidden in the view layer.
+                var excluded = new HashSet<int>();
+                var layers = Sub(scene, "view_layers");
+                int vlb = BlockOf(Ptr(layers, "first"));
+                if (vlb >= 0)
+                {
+                    var vl = StructAt(vlb, 0);
+                    var stack = new List<int>();
+                    var lcs = Sub(vl, "layer_collections");
+                    int lc = BlockOf(Ptr(lcs, "first"));
+                    if (lc >= 0) stack.Add(lc);
+                    for (int guard = 0; stack.Count > 0 && guard < 20000; guard++)
+                    {
+                        int cur = stack[stack.Count - 1];
+                        stack.RemoveAt(stack.Count - 1);
+                        var l = StructAt(cur, 0);
+                        long flag = Int(l, "flag", 0);
+                        int col = BlockOf(Ptr(l, "collection"));
+                        // LAYER_COLLECTION_EXCLUDE (1 << 4), LAYER_COLLECTION_HIDE (1 << 6)
+                        if (col >= 0 && ((flag & (1 << 4)) != 0 || (flag & (1 << 6)) != 0)) excluded.Add(col);
+                        int nx = BlockOf(Ptr(l, "next"));
+                        if (nx >= 0) stack.Add(nx);
+                        int ch = BlockOf(Ptr(Sub(l, "layer_collections"), "first"));
+                        if (ch >= 0) stack.Add(ch);
+                    }
+                }
+                var found = new HashSet<int>();
+                var seen = new HashSet<int>();
+                var todo = new List<int> { master };
+                while (todo.Count > 0 && seen.Count < 10000)
+                {
+                    int c = todo[todo.Count - 1];
+                    todo.RemoveAt(todo.Count - 1);
+                    if (!seen.Add(c) || excluded.Contains(c)) continue;
+                    var col = StructAt(c, 0);
+                    long cflag = Int(col, "flag", 0);
+                    // COLLECTION_HIDE_VIEWPORT (1 << 0), COLLECTION_HIDE_RENDER (1 << 3)
+                    if (c != master && ((cflag & 1) != 0 || (cflag & 8) != 0)) continue;
+                    int go = BlockOf(Ptr(Sub(col, "gobject"), "first"));
+                    for (int guard = 0; go >= 0 && guard < 100000; guard++)
+                    {
+                        var co = StructAt(go, 0);
+                        int ob = BlockOf(Ptr(co, "ob"));
+                        if (ob >= 0) found.Add(ob);
+                        go = BlockOf(Ptr(co, "next"));
+                    }
+                    int ch = BlockOf(Ptr(Sub(col, "children"), "first"));
+                    for (int guard = 0; ch >= 0 && guard < 10000; guard++)
+                    {
+                        var cc = StructAt(ch, 0);
+                        int sub = BlockOf(Ptr(cc, "collection"));
+                        if (sub >= 0) todo.Add(sub);
+                        ch = BlockOf(Ptr(cc, "next"));
+                    }
+                }
+                return found.Count > 0 ? found : null;
+            }
+            catch (Exception) { return null; }
+        }
+
+        MMesh Mesh(int bi, float[] m, View ob)
+        {
+            int keep = ctx;
+            try { return MeshIn(bi, m, ob); }
+            finally { ctx = keep; }
+        }
+
+        MMesh MeshIn(int bi, float[] m, View ob)
+        {
+            // Modifiers are data of the object block (read with its context).
+            int obCtx = ctx;
+            ctx = bi;
             var me = StructAt(bi, 0);
             long nv = Int(me, First(me, "verts_num", "totvert"), 0);
             long nf = Int(me, First(me, "faces_num", "totpoly"), 0);
@@ -470,6 +573,13 @@ namespace Atlas.Import
                     }
                 }
             }
+            // Modifiers that change the shape the most: Mirror and Subdivision.
+            var poly = new Poly { pos = pos, starts = starts, counts = counts, corner = cornerVert, uv = uv, mat = matOf, smooth = smooth };
+            ctx = obCtx;
+            ApplyModifiers(ob, poly);
+            ctx = bi;
+            pos = poly.pos; starts = poly.starts; counts = poly.counts; cornerVert = poly.corner; uv = poly.uv; matOf = poly.mat; smooth = poly.smooth;
+            nv = pos.Length / 3; nf = starts.Length; nl = cornerVert.Length;
             // Face and smooth vertex normals (Newell), in Blender space
             var fn = new float[nf * 3];
             var vn = new float[nv * 3];
@@ -552,6 +662,253 @@ namespace Atlas.Import
             return mesh;
         }
 
+        // ------------------------------------------------------------------
+        // Modifiers
+
+        class Poly
+        {
+            public float[] pos, uv;
+            public int[] starts, counts, corner, mat;
+            public bool[] smooth;
+        }
+
+        void ApplyModifiers(View ob, Poly p)
+        {
+            int md = BlockOf(Ptr(Sub(ob, "modifiers"), "first"));
+            for (int guard = 0; md >= 0 && guard < 64; guard++)
+            {
+                var mod = StructAt(md, 0);
+                var head = Sub(mod, "modifier");
+                long mode = Int(head, "mode", 3);
+                bool on = (mode & 2) != 0 || (mode & 1) != 0;   // render or viewport
+                try
+                {
+                    if (on && mod.type == "MirrorModifierData" && Ptr(mod, "mirror_ob") == 0) Mirror(p, (int)Int(mod, "flag", 8), Float(mod, "tolerance", 0.001f));
+                    else if (on && mod.type == "ArrayModifierData" && Int(mod, "fit_type", 0) == 0)
+                    {
+                        long flags = Int(mod, "offset_type", 2);
+                        var cst = Floats(mod, "offset");
+                        var rel = Floats(mod, "scale");
+                        ArrayCopies(p, (int)Int(mod, "count", 2), (flags & 1) != 0 && cst.Length >= 3 ? cst : null, (flags & 2) != 0 && rel.Length >= 3 ? rel : null);
+                    }
+                    else if (on && mod.type == "SubsurfModifierData")
+                    {
+                        int lv = (int)Math.Max(Int(mod, "levels", 1), Int(mod, "renderLevels", 1));
+                        bool simple = Int(mod, "subdivType", 0) == 1;
+                        for (int i = 0; i < Math.Min(lv, 3); i++)
+                        {
+                            if (p.corner.Length * 4 > 1500000) break;   // keep phones fast
+                            Subdivide(p, simple);
+                        }
+                    }
+                }
+                catch (Exception) { }
+                md = BlockOf(Ptr(head, "next"));
+            }
+        }
+
+        /// Array modifier (fixed count): copies moved by a constant and/or a
+        /// relative offset (times the mesh's size).
+        static void ArrayCopies(Poly p, int count, float[] constant, float[] relative)
+        {
+            int nv = p.pos.Length / 3, nf = p.starts.Length, nl = p.corner.Length;
+            if (count <= 1 || nv == 0) return;
+            count = Math.Min(count, Math.Max(1, 2000000 / Math.Max(1, nl)));   // phones: a sane size
+            var min = new float[] { float.MaxValue, float.MaxValue, float.MaxValue };
+            var max = new float[] { float.MinValue, float.MinValue, float.MinValue };
+            for (int v = 0; v < nv; v++)
+                for (int c = 0; c < 3; c++) { min[c] = Math.Min(min[c], p.pos[v * 3 + c]); max[c] = Math.Max(max[c], p.pos[v * 3 + c]); }
+            var step = new float[3];
+            for (int c = 0; c < 3; c++)
+                step[c] = (constant != null ? constant[c] : 0f) + (relative != null ? relative[c] * (max[c] - min[c]) : 0f);
+            var pos = new float[nv * 3 * count];
+            var starts = new int[nf * count]; var counts = new int[nf * count]; var mat = new int[nf * count]; var smooth = new bool[nf * count];
+            var corner = new int[nl * count];
+            var uv = p.uv != null ? new float[nl * 2 * count] : null;
+            for (int k = 0; k < count; k++)
+            {
+                for (int v = 0; v < nv; v++)
+                    for (int c = 0; c < 3; c++) pos[(k * nv + v) * 3 + c] = p.pos[v * 3 + c] + step[c] * k;
+                for (int f = 0; f < nf; f++)
+                {
+                    starts[k * nf + f] = p.starts[f] + k * nl; counts[k * nf + f] = p.counts[f];
+                    mat[k * nf + f] = p.mat[f]; smooth[k * nf + f] = p.smooth[f];
+                }
+                for (int l = 0; l < nl; l++) corner[k * nl + l] = p.corner[l] + k * nv;
+                if (uv != null) Array.Copy(p.uv, 0, uv, k * nl * 2, nl * 2);
+            }
+            p.pos = pos; p.starts = starts; p.counts = counts; p.corner = corner; p.uv = uv; p.mat = mat; p.smooth = smooth;
+        }
+
+        /// Mirror modifier: copies mirrored on each chosen axis, the
+        /// vertices on the mirror plane merged.
+        static void Mirror(Poly p, int flag, float tol)
+        {
+            bool merge = (flag & (1 << 7)) == 0;
+            for (int axis = 0; axis < 3; axis++)
+            {
+                if ((flag & (1 << (3 + axis))) == 0) continue;
+                int nv = p.pos.Length / 3, nf = p.starts.Length, nl = p.corner.Length;
+                var pos = new List<float>(p.pos);
+                var map = new int[nv];
+                for (int v = 0; v < nv; v++)
+                {
+                    float c = p.pos[v * 3 + axis];
+                    if (merge && Math.Abs(c) <= Math.Max(tol, 1e-6f)) { map[v] = v; continue; }
+                    map[v] = pos.Count / 3;
+                    pos.Add(p.pos[v * 3]); pos.Add(p.pos[v * 3 + 1]); pos.Add(p.pos[v * 3 + 2]);
+                    pos[pos.Count - 3 + axis] = -c;
+                }
+                var starts = new int[nf * 2];
+                var counts = new int[nf * 2];
+                var corner = new int[nl * 2];
+                var uv = p.uv != null ? new float[nl * 4] : null;
+                var mat = new int[nf * 2];
+                var smooth = new bool[nf * 2];
+                Array.Copy(p.starts, starts, nf); Array.Copy(p.counts, counts, nf); Array.Copy(p.corner, corner, nl);
+                Array.Copy(p.mat, mat, nf); Array.Copy(p.smooth, smooth, nf);
+                if (uv != null) Array.Copy(p.uv, uv, nl * 2);
+                int at = nl;
+                for (int f = 0; f < nf; f++)
+                {
+                    int n = p.counts[f], s = p.starts[f];
+                    starts[nf + f] = at; counts[nf + f] = n; mat[nf + f] = p.mat[f]; smooth[nf + f] = p.smooth[f];
+                    // Reversed so the copy faces outwards.
+                    for (int k = 0; k < n; k++)
+                    {
+                        int src = s + (n - k) % n;
+                        corner[at + k] = map[p.corner[src]];
+                        if (uv != null) { uv[(at + k) * 2] = p.uv[src * 2]; uv[(at + k) * 2 + 1] = p.uv[src * 2 + 1]; }
+                    }
+                    at += n;
+                }
+                p.pos = pos.ToArray(); p.starts = starts; p.counts = counts; p.corner = corner; p.uv = uv; p.mat = mat; p.smooth = smooth;
+            }
+        }
+
+        /// One level of Catmull-Clark (or simple) subdivision; UVs are
+        /// split linearly.
+        static void Subdivide(Poly p, bool simple)
+        {
+            int nv = p.pos.Length / 3, nf = p.starts.Length;
+            var edges = new Dictionary<long, int>();
+            var eA = new List<int>(); var eB = new List<int>(); var eFaces = new List<int>(); var eSum = new List<float[]>();
+            var fp = new float[nf * 3];
+            for (int f = 0; f < nf; f++)
+            {
+                int n = p.counts[f], s = p.starts[f];
+                float x = 0, y = 0, z = 0;
+                for (int k = 0; k < n; k++) { int v = p.corner[s + k]; x += p.pos[v * 3]; y += p.pos[v * 3 + 1]; z += p.pos[v * 3 + 2]; }
+                fp[f * 3] = x / n; fp[f * 3 + 1] = y / n; fp[f * 3 + 2] = z / n;
+                for (int k = 0; k < n; k++)
+                {
+                    int a = p.corner[s + k], b2 = p.corner[s + (k + 1) % n];
+                    long key = a < b2 ? ((long)a << 32) | (uint)b2 : ((long)b2 << 32) | (uint)a;
+                    int e;
+                    if (!edges.TryGetValue(key, out e)) { e = eA.Count; edges[key] = e; eA.Add(a); eB.Add(b2); eFaces.Add(0); eSum.Add(new float[3]); }
+                    eFaces[e]++;
+                    eSum[e][0] += fp[f * 3]; eSum[e][1] += fp[f * 3 + 1]; eSum[e][2] += fp[f * 3 + 2];
+                }
+            }
+            int ne = eA.Count;
+            // Edge points
+            var ep = new float[ne * 3];
+            for (int e = 0; e < ne; e++)
+                for (int c = 0; c < 3; c++)
+                {
+                    float mid = (p.pos[eA[e] * 3 + c] + p.pos[eB[e] * 3 + c]) * 0.5f;
+                    ep[e * 3 + c] = simple || eFaces[e] != 2 ? mid : (p.pos[eA[e] * 3 + c] + p.pos[eB[e] * 3 + c] + eSum[e][c] / eFaces[e] * 2f) / 4f;
+                }
+            // Vertex points
+            var vp = new float[nv * 3];
+            Array.Copy(p.pos, vp, nv * 3);
+            if (!simple)
+            {
+                var fSum = new float[nv * 3]; var fCnt = new int[nv];
+                var rSum = new float[nv * 3]; var rCnt = new int[nv];
+                var bSum = new float[nv * 3]; var bCnt = new int[nv];
+                for (int f = 0; f < nf; f++)
+                    for (int k = 0; k < p.counts[f]; k++)
+                    {
+                        int v = p.corner[p.starts[f] + k];
+                        fSum[v * 3] += fp[f * 3]; fSum[v * 3 + 1] += fp[f * 3 + 1]; fSum[v * 3 + 2] += fp[f * 3 + 2]; fCnt[v]++;
+                    }
+                for (int e = 0; e < ne; e++)
+                {
+                    foreach (int v in new[] { eA[e], eB[e] })
+                        for (int c = 0; c < 3; c++)
+                        {
+                            float mid = (p.pos[eA[e] * 3 + c] + p.pos[eB[e] * 3 + c]) * 0.5f;
+                            rSum[v * 3 + c] += mid;
+                            if (eFaces[e] == 1) bSum[v * 3 + c] += mid;
+                        }
+                    rCnt[eA[e]]++; rCnt[eB[e]]++;
+                    if (eFaces[e] == 1) { bCnt[eA[e]]++; bCnt[eB[e]]++; }
+                }
+                for (int v = 0; v < nv; v++)
+                {
+                    if (fCnt[v] == 0) continue;
+                    for (int c = 0; c < 3; c++)
+                    {
+                        float P = p.pos[v * 3 + c];
+                        if (bCnt[v] >= 2)
+                            vp[v * 3 + c] = (bSum[v * 3 + c] / bCnt[v] + P) * 0.5f;   // boundary: (P + mid avg) / 2 = (6P + a + b) / 8
+                        else if (bCnt[v] == 0 && fCnt[v] >= 3)
+                        {
+                            float n = fCnt[v];
+                            vp[v * 3 + c] = (fSum[v * 3 + c] / n + 2f * rSum[v * 3 + c] / rCnt[v] + (n - 3f) * P) / n;
+                        }
+                    }
+                }
+            }
+            // New mesh: vertices = vertex points + edge points + face points.
+            var pos = new float[(nv + ne + nf) * 3];
+            Array.Copy(vp, 0, pos, 0, nv * 3);
+            Array.Copy(ep, 0, pos, nv * 3, ne * 3);
+            Array.Copy(fp, 0, pos, (nv + ne) * 3, nf * 3);
+            int total = 0;
+            for (int f = 0; f < nf; f++) total += p.counts[f];
+            var starts = new int[total]; var counts = new int[total]; var mat = new int[total]; var smooth = new bool[total];
+            var corner = new int[total * 4];
+            var uv = p.uv != null ? new float[total * 8] : null;
+            int q = 0;
+            for (int f = 0; f < nf; f++)
+            {
+                int n = p.counts[f], s = p.starts[f];
+                float cu = 0, cv = 0;
+                if (uv != null) for (int k = 0; k < n; k++) { cu += p.uv[(s + k) * 2]; cv += p.uv[(s + k) * 2 + 1]; }
+                cu /= n; cv /= n;
+                for (int k = 0; k < n; k++)
+                {
+                    int prev = (k + n - 1) % n, next = (k + 1) % n;
+                    int v = p.corner[s + k];
+                    int eNext = edges[Key(v, p.corner[s + next])], ePrev = edges[Key(p.corner[s + prev], v)];
+                    starts[q] = q * 4; counts[q] = 4; mat[q] = p.mat[f]; smooth[q] = p.smooth[f];
+                    corner[q * 4] = v;
+                    corner[q * 4 + 1] = nv + eNext;
+                    corner[q * 4 + 2] = nv + ne + f;
+                    corner[q * 4 + 3] = nv + ePrev;
+                    if (uv != null)
+                    {
+                        float u0 = p.uv[(s + k) * 2], v0 = p.uv[(s + k) * 2 + 1];
+                        float un = p.uv[(s + next) * 2], vn = p.uv[(s + next) * 2 + 1];
+                        float up = p.uv[(s + prev) * 2], vpv = p.uv[(s + prev) * 2 + 1];
+                        uv[q * 8] = u0; uv[q * 8 + 1] = v0;
+                        uv[q * 8 + 2] = (u0 + un) * 0.5f; uv[q * 8 + 3] = (v0 + vn) * 0.5f;
+                        uv[q * 8 + 4] = cu; uv[q * 8 + 5] = cv;
+                        uv[q * 8 + 6] = (u0 + up) * 0.5f; uv[q * 8 + 7] = (v0 + vpv) * 0.5f;
+                    }
+                    q++;
+                }
+            }
+            p.pos = pos; p.starts = starts; p.counts = counts; p.corner = corner; p.uv = uv; p.mat = mat; p.smooth = smooth;
+        }
+
+        static long Key(int a, int b)
+        {
+            return a < b ? ((long)a << 32) | (uint)b : ((long)b << 32) | (uint)a;
+        }
+
         static float Det3(float[] m)
         {
             return m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2]);
@@ -570,6 +927,14 @@ namespace Atlas.Import
             if (bi < 0) return -1;
             int cached;
             if (matCache.TryGetValue(bi, out cached)) return cached;
+            int keep = ctx;
+            ctx = bi;
+            try { return MaterialIn(bi); }
+            finally { ctx = keep; }
+        }
+
+        int MaterialIn(int bi)
+        {
             var ma = StructAt(bi, 0);
             // Blender's viewport colour (r, g, b) is the base colour in sRGB.
             var mm = new MMaterial
@@ -579,6 +944,16 @@ namespace Atlas.Import
                 roughness = Float(ma, "roughness", 0.5f),
                 metallic = Float(ma, "metallic", 0f),
             };
+            // The node material's own values (Principled BSDF) rather than
+            // the viewport colour, which is often left white.
+            float[] baseCol;
+            float rough, metal;
+            if (Principled(ma, out baseCol, out rough, out metal))
+            {
+                if (baseCol != null) mm.color = new[] { baseCol[0], baseCol[1], baseCol[2], baseCol[3] };
+                if (rough >= 0f) mm.roughness = rough;
+                if (metal >= 0f) mm.metallic = metal;
+            }
             var img = MaterialImage(ma);
             if (img != null)
             {
@@ -589,6 +964,46 @@ namespace Atlas.Import
             model.materials.Add(mm);
             matCache[bi] = model.materials.Count - 1;
             return model.materials.Count - 1;
+        }
+
+        /// Base Color / Roughness / Metallic of the material's Principled
+        /// BSDF node (socket default values, already linear).
+        bool Principled(View ma, out float[] color, out float rough, out float metal)
+        {
+            color = null; rough = -1f; metal = -1f;
+            try
+            {
+                int nt = BlockOf(Ptr(ma, "nodetree"));
+                if (nt < 0) return false;
+                int nb = BlockOf(Ptr(Sub(StructAt(nt, 0), "nodes"), "first"));
+                for (int guard = 0; nb >= 0 && guard < 1000; guard++)
+                {
+                    var node = StructAt(nb, 0);
+                    if (Str(node, "idname") == "ShaderNodeBsdfPrincipled")
+                    {
+                        int sb = BlockOf(Ptr(Sub(node, "inputs"), "first"));
+                        for (int g2 = 0; sb >= 0 && g2 < 200; g2++)
+                        {
+                            var sock = StructAt(sb, 0);
+                            string id = Str(sock, "identifier");
+                            if (id == "") id = Str(sock, "name");
+                            int dv = BlockOf(Ptr(sock, "default_value"));
+                            if (dv >= 0)
+                            {
+                                var val = Floats(StructAt(dv, 0), "value");
+                                if (id == "Base Color" && val.Length >= 4) color = new[] { val[0], val[1], val[2], val[3] };
+                                else if (id == "Roughness" && val.Length >= 1) rough = val[0];
+                                else if (id == "Metallic" && val.Length >= 1) metal = val[0];
+                            }
+                            sb = BlockOf(Ptr(sock, "next"));
+                        }
+                        return true;
+                    }
+                    nb = BlockOf(Ptr(node, "next"));
+                }
+            }
+            catch (Exception) { }
+            return false;
         }
 
         /// The image of the first image-texture node of the material.
@@ -607,7 +1022,11 @@ namespace Atlas.Import
                     int ib = BlockOf(Ptr(node, "id"));
                     if (ib >= 0)
                     {
-                        var img = Image(StructAt(ib, 0));
+                        int keep = ctx;
+                        ctx = ib;
+                        byte[] img;
+                        try { img = Image(StructAt(ib, 0)); }
+                        finally { ctx = keep; }
                         if (img != null) return img;
                     }
                 }

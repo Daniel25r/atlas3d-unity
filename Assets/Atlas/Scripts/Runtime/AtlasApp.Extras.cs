@@ -35,8 +35,79 @@ namespace Atlas
             Part(go, PrimitiveType.Cube, "Visor", new Vector3(-0.1f, 0.08f, -0.3f), Vector3.zero, new Vector3(0.06f, 0.06f, 0.1f));
             Part(go, PrimitiveType.Sphere, "Luz", new Vector3(0.132f, 0.06f, 0.1f), Vector3.zero, new Vector3(0.035f, 0.035f, 0.035f));
             Part(go, PrimitiveType.Cube, "Pantalla", new Vector3(0.132f, 0.03f, -0.04f), Vector3.zero, new Vector3(0.01f, 0.07f, 0.09f));
+            // What it sees, like Blender: a pyramid from the lens to the
+            // picture's frame, with a filled triangle showing «up».
+            var fr = new GameObject("Encuadre");
+            fr.transform.SetParent(go.transform, false);
+            for (int i = 0; i < 3; i++)
+            {
+                var lgo = new GameObject("Linea" + i);
+                lgo.transform.SetParent(fr.transform, false);
+                var lr = lgo.AddComponent<LineRenderer>();
+                lr.useWorldSpace = false;
+                lr.widthMultiplier = 0.012f;
+                lr.numCapVertices = 2;
+                lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                lr.receiveShadows = false;
+                lr.sharedMaterial = FrameLineMat();
+                lr.loop = i == 0;
+            }
+            var up = new GameObject("Arriba");
+            up.transform.SetParent(fr.transform, false);
+            up.AddComponent<MeshFilter>().sharedMesh = new Mesh { name = "Arriba" };
+            up.AddComponent<MeshRenderer>();
             foreach (var r in go.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             return go;
+        }
+
+        Material frameLineMat;
+
+        Material FrameLineMat()
+        {
+            if (frameLineMat == null)
+            {
+                frameLineMat = new Material(unlitTemplate != null ? unlitTemplate : litTemplate);
+                frameLineMat.SetColor("_BaseColor", new Color(0.92f, 0.93f, 0.96f, 1f));
+            }
+            return frameLineMat;
+        }
+
+        /// The pyramid follows the camera's field of view and the render's
+        /// proportions (16:9, square, vertical…).
+        void UpdateFrustum(AtlasItem it)
+        {
+            var fr = it.transform.Find("Encuadre");
+            if (fr == null) return;
+            float aspect = renderH > 0 ? (float)renderW / renderH : 16f / 9f;
+            float d = 0.9f;
+            float h = Mathf.Clamp(d * Mathf.Tan(Mathf.Clamp(it.fov, 5f, 150f) * 0.5f * Mathf.Deg2Rad), 0.05f, 2f);
+            float w = h * aspect;
+            var apex = new Vector3(0f, 0.01f, 0.17f);
+            var c = new[] { new Vector3(-w, -h, d), new Vector3(w, -h, d), new Vector3(w, h, d), new Vector3(-w, h, d) };
+            for (int i = 0; i < 4; i++) c[i] += new Vector3(0f, 0.01f, 0.17f);
+            var lines = fr.GetComponentsInChildren<LineRenderer>();
+            if (lines.Length >= 3)
+            {
+                lines[0].positionCount = 4;
+                lines[0].SetPositions(c);
+                lines[1].positionCount = 3;
+                lines[1].SetPositions(new[] { c[0], apex, c[2] });
+                lines[2].positionCount = 3;
+                lines[2].SetPositions(new[] { c[1], apex, c[3] });
+                foreach (var l in lines) l.widthMultiplier = 0.012f * Mathf.Max(0.2f, it.transform.lossyScale.x);
+            }
+            var up = fr.Find("Arriba");
+            if (up != null)
+            {
+                var mesh = up.GetComponent<MeshFilter>().sharedMesh;
+                float top = c[2].y + h * 0.08f;
+                var v = new[] { new Vector3(-w * 0.35f, top, c[2].z), new Vector3(0f, top + w * 0.3f, c[2].z), new Vector3(w * 0.35f, top, c[2].z) };
+                mesh.Clear();
+                mesh.vertices = v;
+                mesh.triangles = new[] { 0, 1, 2, 0, 2, 1 };   // both sides
+                mesh.RecalculateNormals();
+                mesh.RecalculateBounds();
+            }
         }
 
         static void Part(GameObject parent, PrimitiveType type, string name, Vector3 pos, Vector3 euler, Vector3 scale)
@@ -51,7 +122,7 @@ namespace Atlas
             p.transform.localScale = scale;
         }
 
-        Material camRedMat, camBlueMat;
+        Material camRedMat, camBlueMat, camUpMat;
 
         /// The red light and the blue screen keep their own colours.
         Material CameraAccent(string part)
@@ -66,6 +137,16 @@ namespace Atlas
                     camRedMat.SetColor("_EmissionColor", new Color(1.6f, 0.15f, 0.1f));
                 }
                 return camRedMat;
+            }
+            if (part == "Arriba")
+            {
+                if (camUpMat == null)
+                {
+                    camUpMat = new Material(unlitTemplate != null ? unlitTemplate : litTemplate);
+                    camUpMat.SetColor("_BaseColor", new Color(1f, 0.6f, 0.15f, 1f));
+                    camUpMat.SetFloat("_Cull", 0f);
+                }
+                return camUpMat;
             }
             if (part == "Pantalla")
             {
@@ -180,6 +261,7 @@ namespace Atlas
             CameraPose(lookThrough, frame, out p, out q);
             cam.transform.SetPositionAndRotation(p, q);
             cam.fieldOfView = lookThrough.fov;
+            FitClip(cam, 2f);
             UpdateFrameOverlay();
         }
 
@@ -317,7 +399,7 @@ namespace Atlas
                 RefreshProps();
             }, lookThrough != it, 46f, 16);
             AtlasTheme.Switch(box, "Cámara activa (la que usa el render)", it.renderCam, on => SetRenderCamera(it, on));
-            AtlasTheme.SliderRow(box, "Campo visual", 10f, 120f, it.fov, "0", x => { it.fov = x; }, () => Commit(true));
+            AtlasTheme.SliderRow(box, "Campo visual", 10f, 120f, it.fov, "0", x => { it.fov = x; UpdateFrustum(it); }, () => Commit(true));
             var g = AtlasTheme.Grid(box, 3, InnerWidth, 38f);
             float[] lens = { 24f, 35f, 50f, 85f, 135f };
             string[] lensNames = { "Gran angular", "35 mm", "50 mm", "85 mm", "Tele 135" };

@@ -371,6 +371,22 @@ namespace Atlas
                 Hint(box, "En modo pose, toca una articulación en el visor (o elige un hueso en la lista) y gírala con el manipulador. Las rotaciones se animan con claves.");
                 return;
             }
+            // IK: drag the tip of a leg / arm / tail and the chain follows.
+            AtlasTheme.Switch(box, "IK: mover la punta y que la cadena la siga", ikOn, on =>
+            {
+                ikOn = on;
+                if (on) { SetTool(Tool.Move); Toast("IK: elige el hueso de la punta (pie, mano, cola) y arrástralo con Mover"); }
+                RefreshProps();
+            });
+            if (ikOn)
+            {
+                var ig = AtlasTheme.Grid(box, 3, InnerWidth, 36f);
+                foreach (int n0 in new[] { 2, 3, 4 })
+                {
+                    int n = n0;
+                    AtlasTheme.Chip(ig, n + " huesos" + (n == 2 ? " (bípedo)" : n == 3 ? " (cuadrúpedo)" : ""), () => { ikChain = n; RefreshProps(); }, ikChain == n);
+                }
+            }
             int hidden = HiddenBoneCount(it);
             if (hidden > 0 || allBones)
                 AtlasTheme.Switch(box, "Mostrar también pelo, falda y ropa (" + hidden + ")", allBones, on =>

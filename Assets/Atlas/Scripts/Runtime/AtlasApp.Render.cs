@@ -16,6 +16,7 @@ namespace Atlas
         bool rendering;
         int renderW = 1920, renderH = 1080;
         bool renderGround = true;
+        int renderQuality = 1;   // 0 normal, 1 alta (2× supersampling), 2 máxima (2× + 8× MSAA)
         readonly List<Button> sizeChips = new List<Button>();
 
         static readonly int[,] RenderSizes = { { 1280, 720 }, { 1920, 1080 }, { 2560, 1440 }, { 3840, 2160 }, { 1080, 1080 }, { 1080, 1920 } };
@@ -39,10 +40,29 @@ namespace Atlas
                     renderW = RenderSizes[idx, 0];
                     renderH = RenderSizes[idx, 1];
                     RefreshSizeChips();
+                    foreach (var ci in items) if (ci != null && ci.kind == "camera") UpdateFrustum(ci);
                 }));
             }
             RefreshSizeChips();
             AtlasTheme.Switch(content, "Mostrar el suelo", renderGround, on => renderGround = on);
+            var tq = AtlasTheme.Label(content, "CALIDAD", 15, AtlasTheme.TextDim, true);
+            AtlasTheme.Le(tq.gameObject, 22f);
+            var qg = AtlasTheme.Grid(content, 3, 332f, 40f);
+            string[] qn = { "Normal", "Alta", "Máxima" };
+            var qChips = new List<Button>();
+            for (int i = 0; i < 3; i++)
+            {
+                int q = i;
+                qChips.Add(AtlasTheme.Chip(qg, qn[i], () =>
+                {
+                    renderQuality = q;
+                    for (int k = 0; k < qChips.Count; k++)
+                    {
+                        qChips[k].GetComponent<Image>().color = k == renderQuality ? AtlasTheme.AccentDim : AtlasTheme.Panel3;
+                        qChips[k].GetComponentInChildren<Text>().color = k == renderQuality ? AtlasTheme.AccentLight : AtlasTheme.TextColor;
+                    }
+                }, i == renderQuality));
+            }
             AtlasTheme.TextButton(content, "image", "Imagen (PNG)", RenderPicture, true, 50f);
             AtlasTheme.TextButton(content, "video", "Vídeo MP4", () => StartCoroutine(RenderVideo()), true, 50f);
             AtlasTheme.TextButton(content, "film", "Animación (fotogramas en ZIP)", () => StartCoroutine(RenderFrames()), false, 50f, 17);
@@ -65,15 +85,23 @@ namespace Atlas
         /// Renders the camera's view (no interface, no gizmo) at w × h.
         Texture2D Capture(int w, int h, bool showGround)
         {
+            BeginCapture();
+            try { return CaptureIn(w, h, showGround); }
+            finally { EndCapture(); }
+        }
+
+        Texture2D CaptureIn(int w, int h, bool showGround)
+        {
             bool g = gizmo.gameObject.activeSelf;
             gizmo.gameObject.SetActive(false);
             highlighter.SetVisible(false);
-            // Lamps and cameras are tools: they light, but are not seen.
+            // Lamps and cameras are tools: they light, but are not seen
+            // (their volumetric beam or halo is).
             var hidden = new List<Renderer>();
             foreach (var it in items)
                 if (it != null && it.IsHelper)
                     foreach (var r in it.GetComponentsInChildren<Renderer>())
-                        if (r.enabled) { r.enabled = false; hidden.Add(r); }
+                        if (r.enabled && r.gameObject.name != "Volumen") { r.enabled = false; hidden.Add(r); }
             // From the scene camera when there is one.
             var rc = RenderCamera();
             Vector3 keepPos = cam.transform.position;
@@ -86,17 +114,29 @@ namespace Atlas
                 CameraPose(rc, frame, out cp, out cq);
                 cam.transform.SetPositionAndRotation(cp, cq);
                 cam.fieldOfView = rc.fov;
+                FitClip(cam, 2f);
             }
             bool gr = ground.activeSelf;
             ground.SetActive(showGround && gr);
-            int aa = (long)w * h > 4000000L ? 1 : 4;
-            var rt = RenderTexture.GetTemporary(w, h, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default, aa);
+            // Supersampling: drawn bigger and reduced (finer edges and
+            // textures), as far as the phone allows.
+            int ss = renderQuality > 0 && (long)w * h * 4 <= 16000000L && w * 2 <= SystemInfo.maxTextureSize && h * 2 <= SystemInfo.maxTextureSize ? 2 : 1;
+            int aa = renderQuality == 2 ? 8 : (long)w * h * ss * ss > 4000000L ? 2 : 4;
+            var big = RenderTexture.GetTemporary(w * ss, h * ss, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default, aa);
             var prevTarget = cam.targetTexture;
-            cam.targetTexture = rt;
+            cam.targetTexture = big;
             cam.aspect = (float)w / h;
             cam.Render();
             cam.targetTexture = prevTarget;
             cam.ResetAspect();
+            var rt = big;
+            if (ss > 1)
+            {
+                rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default, 1);
+                big.filterMode = FilterMode.Bilinear;
+                Graphics.Blit(big, rt);   // half size: each pixel = average of 2×2
+                RenderTexture.ReleaseTemporary(big);
+            }
             var prev = RenderTexture.active;
             RenderTexture.active = rt;
             var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
@@ -110,6 +150,7 @@ namespace Atlas
             foreach (var r in hidden) if (r != null) r.enabled = true;
             cam.transform.SetPositionAndRotation(keepPos, keepRot);
             cam.fieldOfView = keepFov;
+            FitClip(cam, distance);
             return tex;
         }
 
@@ -162,9 +203,10 @@ namespace Atlas
             }
             for (int f = 0; ok && f <= endFrame; f++)
             {
+                SetFrame(f);
+                yield return WaitVideos();
                 try
                 {
-                    SetFrame(f);
                     var tex = Capture(renderW, renderH, renderGround);
                     byte[] jpg = tex.EncodeToJPG(92);
                     Destroy(tex);
@@ -231,19 +273,35 @@ namespace Atlas
             int total = endFrame - startFrame + 1;
             Toast("Vídeo MP4: " + total + " fotogramas…");
             string err = "";
-            AndroidJavaObject enc = null;
-            bool ok = StartEncoder(path, w, h, ref enc, ref err);
-            for (int f = startFrame; ok && f <= endFrame; f++)
+            bool ok = false;
+            // Some phones' encoders refuse big sizes: then smaller ones.
+            int[] longSides = { Mathf.Max(w, h), 1280, 960 };
+            int ow = w, oh = h;
+            foreach (int side in longSides)
             {
-                ok = EncodeFrame(enc, f, w, h, ref err);
-                if ((f - startFrame) % 24 == 23) Toast("Vídeo: " + (f - startFrame + 1) + " / " + total);
-                yield return null;
-            }
-            if (enc != null)
-            {
-                bool fin = FinishEncoder(enc, ref err);
-                ok = ok && fin;
-                enc.Dispose();
+                if (side > Mathf.Max(ow, oh)) continue;
+                w = Mathf.RoundToInt(ow * (float)side / Mathf.Max(ow, oh)) & ~1;
+                h = Mathf.RoundToInt(oh * (float)side / Mathf.Max(ow, oh)) & ~1;
+                if (side != longSides[0]) Toast("Probando el vídeo a " + w + "×" + h + "…");
+                AndroidJavaObject enc = null;
+                ok = StartEncoder(path, w, h, ref enc, ref err);
+                for (int f = startFrame; ok && f <= endFrame; f++)
+                {
+                    SetFrame(f);
+                    yield return WaitVideos();
+                    ok = EncodeFrame(enc, f, w, h, ref err);
+                    if ((f - startFrame) % 24 == 23) Toast("Vídeo: " + (f - startFrame + 1) + " / " + total);
+                    yield return null;
+                }
+                if (enc != null)
+                {
+                    bool fin = FinishEncoder(enc, ref err);
+                    ok = ok && fin;
+                    enc.Dispose();
+                }
+                if (ok) break;
+                try { if (File.Exists(path)) File.Delete(path); } catch (System.Exception) { }
+                System.GC.Collect();
             }
             SetFrame(keep);
             rendering = false;

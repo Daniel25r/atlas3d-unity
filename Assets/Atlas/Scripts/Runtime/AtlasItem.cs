@@ -45,6 +45,13 @@ namespace Atlas
         public string clip = "";     // imported model: animation clip played on the timeline
         // Scene camera
         public float fov = 50f;
+        // Volumetric light (spotlight beam / lamp halo), physics and video.
+        public bool volumetric;
+        public float volIntensity = 1f;
+        public string physics = "";      // "" none, "dynamic", "static"
+        public float mass = 1f;
+        public string videoFile = "";
+        public RenderTexture videoRT;
         public bool renderCam;       // renders are made from this camera
         public string lookAtId = "", followId = "";
         public Vector3 followOffset;
@@ -233,7 +240,34 @@ namespace Atlas
         // `skip`) and any posed bones: they behave like the separate tracks
         // of the Godot timeline.
 
-        public const int ChPos = 1, ChRot = 2, ChScale = 4;
+        public const int ChPos = 1, ChRot = 2, ChScale = 4, ChUv = 8;
+
+        // Texture placement (repeat x, y, shift x, y), animatable: faces
+        // that change expression, scrolling water, screens… On a model it is
+        // for one of its materials (uvMat) or all of them (-1).
+        public Vector4 uv = new Vector4(1f, 1f, 0f, 0f);
+        public int uvMat = -1;
+
+        public void ApplyUv()
+        {
+            var sc = new Vector2(uv.x, uv.y);
+            var of = new Vector2(uv.z, uv.w);
+            if (kind == "model")
+            {
+                for (int i = 0; i < modelMats.Count; i++)
+                {
+                    var m = modelMats[i];
+                    if (m == null || (uvMat >= 0 && i != uvMat) || !m.HasProperty("_BaseMap")) continue;
+                    m.SetTextureScale("_BaseMap", sc);
+                    m.SetTextureOffset("_BaseMap", of);
+                }
+            }
+            else if (material != null && material.HasProperty("_BaseMap"))
+            {
+                material.SetTextureScale("_BaseMap", sc);
+                material.SetTextureOffset("_BaseMap", of);
+            }
+        }
 
         public bool Animated { get { return keys.Count > 0; } }
 
@@ -269,6 +303,7 @@ namespace Atlas
             if ((channels & ChPos) != 0) { k.position = transform.position; k.skip &= ~ChPos; }
             if ((channels & ChRot) != 0) { k.rotation = transform.rotation; k.skip &= ~ChRot; }
             if ((channels & ChScale) != 0) { k.scale = transform.localScale; k.skip &= ~ChScale; }
+            if ((channels & ChUv) != 0) { k.uv = uv; k.uvKey = true; }
             if (k.bones == null) k.bones = new List<BonePose>();
             var paths = new List<string>();
             if (bonePaths == null) foreach (var b in pose) paths.Add(b.path);
@@ -308,19 +343,21 @@ namespace Atlas
         public List<string> Tracks()
         {
             var l = new List<string>();
-            bool tp = false, tr = false, ts = false;
+            bool tp = false, tr = false, ts = false, tu = false;
             var bonesSeen = new List<string>();
             foreach (var k in keys)
             {
                 if ((k.skip & ChPos) == 0) tp = true;
                 if ((k.skip & ChRot) == 0) tr = true;
                 if ((k.skip & ChScale) == 0) ts = true;
+                if (k.uvKey) tu = true;
                 if (k.bones != null)
                     foreach (var b in k.bones) if (!bonesSeen.Contains(b.path)) bonesSeen.Add(b.path);
             }
             if (tp) l.Add("T");
             if (tr) l.Add("R");
             if (ts) l.Add("S");
+            if (tu) l.Add("U");
             // Bones in skeleton order.
             foreach (var path in boneOrder) if (bonesSeen.Contains(path)) l.Add("b:" + path);
             foreach (var path in bonesSeen) if (!boneOrder.Contains(path)) l.Add("b:" + path);
@@ -406,6 +443,14 @@ namespace Atlas
                     transform.rotation = Interp.Blend(a.interp, a.rotation, b.rotation, SegT(a, b, frame));
                 if (Segment("S", frame, out a0, out a, out b, out b1))
                     transform.localScale = Interp.Blend(a.interp, a0.scale, a.scale, b.scale, b1.scale, SegT(a, b, frame));
+                if (Segment("U", frame, out a0, out a, out b, out b1))
+                {
+                    float t = SegT(a, b, frame);
+                    Vector3 sc = Interp.Blend(a.interp, (Vector3)(Vector2)a0.uv, (Vector3)(Vector2)a.uv, (Vector3)(Vector2)b.uv, (Vector3)(Vector2)b1.uv, t);
+                    Vector3 of = Interp.Blend(a.interp, new Vector3(a0.uv.z, a0.uv.w), new Vector3(a.uv.z, a.uv.w), new Vector3(b.uv.z, b.uv.w), new Vector3(b1.uv.z, b1.uv.w), t);
+                    uv = new Vector4(sc.x, sc.y, of.x, of.y);
+                    ApplyUv();
+                }
             }
             if (bones.Count == 0) return;
             // Bones with keys follow them; the other posed bones keep the pose.
@@ -480,8 +525,11 @@ namespace Atlas
         public int skip;
         /// Curve from this key to the next ("" = smooth ease in-out).
         public string interp = "";
+        /// Texture placement key (repeat x, y, shift x, y).
+        public bool uvKey;
+        public Vector4 uv = new Vector4(1f, 1f, 0f, 0f);
 
-        public bool Empty { get { return skip == 7 && (bones == null || bones.Count == 0); } }
+        public bool Empty { get { return skip == 7 && !uvKey && (bones == null || bones.Count == 0); } }
 
         public BonePose GetBone(string path)
         {
@@ -497,6 +545,7 @@ namespace Atlas
                 case "T": return (skip & 1) == 0;
                 case "R": return (skip & 2) == 0;
                 case "S": return (skip & 4) == 0;
+                case "U": return uvKey;
             }
             return track.StartsWith("b:") && GetBone(track.Substring(2)) != null;
         }
@@ -508,6 +557,7 @@ namespace Atlas
                 case "T": skip |= 1; return;
                 case "R": skip |= 2; return;
                 case "S": skip |= 4; return;
+                case "U": uvKey = false; return;
             }
             if (track.StartsWith("b:") && bones != null) bones.RemoveAll(b => b.path == track.Substring(2));
         }
@@ -519,6 +569,7 @@ namespace Atlas
                 case "T": dst.position = src.position; dst.skip &= ~1; return;
                 case "R": dst.rotation = src.rotation; dst.skip &= ~2; return;
                 case "S": dst.scale = src.scale; dst.skip &= ~4; return;
+                case "U": dst.uv = src.uv; dst.uvKey = true; return;
             }
             if (!track.StartsWith("b:")) return;
             var v = src.GetBone(track.Substring(2));

@@ -138,6 +138,7 @@ namespace Atlas
             AtlasTheme.Le(acts, 54f);
             AtlasTheme.TextButton(acts.transform, "add", "Nuevo proyecto", () => NewProject(false), true, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "import", "Importar modelo", () => NewProject(true), false, 54f, 18);
+            AtlasTheme.TextButton(acts.transform, "settings", "Preferencias", () => ShowPrefs(0), false, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "info", "Acerca de", ShowAbout, false, 54f, 18);
 
             var rl = AtlasTheme.Label(homeContent, "PROYECTOS RECIENTES", 15, AtlasTheme.TextDim, true);
