@@ -152,6 +152,13 @@ public static class AtlasBuild
         if (pr != null) pr.floatValue = 1.6f;
         pr = uso.FindProperty("m_ShadowNormalBias");
         if (pr != null) pr.floatValue = 1.2f;
+        // Many spotlights with soft shadows (stages, corridors) and their
+        // gobos (light cookies).
+        pr = uso.FindProperty("m_AdditionalLightsShadowmapResolution");
+        if (pr != null) pr.intValue = 4096;
+        pr = uso.FindProperty("m_AdditionalLightsPerObjectLimit");
+        if (pr != null) pr.intValue = 8;
+        SetBool(uso, "m_SupportsLightCookies", true);
         uso.ApplyModifiedPropertiesWithoutUndo();
         EditorUtility.SetDirty(urp);
         KeepFog();
@@ -197,6 +204,9 @@ public static class AtlasBuild
         {
             Debug.LogWarning("ATLAS: sin efectos de pantalla: " + e.Message);
         }
+        // Ambient occlusion (switched on by the app when it is wanted).
+        try { AddAOPass(rendererData); }
+        catch (Exception e) { Debug.LogWarning("ATLAS: sin oclusión ambiental: " + e.Message); }
 
         // --- The one scene: an empty one with the app object.
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -209,7 +219,7 @@ public static class AtlasBuild
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "1.0.4";
+        PlayerSettings.bundleVersion = "1.1.0";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;
@@ -304,6 +314,37 @@ public static class AtlasBuild
         EditorUtility.SetDirty(data);
         AssetDatabase.SaveAssets();
         Debug.Log("ATLAS: efecto de pantalla añadido al renderizador");
+    }
+
+    /// URP's Screen Space Ambient Occlusion feature (internal class: made
+    /// by name), named «AtlasAO» and off until the app turns it on.
+    static void AddAOPass(UniversalRendererData data)
+    {
+        foreach (var f in data.rendererFeatures)
+            if (f != null && f.name == "AtlasAO") return;
+        var type = typeof(UniversalRendererData).Assembly.GetType("UnityEngine.Rendering.Universal.ScreenSpaceAmbientOcclusion");
+        if (type == null) throw new Exception("URP sin ScreenSpaceAmbientOcclusion");
+        var feat = (ScriptableRendererFeature)ScriptableObject.CreateInstance(type);
+        feat.name = "AtlasAO";
+        feat.SetActive(false);
+        AssetDatabase.AddObjectToAsset(feat, data);
+        string guid;
+        long id;
+        AssetDatabase.TryGetGUIDAndLocalFileIdentifier(feat, out guid, out id);
+        var so = new SerializedObject(data);
+        var feats = so.FindProperty("m_RendererFeatures");
+        var map = so.FindProperty("m_RendererFeatureMap");
+        feats.arraySize++;
+        feats.GetArrayElementAtIndex(feats.arraySize - 1).objectReferenceValue = feat;
+        if (map != null)
+        {
+            map.arraySize++;
+            map.GetArrayElementAtIndex(map.arraySize - 1).longValue = id;
+        }
+        so.ApplyModifiedPropertiesWithoutUndo();
+        EditorUtility.SetDirty(data);
+        AssetDatabase.SaveAssets();
+        Debug.Log("ATLAS: oclusión ambiental añadida al renderizador");
     }
 
     static void SetMember(object o, string name, object value)

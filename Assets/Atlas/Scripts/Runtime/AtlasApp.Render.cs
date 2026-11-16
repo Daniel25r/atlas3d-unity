@@ -16,7 +16,7 @@ namespace Atlas
         bool rendering;
         int renderW = 1920, renderH = 1080;
         bool renderGround = true;
-        int renderQuality = 1;   // 0 normal, 1 alta (2× supersampling), 2 máxima (2× + 8× MSAA)
+        int renderQuality = 1;   // 0 normal, 1 alta (2× supersampling), 2 máxima (2× + 8× MSAA), 3 cine (many passes)
         readonly List<Button> sizeChips = new List<Button>();
 
         static readonly int[,] RenderSizes = { { 1280, 720 }, { 1920, 1080 }, { 2560, 1440 }, { 3840, 2160 }, { 1080, 1080 }, { 1080, 1920 } };
@@ -47,10 +47,10 @@ namespace Atlas
             AtlasTheme.Switch(content, "Mostrar el suelo", renderGround, on => renderGround = on);
             var tq = AtlasTheme.Label(content, "CALIDAD", 15, AtlasTheme.TextDim, true);
             AtlasTheme.Le(tq.gameObject, 22f);
-            var qg = AtlasTheme.Grid(content, 3, 332f, 40f);
-            string[] qn = { "Normal", "Alta", "Máxima" };
+            var qg = AtlasTheme.Grid(content, 2, 332f, 40f);
+            string[] qn = { "Normal", "Alta", "Máxima", "Cine (pasadas)" };
             var qChips = new List<Button>();
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 4; i++)
             {
                 int q = i;
                 qChips.Add(AtlasTheme.Chip(qg, qn[i], () =>
@@ -135,6 +135,14 @@ namespace Atlas
             int ss = renderQuality > 0 && roomy && (long)w * h * 4 <= 9000000L && w * 2 <= SystemInfo.maxTextureSize && h * 2 <= SystemInfo.maxTextureSize ? 2 : 1;
             int aa = ss > 1 ? (renderQuality == 2 ? 2 : 1) : (renderQuality == 2 ? 8 : 4);
             Texture2D tex = null;
+            if (renderQuality >= 3)
+            {
+                // Like SFM's progressive refinement: 16 passes for a picture,
+                // 8 per frame of an animation.
+                try { tex = CinemaShot(w, h, rc, rendering ? 8 : 16); }
+                catch (System.Exception e) { Debug.LogWarning("ATLAS: cine: " + e.Message); }
+            }
+            else
             try { tex = Shot(w, h, ss, aa, true); }
             catch (System.Exception e) { Debug.LogWarning("ATLAS: render: " + e.Message); }
             // A black picture means the phone could not draw it that way:

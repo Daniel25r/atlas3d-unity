@@ -162,6 +162,15 @@ namespace Atlas
             if (lastEnv != null) ApplyBloom(lastEnv);
         }
 
+        /// The «Cine» render makes depth of field and motion blur itself
+        /// (many passes): URP's versions are switched off meanwhile.
+        public static void SuspendFilm(bool off)
+        {
+            if (dof == null || lastEnv == null) return;
+            dof.active = !off && lastEnv.dof;
+            motion.active = !off && lastEnv.motionBlur > 0.01f;
+        }
+
         static void ApplyBloom(EnvData e)
         {
             if (bloom == null) return;

@@ -321,6 +321,7 @@ namespace Atlas
                 case "U": return "Textura (UV)";
                 case "G": return "Brillo";
             }
+            if (track.StartsWith("m:")) return "◆ " + track.Substring(2);
             return track.StartsWith("b:") ? BoneNames.Display(BoneNames.Leaf(track.Substring(2))) : track;
         }
 
@@ -603,6 +604,7 @@ namespace Atlas
                 new AtlasTheme.MenuItem("key", "Guardar clave de…", () => OpenInsertMenu(worldPos)),
                 new AtlasTheme.MenuItem("delete", "Borrar claves aquí / seleccionadas", DeleteKeys),
                 new AtlasTheme.MenuItem("curve", "Interpolación, copiar y pegar…", () => OpenKeyMenu(RectTransformUtility.WorldToScreenPoint(null, worldPos))),
+                new AtlasTheme.MenuItem("sparkle", "Herramientas de movimiento…", OpenMotionTools),
                 new AtlasTheme.MenuItem("to_end", "Duración: " + (endFrame - startFrame) + " fotogramas (" + ((endFrame - startFrame) / (float)fps).ToString("0.0") + " s)…", AskDuration),
                 new AtlasTheme.MenuItem("add", "Alargar 5 segundos", () =>
                 {

@@ -60,6 +60,9 @@ namespace Atlas
         public string text = "";
         public List<AnchorEvent> anchors = new List<AnchorEvent>();
         public List<IkChain> ik = new List<IkChain>();
+        public List<MorphValue> morphs = new List<MorphValue>();
+        public string gobo = "";
+        public float flicker;
         public string normalMap = "", emissionMap = "";
         public float bumpStrength = 1f;
         public string lookAtId = "", followId = "";
@@ -113,6 +116,9 @@ namespace Atlas
         // blur and chromatic aberration.
         public bool dof;
         public float focus = 5f, dofBlur = 0.5f, motionBlur, chroma;
+        // Ambient occlusion (soft shadows in corners) and camera cuts.
+        public bool ao;
+        public List<CamCut> cuts = new List<CamCut>();
     }
 
     [Serializable]
@@ -322,6 +328,9 @@ namespace Atlas
                     text = it.text,
                     anchors = CopyAnchors(it.anchors),
                     ik = IkRig.Copy(it.ik),
+                    morphs = CopyMorphs(it.morphs),
+                    gobo = it.gobo ?? "",
+                    flicker = it.flicker,
                     normalMap = it.normalMap ?? "",
                     emissionMap = it.emissionMap ?? "",
                     bumpStrength = it.bumpStrength,
@@ -348,6 +357,13 @@ namespace Atlas
             var l = new List<MatOverride>();
             if (src != null) foreach (var m in src) l.Add(m.Copy());
             return l;
+        }
+
+        public static List<MorphValue> CopyMorphs(List<MorphValue> l)
+        {
+            var r = new List<MorphValue>();
+            if (l != null) foreach (var m in l) if (m != null) r.Add(m.Copy());
+            return r;
         }
 
         static List<BonePose> CopyPose(List<BonePose> src)

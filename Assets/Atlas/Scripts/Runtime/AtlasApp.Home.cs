@@ -354,16 +354,14 @@ namespace Atlas
         }
 
         const string WhatsNew =
-            "• PC: nueva interfaz de escritorio estilo Blender: menús, lista de escena, propiedades fijas, barra de estado y atajos (Shift+A, X, H, teclado numérico).\n" +
-            "• IK rig para cualquier modelo: controles en manos y pies que brazos y piernas siguen.\n" +
-            "• Brillo animable por pieza: enciende y apaga partes con claves.\n" +
-            "• El neón brilla de verdad y se puede poner en piezas de modelos.\n" +
-            "• 3 ambientes nuevos: Pesadilla retro, Cómic tinta y VHS maldito.\n" +
-            "• El audio de la animación ya suena.\n" +
-            "• La cámara ya no se vuelve lenta de cerca.\n" +
-            "• .blend sin piezas sueltas (ocultas, formas de huesos y ayudantes).\n" +
-            "• Pelo y encaje recortados sin transparencias raras en cabezas y guantes.\n" +
-            "• Texturas en piezas sin UV, menús que ya no se cortan y GLB más compatibles.";
+            "• Render «Cine»: muchas pasadas como Source Filmmaker: desenfoque de lente y de movimiento reales, bordes perfectos.\n" +
+            "• Gobos: los focos proyectan ventanas, persianas, hojas, disco o tu imagen.\n" +
+            "• Luces que parpadean (luz rota) y oclusión ambiental.\n" +
+            "• Caras con deslizadores (sonrisa, parpadeo, bocas) animables, y labios con formas de boca.\n" +
+            "• Tomas: cortes entre varias cámaras en un mismo render.\n" +
+            "• Herramientas de movimiento: suavizar, temblor, invertir, más lento o rápido, rebote.\n" +
+            "• Escenarios listos: show con focos, pasillo de terror, bosque nocturno y ciudad.\n" +
+            "• PC: interfaz de escritorio estilo Blender con menús, lista de escena y atajos.";
 
         /// Once per version: what it brings.
         void ShowWhatsNew()

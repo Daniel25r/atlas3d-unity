@@ -126,12 +126,16 @@ namespace Atlas
                 le.preferredWidth = Mathf.Max(64f, t.preferredWidth + 24f);
                 le.preferredHeight = MenuBarH - 6f;
                 var btn = b.gameObject.AddComponent<Button>();
+                // The tint multiplies the box colour: invisible at rest,
+                // a lighter box under the mouse, purple when pressed.
+                b.color = AtlasTheme.Panel3;
                 var colors = btn.colors;
-                colors.highlightedColor = AtlasTheme.Panel3;
-                colors.pressedColor = AtlasTheme.AccentDim;
-                colors.normalColor = Color.white;
+                colors.normalColor = new Color(1f, 1f, 1f, 0f);
+                colors.highlightedColor = Color.white;
+                colors.selectedColor = new Color(1f, 1f, 1f, 0f);
+                colors.pressedColor = new Color(1.6f, 1.2f, 2f, 1f);
+                colors.fadeDuration = 0.05f;
                 btn.colors = colors;
-                b.color = new Color(1f, 1f, 1f, 0f);
                 btn.targetGraphic = b;
                 var rt = b.rectTransform;
                 btn.onClick.AddListener(() => OpenDesktopMenu(n, rt));
@@ -359,6 +363,12 @@ namespace Atlas
                         string p = FxPresets[i];
                         l.Add(new AtlasTheme.MenuItem("sparkle", FxNames[i], () => AddFx(p)));
                     }
+                    l.Add(AtlasTheme.MenuItem.Header("Escenarios listos"));
+                    for (int i = 0; i < SetIds.Length; i++)
+                    {
+                        string sid = SetIds[i];
+                        l.Add(new AtlasTheme.MenuItem("film", SetNames[i], () => AddSet(sid)));
+                    }
                     l.Add(AtlasTheme.MenuItem.Header("Archivos"));
                     l.Add(new AtlasTheme.MenuItem("image", "Imagen…", AddImagePlane));
                     l.Add(new AtlasTheme.MenuItem("video", "Vídeo…", AddVideoPlane));
@@ -386,6 +396,7 @@ namespace Atlas
                     l.Add(new AtlasTheme.MenuItem("key", "Insertar clave          I / K", () => { if (selected != null) AutoKeyNow(); }));
                     l.Add(new AtlasTheme.MenuItem("step_back", "Fotograma anterior      ←", () => StepFrame(-1)));
                     l.Add(new AtlasTheme.MenuItem("step_fwd", "Fotograma siguiente     →", () => StepFrame(1)));
+                    l.Add(new AtlasTheme.MenuItem("curve", "Herramientas de movimiento…", OpenMotionTools));
                     l.Add(new AtlasTheme.MenuItem("music", "Añadir audio…", PickAudio));
                     break;
                 case "Render":

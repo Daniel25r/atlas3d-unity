@@ -326,6 +326,14 @@ namespace Atlas
             AtlasTheme.TextButton(wg, "pyramid", "Terreno", () => AddWorldPiece("terrain", "hills"), false, 44f, 16);
             AtlasTheme.TextButton(wg, "image", "Tela", () => AddWorldPiece("flag", "flag"), false, 44f, 16);
             AtlasTheme.TextButton(content, "edit", "Texto 3D (títulos)", AddText3D, false, 44f, 16);
+            var tsc = AtlasTheme.Label(content, "ESCENARIOS LISTOS", 15, AtlasTheme.TextDim, true);
+            AtlasTheme.Le(tsc.gameObject, 22f);
+            var scg = AtlasTheme.Grid(content, 2, 316f, 44f);
+            for (int i = 0; i < SetIds.Length; i++)
+            {
+                string sid = SetIds[i];
+                AtlasTheme.TextButton(scg, "film", SetNames[i], () => AddSet(sid), false, 44f, 15);
+            }
             var t3 = AtlasTheme.Label(content, "OTROS", 15, AtlasTheme.TextDim, true);
             AtlasTheme.Le(t3.gameObject, 22f);
             var others = AtlasTheme.Grid(content, 2, 316f, 46f);

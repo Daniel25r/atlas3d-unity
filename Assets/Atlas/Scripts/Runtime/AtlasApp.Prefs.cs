@@ -160,12 +160,14 @@ namespace Atlas
             if (urp != null) { urp.renderScale = 1f; urp.msaaSampleCount = 4; }
             ViewEffects(true);
             RefreshShadows();
+            SetAO(AOWanted);
         }
 
         void EndCapture()
         {
             capturing = false;
             ApplyPrefs();
+            SetAO(AOWanted);
         }
 
         void BuildFpsLabel()

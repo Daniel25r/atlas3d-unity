@@ -187,6 +187,7 @@ namespace Atlas
                 if (activeMat >= 0 && activeMat < it.modelMats.Count) BuildModelMaterialSection(it, activeMat);
                 BuildModelMaterialsList(it);
                 if (it.HasBones) BuildSkeletonSection(it);
+                BuildMorphSection(it);
                 BuildModelSection(it);
             }
             else if (it.kind == "fx") BuildFxSection(it);
@@ -425,6 +426,7 @@ namespace Atlas
                 if (it.volumetric)
                     AtlasTheme.SliderRow(box, "Densidad del haz", 0.1f, 4f, it.volIntensity, "0.0", x => { it.volIntensity = x; ApplyLook(it); }, () => Commit(true));
             }
+            BuildGoboSection(it, box);
             if (it.kind != "light")
                 Hint(box, "Gira la luz con la herramienta Girar para apuntarla.");
         }
@@ -594,6 +596,8 @@ namespace Atlas
             }
             AtlasTheme.SliderRow(fx, "Desenfoque de movimiento", 0f, 1f, env.motionBlur, "0.00", x => { env.motionBlur = x; ApplyEnv(); }, () => Commit(true));
             AtlasTheme.SliderRow(fx, "Aberración cromática", 0f, 1f, env.chroma, "0.00", x => { env.chroma = x; ApplyEnv(); }, () => Commit(true));
+            AtlasTheme.Switch(fx, "Oclusión ambiental (sombras en rincones y pliegues)", env.ao, on => { env.ao = on; ApplyEnv(); Commit(true); });
+            Hint(fx, "En el render «Cine» la oclusión ambiental siempre está activa, y el desenfoque de fondo y de movimiento se calculan con muchas pasadas (sin granos).");
             AtlasTheme.TextButton(fx, "undo", "Valores del ambiente", () =>
             {
                 Ambience.Reset(env, env.preset);

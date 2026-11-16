@@ -62,6 +62,9 @@ namespace Atlas
         // Held by a bone («agarrar»): attach / release events on the timeline.
         public List<AnchorEvent> anchors = new List<AnchorEvent>();
         public List<IkChain> ik = new List<IkChain>();   // IK rig: hands / feet controls
+        public List<MorphValue> morphs = new List<MorphValue>();   // face / shape sliders set now
+        public string gobo = "";         // spotlight: shape it projects (window, blinds, leaves…)
+        public float flicker;            // lights: 0 steady .. 1 broken lamp
         public bool renderCam;       // renders are made from this camera
         public string lookAtId = "", followId = "";
         public Vector3 followOffset;
@@ -172,6 +175,8 @@ namespace Atlas
                 rest[p] = BonePose.From(p, t);
             }
             IkRig.Sync(this);
+            morphsBuilt = false;
+            ApplyMorphs();
         }
 
         /// IK controls behave like bones (posed, keyed, saved by path).
@@ -277,7 +282,72 @@ namespace Atlas
         // `skip`) and any posed bones: they behave like the separate tracks
         // of the Godot timeline.
 
-        public const int ChPos = 1, ChRot = 2, ChScale = 4, ChUv = 8, ChGlow = 16;
+        public const int ChPos = 1, ChRot = 2, ChScale = 4, ChUv = 8, ChGlow = 16, ChMorph = 32;
+
+        // ------------------------------------------------------------------
+        // Shape sliders (blend shapes / shape keys / flexes): smile, blink,
+        // brows, mouth shapes… by name, 0..100 like Unity and SFM's sliders.
+
+        readonly Dictionary<string, List<KeyValuePair<SkinnedMeshRenderer, int>>> morphIndex = new Dictionary<string, List<KeyValuePair<SkinnedMeshRenderer, int>>>();
+        readonly List<string> morphNames = new List<string>();
+        bool morphsBuilt;
+
+        public List<string> MorphNames { get { BuildMorphs(); return morphNames; } }
+
+        void BuildMorphs()
+        {
+            if (morphsBuilt) return;
+            morphsBuilt = true;
+            morphIndex.Clear();
+            morphNames.Clear();
+            foreach (var smr in GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                var m = smr.sharedMesh;
+                if (m == null) continue;
+                for (int i = 0; i < m.blendShapeCount; i++)
+                {
+                    string n = m.GetBlendShapeName(i);
+                    List<KeyValuePair<SkinnedMeshRenderer, int>> l;
+                    if (!morphIndex.TryGetValue(n, out l)) { l = new List<KeyValuePair<SkinnedMeshRenderer, int>>(); morphIndex[n] = l; morphNames.Add(n); }
+                    l.Add(new KeyValuePair<SkinnedMeshRenderer, int>(smr, i));
+                }
+            }
+        }
+
+        public float MorphValueOf(string name)
+        {
+            foreach (var m in morphs) if (m.name == name) return m.w;
+            return 0f;
+        }
+
+        /// Sets a slider now (0..100) and shows it.
+        public void SetMorph(string name, float w)
+        {
+            MorphValue mv = null;
+            foreach (var m in morphs) if (m.name == name) mv = m;
+            if (mv == null) { mv = new MorphValue { name = name }; morphs.Add(mv); }
+            mv.w = w;
+            ShowMorph(name, w);
+        }
+
+        void ShowMorph(string name, float w)
+        {
+            BuildMorphs();
+            List<KeyValuePair<SkinnedMeshRenderer, int>> l;
+            if (!morphIndex.TryGetValue(name, out l)) return;
+            foreach (var kv in l) if (kv.Key != null) kv.Key.SetBlendShapeWeight(kv.Value, w);
+        }
+
+        public void ApplyMorphs()
+        {
+            foreach (var m in morphs) ShowMorph(m.name, m.w);
+        }
+
+        public void ResetMorphs()
+        {
+            foreach (var m in morphs) ShowMorph(m.name, 0f);
+            morphs.Clear();
+        }
 
         // Animatable glow (light of its own) of one material of a model
         // (glowMat) or of the whole object (-1): spikes that light up, eyes,
@@ -377,6 +447,15 @@ namespace Atlas
             if ((channels & ChScale) != 0) { k.scale = transform.localScale; k.skip &= ~ChScale; }
             if ((channels & ChUv) != 0) { k.uv = uv; k.uvKey = true; }
             if ((channels & ChGlow) != 0) { k.glow = glow; k.glowKey = true; }
+            if ((channels & ChMorph) != 0)
+            {
+                if (k.morphs == null) k.morphs = new List<MorphValue>();
+                foreach (var m in morphs)
+                {
+                    k.morphs.RemoveAll(x => x.name == m.name);
+                    k.morphs.Add(new MorphValue { name = m.name, w = m.w });
+                }
+            }
             if (k.bones == null) k.bones = new List<BonePose>();
             var paths = new List<string>();
             if (bonePaths == null) foreach (var b in pose) paths.Add(b.path);
@@ -417,6 +496,7 @@ namespace Atlas
         {
             var l = new List<string>();
             bool tp = false, tr = false, ts = false, tu = false, tg = false;
+            var morphSeen = new List<string>();
             var bonesSeen = new List<string>();
             foreach (var k in keys)
             {
@@ -425,6 +505,7 @@ namespace Atlas
                 if ((k.skip & ChScale) == 0) ts = true;
                 if (k.uvKey) tu = true;
                 if (k.glowKey) tg = true;
+                if (k.morphs != null) foreach (var m in k.morphs) if (!morphSeen.Contains(m.name)) morphSeen.Add(m.name);
                 if (k.bones != null)
                     foreach (var b in k.bones) if (!bonesSeen.Contains(b.path)) bonesSeen.Add(b.path);
             }
@@ -433,6 +514,7 @@ namespace Atlas
             if (ts) l.Add("S");
             if (tu) l.Add("U");
             if (tg) l.Add("G");
+            foreach (var mn in morphSeen) l.Add("m:" + mn);
             // Bones in skeleton order.
             foreach (var path in boneOrder) if (bonesSeen.Contains(path)) l.Add("b:" + path);
             foreach (var path in bonesSeen) if (!boneOrder.Contains(path)) l.Add("b:" + path);
@@ -506,6 +588,16 @@ namespace Atlas
 
         /// Everything at `frame`: the model's own animation, the object's
         /// keys and the bones (keys, or the pose when they have none).
+        /// Shape sliders that have keys.
+        List<string> KeyedMorphs()
+        {
+            var l = new List<string>();
+            foreach (var k in keys)
+                if (k.morphs != null)
+                    foreach (var m in k.morphs) if (!l.Contains(m.name)) l.Add(m.name);
+            return l;
+        }
+
         public void Evaluate(float frame, float fps)
         {
             if (!string.IsNullOrEmpty(clip)) SampleClip(frame / Mathf.Max(1f, fps));
@@ -525,6 +617,13 @@ namespace Atlas
                     Vector3 of = Interp.Blend(a.interp, new Vector3(a0.uv.z, a0.uv.w), new Vector3(a.uv.z, a.uv.w), new Vector3(b.uv.z, b.uv.w), new Vector3(b1.uv.z, b1.uv.w), t);
                     uv = new Vector4(sc.x, sc.y, of.x, of.y);
                     ApplyUv();
+                }
+                foreach (var mn in KeyedMorphs())
+                {
+                    if (!Segment("m:" + mn, frame, out a0, out a, out b, out b1)) continue;
+                    float va = a.Morph(mn), vb = b.Morph(mn);
+                    float w = a == b ? va : Interp.Blend(a.interp, new Vector3(a0.Morph(mn), 0f, 0f), new Vector3(va, 0f, 0f), new Vector3(vb, 0f, 0f), new Vector3(b1.Morph(mn), 0f, 0f), SegT(a, b, frame)).x;
+                    SetMorph(mn, Mathf.Clamp(w, -100f, 200f));
                 }
                 if (Segment("G", frame, out a0, out a, out b, out b1))
                 {
@@ -628,7 +727,16 @@ namespace Atlas
         public bool glowKey;
         public float glow;
 
-        public bool Empty { get { return skip == 7 && !uvKey && !glowKey && (bones == null || bones.Count == 0); } }
+        /// Shape slider values of this key.
+        public List<MorphValue> morphs = new List<MorphValue>();
+
+        public float Morph(string name)
+        {
+            if (morphs != null) foreach (var m in morphs) if (m.name == name) return m.w;
+            return 0f;
+        }
+
+        public bool Empty { get { return skip == 7 && !uvKey && !glowKey && (bones == null || bones.Count == 0) && (morphs == null || morphs.Count == 0); } }
 
         public BonePose GetBone(string path)
         {
@@ -647,6 +755,7 @@ namespace Atlas
                 case "U": return uvKey;
                 case "G": return glowKey;
             }
+            if (track.StartsWith("m:")) { string n = track.Substring(2); if (morphs != null) foreach (var m in morphs) if (m.name == n) return true; return false; }
             return track.StartsWith("b:") && GetBone(track.Substring(2)) != null;
         }
 
@@ -660,6 +769,7 @@ namespace Atlas
                 case "U": uvKey = false; return;
                 case "G": glowKey = false; return;
             }
+            if (track.StartsWith("m:")) { if (morphs != null) morphs.RemoveAll(m => m.name == track.Substring(2)); return; }
             if (track.StartsWith("b:") && bones != null) bones.RemoveAll(b => b.path == track.Substring(2));
         }
 
@@ -673,6 +783,14 @@ namespace Atlas
                 case "U": dst.uv = src.uv; dst.uvKey = true; return;
                 case "G": dst.glow = src.glow; dst.glowKey = true; return;
             }
+            if (track.StartsWith("m:"))
+            {
+                string n = track.Substring(2);
+                if (dst.morphs == null) dst.morphs = new List<MorphValue>();
+                dst.morphs.RemoveAll(m => m.name == n);
+                dst.morphs.Add(new MorphValue { name = n, w = src.Morph(n) });
+                return;
+            }
             if (!track.StartsWith("b:")) return;
             var v = src.GetBone(track.Substring(2));
             if (v == null) return;
@@ -680,6 +798,15 @@ namespace Atlas
             dst.bones.RemoveAll(b => b.path == v.path);
             dst.bones.Add(v.Copy());
         }
+    }
+
+    /// One shape slider (blend shape) value, 0..100.
+    [Serializable]
+    public class MorphValue
+    {
+        public string name;
+        public float w;
+        public MorphValue Copy() { return (MorphValue)MemberwiseClone(); }
     }
 
     /// A bone's local transform (by its path inside the model).

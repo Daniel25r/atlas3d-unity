@@ -838,3 +838,43 @@ Escena vacía: Añadir (Shift+A) o Archivo → Importar§Empty scene: Add (Shift
 Importar y exportar§Import and export§استيراد وتصدير
 Rejilla y suelo§Grid and floor§الشبكة والأرضية
 Ambiente y efectos de imagen§Ambience and image effects§الأجواء ومؤثرات الصورة
+• Render «Cine»: muchas pasadas como Source Filmmaker: desenfoque de lente y de movimiento reales, bordes perfectos.\n• Gobos: los focos proyectan ventanas, persianas, hojas, disco o tu imagen.\n• Luces que parpadean (luz rota) y oclusión ambiental.\n• Caras con deslizadores (sonrisa, parpadeo, bocas) animables, y labios con formas de boca.\n• Tomas: cortes entre varias cámaras en un mismo render.\n• Herramientas de movimiento: suavizar, temblor, invertir, más lento o rápido, rebote.\n• Escenarios listos: show con focos, pasillo de terror, bosque nocturno y ciudad.\n• PC: interfaz de escritorio estilo Blender con menús, lista de escena y atajos.§• «Cinema» render: many passes like Source Filmmaker: real lens and motion blur, perfect edges.\n• Gobos: spotlights project windows, blinds, leaves, disco or your picture.\n• Flickering lights (broken lamp) and ambient occlusion.\n• Faces with sliders (smile, blink, mouths), animatable, and lip sync with mouth shapes.\n• Shots: cuts between several cameras in one render.\n• Motion tools: smooth, shake, reverse, slower or faster, bounce.\n• Ready-made sets: show stage with spotlights, horror corridor, night forest and city.\n• PC: Blender-style desktop interface with menus, scene list and shortcuts.§• عرض «سينما»: تمريرات كثيرة مثل Source Filmmaker: تمويه عدسة وحركة حقيقي وحواف مثالية.\n• الغوبو: الكشافات تُسقط نوافذ أو ستائر أو أوراق أو ديسكو أو صورتك.\n• أضواء ترمش (مصباح معطل) وانسداد محيطي.\n• وجوه بمنزلقات (ابتسامة، رمش، أفواه) قابلة للتحريك، ومزامنة شفاه بأشكال الفم.\n• لقطات: قطع بين عدة كاميرات في عرض واحد.\n• أدوات الحركة: تنعيم، اهتزاز، عكس، أبطأ أو أسرع، ارتداد.\n• مشاهد جاهزة: مسرح بكشافات، ممر رعب، غابة ليلية ومدينة.\n• الحاسوب: واجهة سطح مكتب بأسلوب Blender مع قوائم وقائمة المشهد واختصارات.
+Gobo (forma que proyecta el foco)§Gobo (shape the spotlight projects)§الغوبو (الشكل الذي يُسقطه الكشاف)
+Ninguno§None§لا شيء
+Ventana§Window§نافذة
+Persiana§Blinds§ستارة
+Hojas§Leaves§أوراق
+Disco§Disco§ديسكو
+Rejilla§Grid§شبكة
+Círculo§Circle§دائرة
+Estrellas§Stars§نجوم
+Barrotes§Bars§قضبان
+Gobo con tu imagen…§Gobo with your picture…§غوبو بصورتك…
+Cambiar imagen del gobo…§Change gobo picture…§تغيير صورة الغوبو…
+Parpadeo (luz rota)§Flicker (broken lamp)§وميض (مصباح معطل)
+Oclusión ambiental (sombras en rincones y pliegues)§Ambient occlusion (shadows in corners and folds)§الانسداد المحيطي (ظلال في الزوايا والطيات)
+En el render «Cine» la oclusión ambiental siempre está activa, y el desenfoque de fondo y de movimiento se calculan con muchas pasadas (sin granos).§In the «Cinema» render ambient occlusion is always on, and depth of field and motion blur are computed with many passes (no grain).§في عرض «سينما» يكون الانسداد المحيطي مفعّلًا دائمًا، ويُحسب تمويه الخلفية والحركة بتمريرات كثيرة (بلا حبيبات).
+Cine (pasadas)§Cinema (passes)§سينما (تمريرات)
+Tomas (cortes entre cámaras)§Shots (cuts between cameras)§لقطات (قطع بين الكاميرات)
+Cortar a esta cámara en el fotograma §Cut to this camera at frame §القطع إلى هذه الكاميرا في الإطار 
+Toca un corte para quitarlo. Con cortes, el render salta de cámara en cada uno (como los planos de una película).§Tap a cut to remove it. With cuts, the render jumps camera at each one (like the shots of a film).§المس قطعًا لإزالته. مع القطوع، ينتقل العرض بين الكاميرات عند كل قطع (مثل لقطات الفيلم).
+Herramientas de movimiento…§Motion tools…§أدوات الحركة…
+Herramientas de movimiento§Motion tools§أدوات الحركة
+Suavizar (movimiento más fluido)§Smooth (more fluid motion)§تنعيم (حركة أكثر سلاسة)
+Añadir temblor§Add shake§إضافة اهتزاز
+Invertir (al revés)§Reverse§عكس
+Más lento (×2 de duración)§Slower (×2 duration)§أبطأ (×2 المدة)
+Más rápido (×0,5)§Faster (×0.5)§أسرع (×0.5)
+Rebote al final de cada movimiento§Bounce at the end of each move§ارتداد في نهاية كل حركة
+ESCENARIOS LISTOS§READY-MADE SETS§مشاهد جاهزة
+Escenarios listos§Ready-made sets§مشاهد جاهزة
+Escenario de show§Show stage§مسرح العرض
+Pasillo de terror§Horror corridor§ممر الرعب
+Bosque nocturno§Night forest§غابة ليلية
+Ciudad de noche§City at night§مدينة ليلًا
+Deslizadores de la cara y del cuerpo que trae el modelo (sonrisa, parpadeo, cejas, bocas…). Mueve y guarda una clave para animarlos.§Face and body sliders that come with the model (smile, blink, brows, mouths…). Move them and set a key to animate them.§منزلقات الوجه والجسم المرفقة بالنموذج (ابتسامة، رمش، حواجب، أفواه…). حرّكها وضع مفتاحًا لتحريكها.
+Buscar (boca, ojo, smile, blink…)§Search (mouth, eye, smile, blink…)§بحث (فم، عين، smile، blink…)
+Clave de formas (◆)§Shapes key (◆)§مفتاح الأشكال (◆)
+Todo a cero§All to zero§الكل إلى صفر
+Sincronizar labios con las formas de la boca§Lip sync with the mouth shapes§مزامنة الشفاه بأشكال الفم
+Selecciona un objeto con al menos 2 claves§Select an object with at least 2 keys§اختر كائنًا به مفتاحان على الأقل

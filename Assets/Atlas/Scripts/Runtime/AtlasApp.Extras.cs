@@ -164,6 +164,8 @@ namespace Atlas
 
         AtlasItem RenderCamera()
         {
+            var cut = CutCameraAt(frame);
+            if (cut != null) return cut;
             foreach (var it in items) if (it != null && it.kind == "camera" && it.renderCam) return it;
             return null;
         }
@@ -399,6 +401,7 @@ namespace Atlas
                 RefreshProps();
             }, lookThrough != it, 46f, 16);
             AtlasTheme.Switch(box, "Cámara activa (la que usa el render)", it.renderCam, on => SetRenderCamera(it, on));
+            BuildCutSection(it, box);
             AtlasTheme.SliderRow(box, "Campo visual", 10f, 120f, it.fov, "0", x => { it.fov = x; UpdateFrustum(it); }, () => Commit(true));
             var g = AtlasTheme.Grid(box, 3, InnerWidth, 38f);
             float[] lens = { 24f, 35f, 50f, 85f, 135f };

@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.0.4";
+        public const string Version = "1.1.0";
 
         Camera cam;
         Light sunLight;
@@ -171,6 +171,7 @@ namespace Atlas
         void ApplyEnv()
         {
             Ambience.Apply(env, cam, sunLight);
+            SetAO(AOWanted);
             if (sunLight != null) sunBase = sunLight.intensity;
             if (!Prefs.viewShadows && !capturing && sunLight != null) sunLight.shadows = LightShadows.None;
             reflDirty = true;
@@ -342,6 +343,11 @@ namespace Atlas
             it.shake = d.shake;
             it.shakeSpeed = d.shakeSpeed > 0f ? d.shakeSpeed : 0.6f;
             it.ik = IkRig.Copy(d.ik);
+            it.gobo = d.gobo ?? "";
+            it.flicker = d.flicker;
+            if (it.loaded) it.ResetMorphs();
+            it.morphs = SceneStore.CopyMorphs(d.morphs);
+            if (it.loaded) it.ApplyMorphs();
             if (it.loaded && it.HasBones) IkRig.Sync(it);
             string mf = d.meshFile ?? "";
             if (mf != (it.meshFile ?? ""))
@@ -530,6 +536,8 @@ namespace Atlas
                     l.innerSpotAngle = l.spotAngle * 0.6f;
                     l.shadows = it.shadows && !env.shadowsOff && (Prefs.viewShadows || capturing) ? LightShadows.Soft : LightShadows.None;
                     l.enabled = it.visible;
+                    l.cookie = GoboOf(it);
+                    if (it.flicker > 0.001f) UpdateLights();
                 }
                 var cone = it.GetComponentInChildren<LineRenderer>(true);
                 if (cone != null) SpotCone(it, cone, col);
@@ -1150,6 +1158,7 @@ namespace Atlas
             SyncVideos();
             UpdateEffects();
             UpdateWorld();
+            UpdateLights();
             RefreshTimeline();
         }
 
