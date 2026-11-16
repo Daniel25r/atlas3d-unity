@@ -119,6 +119,8 @@ namespace Atlas
         // Ambient occlusion (soft shadows in corners) and camera cuts.
         public bool ao;
         public List<CamCut> cuts = new List<CamCut>();
+        // Sky with the hour of the day (-1: the ambience's own) and clouds.
+        public float timeOfDay = -1f, cloudCover = -1f;
     }
 
     [Serializable]
@@ -444,6 +446,17 @@ namespace Atlas
             if (System.Array.IndexOf(MeshFormats.Importable, ext) < 0) ext = MeshFormats.Sniff(source);
             string name;
             if (ext == ".zip") name = MeshFormats.ExtractPackage(source, ModelsDir);
+            else if (ext == ".gma")
+            {
+                // Garry's Mod addon: unpacked, then its main model.
+                string folder = "addon_" + NewId().Substring(0, 8);
+                string dest = Path.Combine(ModelsDir, folder);
+                Directory.CreateDirectory(dest);
+                Import.SourceMdlImport.ExtractGma(source, dest);
+                string main = Import.SourceMdlImport.MainMdl(dest);
+                if (main == null) throw new Exception("el addon no tiene ningún modelo (.mdl)");
+                name = folder + "/" + main.Substring(dest.Length).Replace('\\', '/').TrimStart('/');
+            }
             else
             {
                 string baseName = Path.GetFileNameWithoutExtension(source);
@@ -457,6 +470,7 @@ namespace Atlas
                     name = folder + "/" + baseName + ext;
                     File.Copy(source, Path.Combine(ModelsDir, name), true);
                     CopySidecars(source, Path.Combine(ModelsDir, folder));
+                    if (ext == ".mdl") SourceSidecars(source, Path.Combine(ModelsDir, folder), baseName);
                 }
                 else
                 {
@@ -487,7 +501,7 @@ namespace Atlas
             return name;
         }
 
-        static readonly string[] MainOrder = { ".prisma", ".glb", ".gltf", ".proj", ".fbx", ".obj", ".3ds", ".blend", ".zip", ".ply", ".stl", ".pobject" };
+        static readonly string[] MainOrder = { ".prisma", ".glb", ".gltf", ".proj", ".fbx", ".mdl", ".gma", ".obj", ".3ds", ".blend", ".zip", ".ply", ".stl", ".pobject" };
 
         /// Several files picked together (a .proj with its .pobject files, an
         /// OBJ with its MTL and textures, a glTF with its .bin…): all of them
@@ -507,7 +521,7 @@ namespace Atlas
             }
             if (main == null) throw new Exception("entre esos archivos no hay ningún modelo (GLB, FBX, OBJ, Prisma3D…)");
             string mext = Path.GetExtension(main).ToLowerInvariant();
-            if (mext == ".zip" || mext == ".prisma") return AddModelFile(main);
+            if (mext == ".zip" || mext == ".prisma" || mext == ".gma") return AddModelFile(main);
             Directory.CreateDirectory(ModelsDir);
             string folder = "modelo_" + NewId().Substring(0, 8);
             string dir = Path.Combine(ModelsDir, folder);
@@ -541,6 +555,26 @@ namespace Atlas
 
         /// The files next to a picked model (its .mtl and textures), when the
         /// phone lets us see the folder; small images and .mtl only.
+        /// A Source model's .vvd / .vtx / .phy, and where it came from (its
+        /// textures are in a «materials» folder somewhere above it).
+        static void SourceSidecars(string source, string destDir, string baseName)
+        {
+            try
+            {
+                string dir = Path.GetDirectoryName(source);
+                if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return;
+                foreach (var f in Directory.GetFiles(dir))
+                {
+                    string fn = Path.GetFileName(f);
+                    if (!fn.StartsWith(baseName + ".", StringComparison.OrdinalIgnoreCase)) continue;
+                    string e = Path.GetExtension(fn).ToLowerInvariant();
+                    if (e == ".vvd" || e == ".vtx" || e == ".phy") File.Copy(f, Path.Combine(destDir, fn), true);
+                }
+                File.WriteAllText(Path.Combine(destDir, baseName + ".srcroot"), dir);
+            }
+            catch (Exception) { }
+        }
+
         static void CopySidecars(string source, string destDir)
         {
             try

@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.1.0";
+        public const string Version = "1.2.0";
 
         Camera cam;
         Light sunLight;
@@ -430,6 +430,7 @@ namespace Atlas
                 sceneRadiusAt = -1f;
                 it.modelMats = CollectMaterials(it);
                 it.BuildBones();
+                LoadWeights(it);
                 it.Evaluate(frame, fps);
                 ApplyLook(it);
                 if (selected == it)
@@ -908,6 +909,7 @@ namespace Atlas
 
         void Select(AtlasItem it)
         {
+            if (weightMode && it != selected) ExitWeightMode(true);
             if (it != selected) activeMat = -1;
             if (meshMode != "" && it != selected)
             {
@@ -1206,6 +1208,7 @@ namespace Atlas
             UpdateFps();
             UpdateMatPreview();
             if (store == null || home.activeSelf) { if (!rendering) CheckIncoming(); }
+            if (!rendering) UpdateCatch();
             if (store == null || home.activeSelf || rendering) return;
             if (playing)
             {
@@ -1250,6 +1253,7 @@ namespace Atlas
                 }
                 if (pinchOnUi) { moved = -1f; return; }
                 if (sculpting) EndSculpt();
+                if (weightPainting) WeightEnd();
                 if (draggingGizmo && meshDragging) { gizmo.End(); draggingGizmo = false; MeshDragEnd(); }
                 if (draggingGizmo) { gizmo.End(); draggingGizmo = false; BoneEdited(); if (poseMode || !Regrip(selected)) AutoKey(); Commit(true); }
                 moved = 99f;   // not a tap any more
@@ -1423,6 +1427,7 @@ namespace Atlas
         /// Android «back»: closes a dialog or a menu, or goes to the projects.
         void Back()
         {
+            if (weightMode) { ExitWeightMode(true); return; }
             var dlg = canvasRoot != null ? canvasRoot.Find("Dialogo") : null;
             if (dlg != null) { Destroy(dlg.gameObject); return; }
             if (matEditor != null) { CloseMatEditor(); return; }
@@ -1442,6 +1447,7 @@ namespace Atlas
             moved = 0f;
             // Sculpting: a finger on the shape is the brush.
             if (BeginSculpt(pos)) { draggingGizmo = false; orbiting = false; return; }
+            if (WeightBegin(pos)) { draggingGizmo = false; orbiting = false; return; }
             if (MeshPointerBegin(pos)) { draggingGizmo = false; orbiting = false; return; }
             draggingGizmo = gizmo.TryBegin(pos);
             if (draggingGizmo && meshMode == "model") MeshDragBegin();
@@ -1453,6 +1459,7 @@ namespace Atlas
         {
             moved += delta.magnitude;
             if (sculpting) { SculptMove(pos); return; }
+            if (weightPainting) { WeightMove(pos); return; }
             if (MeshPointerMove(pos)) return;
             if (lookThrough != null && !draggingGizmo)
             {
@@ -1478,6 +1485,7 @@ namespace Atlas
         void EndPointer(Vector2 pos)
         {
             if (sculpting) { EndSculpt(); moved = -1f; return; }
+            if (weightPainting) { WeightEnd(); moved = -1f; return; }
             if (MeshPointerEnd(pos)) { moved = -1f; orbiting = false; return; }
             if (lookThrough != null && cameraDragging) { LookThroughEnd(); moved = -1f; orbiting = false; return; }
             if (draggingGizmo && meshDragging)

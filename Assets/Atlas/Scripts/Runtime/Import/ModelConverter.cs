@@ -13,7 +13,7 @@ namespace Atlas.Import
 {
     public static class ModelConverter
     {
-        public static readonly string[] Convertible = { ".fbx", ".obj", ".3ds", ".blend", ".prisma", ".proj", ".pobject" };
+        public static readonly string[] Convertible = { ".fbx", ".obj", ".3ds", ".blend", ".prisma", ".proj", ".pobject", ".mdl" };
 
         /// Converts `path` (inside the project) to a .glb next to it and
         /// returns the GLB's path, or null to keep the file as it is.
@@ -34,6 +34,9 @@ namespace Atlas.Import
                     break;
                 case ".blend":
                     m = BlendImport.Load(path);
+                    break;
+                case ".mdl":
+                    m = SourceMdlImport.Load(path);
                     break;
                 case ".prisma":
                 case ".proj":
@@ -78,6 +81,8 @@ namespace Atlas.Import
             if (n >= 18 && System.Text.Encoding.ASCII.GetString(head, 0, 18) == "Kaydara FBX Binary") return ".fbx";
             string text = System.Text.Encoding.ASCII.GetString(head, 0, Math.Min(n, 512));
             if (text.Contains("FBXHeaderExtension") || text.StartsWith("; FBX")) return ".fbx";
+            if (n >= 4 && text.StartsWith("IDST")) return ".mdl";
+            if (n >= 4 && text.StartsWith("GMAD")) return ".gma";
             if (n >= 10 && ThreeDsImport.Is3ds(head)) return ".3ds";
             if (BlendImport.IsBlend(head)) return ".blend";
             if (PrismaImport.IsAlteredZip(head)) return ".prisma";

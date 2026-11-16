@@ -18,7 +18,7 @@ namespace Atlas
 {
     public static class MeshFormats
     {
-        public static readonly string[] Importable = { ".glb", ".gltf", ".fbx", ".obj", ".3ds", ".blend", ".prisma", ".proj", ".pobject", ".stl", ".ply", ".zip" };
+        public static readonly string[] Importable = { ".glb", ".gltf", ".fbx", ".obj", ".3ds", ".blend", ".prisma", ".proj", ".pobject", ".stl", ".ply", ".zip", ".mdl", ".gma" };
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
         // ------------------------------------------------------------------
@@ -65,7 +65,7 @@ namespace Atlas
             Directory.CreateDirectory(dest);
             string best = null;
             int bestRank = 99;
-            string[] order = { ".glb", ".gltf", ".prisma", ".fbx", ".obj", ".3ds", ".blend", ".proj", ".ply", ".stl" };
+            string[] order = { ".glb", ".gltf", ".prisma", ".fbx", ".mdl", ".obj", ".3ds", ".blend", ".proj", ".ply", ".stl" };
             using (var zip = new ZipArchive(File.OpenRead(zipPath), ZipArchiveMode.Read))
             {
                 foreach (var e in zip.Entries)
@@ -86,7 +86,14 @@ namespace Atlas
                     }
                 }
             }
-            if (best == null) throw new Exception("el .zip no contiene ningún modelo (GLB, glTF, FBX, OBJ, 3DS, PLY o STL)");
+            if (best == null) throw new Exception("el .zip no contiene ningún modelo (GLB, glTF, FBX, MDL de Source, OBJ, 3DS, PLY o STL)");
+            // Source models (SFM / Garry's Mod packs): the main one, not
+            // its arms or gibs.
+            if (best.ToLowerInvariant().EndsWith(".mdl"))
+            {
+                string main = Import.SourceMdlImport.MainMdl(dest);
+                if (main != null) best = folder + "/" + main.Substring(dest.Length).Replace('\\', '/').TrimStart('/');
+            }
             return best;
         }
 

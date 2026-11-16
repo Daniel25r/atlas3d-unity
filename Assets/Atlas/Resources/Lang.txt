@@ -878,3 +878,39 @@ Clave de formas (◆)§Shapes key (◆)§مفتاح الأشكال (◆)
 Todo a cero§All to zero§الكل إلى صفر
 Sincronizar labios con las formas de la boca§Lip sync with the mouth shapes§مزامنة الشفاه بأشكال الفم
 Selecciona un objeto con al menos 2 claves§Select an object with at least 2 keys§اختر كائنًا به مفتاحان على الأقل
+OBJETOS§OBJECTS§الكائنات
+Panel lateral (objetos y propiedades)   N§Side panel (objects and properties)   N§اللوحة الجانبية (الكائنات والخصائص)   N
+• Importa modelos de Source Filmmaker y Garry's Mod (.mdl con sus texturas, y addons .gma).\n• Descargas y biblioteca: descarga modelos desde un enlace (Drive, Dropbox…), atrapa lo que bajas con el navegador (PC) y descarga creaciones del Workshop de ATLAS.\n• Pintura de pesos: elige un hueso y pinta cuánto mueve cada parte (sumar, restar, suavizar, fijar, espejo).\n• Cielo con hora del día: amanecer, día, atardecer y noche con luna; nubes ajustables.\n• Reducir claves en las herramientas de movimiento.\n• PC: contador de triángulos y vértices, panel lateral que se oculta (N) y arreglos de la interfaz.§• Import Source Filmmaker and Garry's Mod models (.mdl with their textures, and .gma addons).\n• Downloads and library: download models from a link (Drive, Dropbox…), catch what your browser downloads (PC) and download ATLAS Workshop creations.\n• Weight painting: pick a bone and paint how much it moves each part (add, subtract, smooth, set, mirror).\n• Sky with time of day: sunrise, day, sunset and night with moon; adjustable clouds.\n• Reduce keys in the motion tools.\n• PC: triangle and vertex counter, side panel that hides (N) and interface fixes.§• استيراد نماذج Source Filmmaker وGarry's Mod (‎.mdl‎ مع خاماتها، وإضافات ‎.gma‎).\n• التنزيلات والمكتبة: نزّل نماذج من رابط (Drive وDropbox…)، والتقط ما ينزّله المتصفح (الحاسوب)، ونزّل إبداعات ورشة ATLAS.\n• رسم الأوزان: اختر عظمة وارسم مقدار تحريكها لكل جزء (جمع، طرح، تنعيم، تثبيت، مرآة).\n• سماء بوقت اليوم: شروق ونهار وغروب وليل مع القمر؛ غيوم قابلة للضبط.\n• تقليل المفاتيح في أدوات الحركة.\n• الحاسوب: عدّاد المثلثات والرؤوس، ولوحة جانبية تُخفى (N) وإصلاحات للواجهة.
+Descargas y biblioteca§Downloads and library§التنزيلات والمكتبة
+Descargas y biblioteca…§Downloads and library…§التنزيلات والمكتبة…
+Descargas y biblioteca (Workshop)…§Downloads and library (Workshop)…§التنزيلات والمكتبة (الورشة)…
+Descargas§Downloads§التنزيلات
+DESCARGAR DESDE UN ENLACE§DOWNLOAD FROM A LINK§التنزيل من رابط
+Pega un enlace directo a un modelo (GLB, FBX, ZIP, MDL, GMA, Prisma…) o de Google Drive, Dropbox o el Workshop de ATLAS.§Paste a direct link to a model (GLB, FBX, ZIP, MDL, GMA, Prisma…) or from Google Drive, Dropbox or the ATLAS Workshop.§الصق رابطًا مباشرًا لنموذج (GLB أو FBX أو ZIP أو MDL أو GMA أو Prisma…) أو من Google Drive أو Dropbox أو ورشة ATLAS.
+Descargar§Download§تنزيل
+ATRAPAR DESCARGAS DEL NAVEGADOR§CATCH BROWSER DOWNLOADS§التقاط تنزيلات المتصفح
+Traer aquí los modelos que descargue el navegador (carpeta Descargas)§Bring here the models the browser downloads (Downloads folder)§إحضار النماذج التي ينزّلها المتصفح إلى هنا (مجلد التنزيلات)
+Abrir carpeta§Open folder§فتح المجلد
+ARCHIVOS GUARDADOS§SAVED FILES§الملفات المحفوظة
+Todavía no hay nada descargado.§Nothing downloaded yet.§لم يُنزَّل شيء بعد.
+Importar§Import§استيراد
+WORKSHOP DE ATLAS 3D§ATLAS 3D WORKSHOP§ورشة ATLAS 3D
+Cargando creaciones…§Loading creations…§جارٍ تحميل الإبداعات…
+Subir mi creación al Workshop…§Upload my creation to the Workshop…§رفع إبداعي إلى الورشة…
+Descargar e importar§Download and import§تنزيل واستيراد
+Todavía no hay creaciones publicadas (o no hay internet). ¡Sube la primera!§No creations published yet (or no internet). Upload the first one!§لا توجد إبداعات منشورة بعد (أو لا يوجد إنترنت). ارفع الأول!
+Cielo y hora del día§Sky and time of day§السماء ووقت اليوم
+Usar la hora del día§Use the time of day§استخدام وقت اليوم
+Hora§Hour§الساعة
+Amanecer§Sunrise§الشروق
+Nubes§Clouds§الغيوم
+La hora mueve el sol (o la luna), el color del cielo y la luz de la escena.§The hour moves the sun (or the moon), the sky colour and the scene's light.§الساعة تحرّك الشمس (أو القمر) ولون السماء وإضاءة المشهد.
+Pintar pesos de este hueso§Paint this bone's weights§رسم أوزان هذه العظمة
+Sumar§Add§جمع
+Restar§Subtract§طرح
+Fijar§Set§تثبيت
+Tamaño (px)§Size (px)§الحجم (بكسل)
+Normalizar§Normalize§تسوية
+Azul: no le afecta · Rojo: lo mueve del todo. Toca otro hueso en la lista de la derecha para pintarlo.§Blue: not affected · Red: fully moved. Tap another bone in the list on the right to paint it.§أزرق: لا يتأثر · أحمر: يتحرك بالكامل. المس عظمة أخرى في القائمة يمينًا لرسمها.
+Pesos originales§Original weights§الأوزان الأصلية
+Reducir claves (quitar las que sobran)§Reduce keys (remove the extra ones)§تقليل المفاتيح (إزالة الزائدة)

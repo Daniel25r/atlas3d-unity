@@ -44,6 +44,7 @@ namespace Atlas
 
         void TogglePose()
         {
+            if (weightMode) ExitWeightMode(true);
             if (poseMode) ExitPose();
             else EnterPose();
         }
@@ -80,6 +81,7 @@ namespace Atlas
         void SetActiveBone(string path)
         {
             activeBone = path ?? "";
+            if (weightMode && selected != null && activeBone != "" && !IkRig.IsControl(activeBone)) { ShowWeights(selected); BuildWeightPanel(); return; }
             ShowGizmo();
             RefreshMode();
             RefreshProps();
@@ -390,6 +392,8 @@ namespace Atlas
                     AtlasTheme.Chip(ig, n + " huesos" + (n == 2 ? " (bípedo)" : n == 3 ? " (cuadrúpedo)" : ""), () => { ikChain = n; RefreshProps(); }, ikChain == n);
                 }
             }
+            if (activeBone != "" && !IkRig.IsControl(activeBone))
+                AtlasTheme.TextButton(box, "edit", "Pintar pesos de este hueso", EnterWeightMode, false, 42f, 15);
             BuildIkRigSection(it, box);
             BuildLipSyncSection(it, box);
             int hidden = HiddenBoneCount(it);

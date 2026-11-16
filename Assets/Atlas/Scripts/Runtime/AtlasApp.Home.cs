@@ -138,6 +138,7 @@ namespace Atlas
             AtlasTheme.Le(acts, 54f);
             AtlasTheme.TextButton(acts.transform, "add", "Nuevo proyecto", () => NewProject(false), true, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "import", "Importar modelo", () => NewProject(true), false, 54f, 18);
+            AtlasTheme.TextButton(acts.transform, "import", "Descargas", ShowDownloads, false, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "settings", "Preferencias", () => ShowPrefs(0), false, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "info", "Acerca de", ShowAbout, false, 54f, 18);
 
@@ -354,14 +355,12 @@ namespace Atlas
         }
 
         const string WhatsNew =
-            "• Render «Cine»: muchas pasadas como Source Filmmaker: desenfoque de lente y de movimiento reales, bordes perfectos.\n" +
-            "• Gobos: los focos proyectan ventanas, persianas, hojas, disco o tu imagen.\n" +
-            "• Luces que parpadean (luz rota) y oclusión ambiental.\n" +
-            "• Caras con deslizadores (sonrisa, parpadeo, bocas) animables, y labios con formas de boca.\n" +
-            "• Tomas: cortes entre varias cámaras en un mismo render.\n" +
-            "• Herramientas de movimiento: suavizar, temblor, invertir, más lento o rápido, rebote.\n" +
-            "• Escenarios listos: show con focos, pasillo de terror, bosque nocturno y ciudad.\n" +
-            "• PC: interfaz de escritorio estilo Blender con menús, lista de escena y atajos.";
+            "• Importa modelos de Source Filmmaker y Garry's Mod (.mdl con sus texturas, y addons .gma).\n" +
+            "• Descargas y biblioteca: descarga modelos desde un enlace (Drive, Dropbox…), atrapa lo que bajas con el navegador (PC) y descarga creaciones del Workshop de ATLAS.\n" +
+            "• Pintura de pesos: elige un hueso y pinta cuánto mueve cada parte (sumar, restar, suavizar, fijar, espejo).\n" +
+            "• Cielo con hora del día: amanecer, día, atardecer y noche con luna; nubes ajustables.\n" +
+            "• Reducir claves en las herramientas de movimiento.\n" +
+            "• PC: contador de triángulos y vértices, panel lateral que se oculta (N) y arreglos de la interfaz.";
 
         /// Once per version: what it brings.
         void ShowWhatsNew()

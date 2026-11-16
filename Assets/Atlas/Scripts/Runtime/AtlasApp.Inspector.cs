@@ -577,6 +577,23 @@ namespace Atlas
                 }, env.preset == p.id);
             }
 
+            var sky = Sec("Cielo y hora del día", "sun", false);
+            AtlasTheme.Switch(sky, "Usar la hora del día", env.timeOfDay >= 0f, on => { env.timeOfDay = on ? 12f : -1f; ApplyEnv(); Commit(true); RefreshProps(); });
+            if (env.timeOfDay >= 0f)
+            {
+                AtlasTheme.SliderRow(sky, "Hora", 0f, 24f, env.timeOfDay, "0.0", x => { env.timeOfDay = x; ApplyEnv(); }, () => Commit(true));
+                var tg = AtlasTheme.Grid(sky, 4, InnerWidth, 36f, 4f);
+                string[] tn = { "Amanecer", "Día", "Atardecer", "Noche" };
+                float[] tv = { 6.6f, 12f, 18.4f, 23f };
+                for (int i = 0; i < 4; i++)
+                {
+                    float hv = tv[i];
+                    AtlasTheme.Chip(tg, tn[i], () => { env.timeOfDay = hv; ApplyEnv(); Commit(true); RefreshProps(); }, Mathf.Abs(env.timeOfDay - hv) < 0.05f);
+                }
+            }
+            AtlasTheme.SliderRow(sky, "Nubes", 0f, 1f, env.cloudCover >= 0f ? env.cloudCover : 0.45f, "0.00", x => { env.cloudCover = x; ApplyEnv(); }, () => Commit(true));
+            Hint(sky, "La hora mueve el sol (o la luna), el color del cielo y la luz de la escena.");
+
             var fx = Sec("Efectos de imagen", "image");
             AtlasTheme.SliderRow(fx, "Exposición", -2f, 2f, env.exposure, "0.00", x => { env.exposure = x; ApplyEnv(); }, () => Commit(true));
             AtlasTheme.SliderRow(fx, "Contraste", -50f, 50f, env.contrast, "0", x => { env.contrast = x; ApplyEnv(); }, () => Commit(true));

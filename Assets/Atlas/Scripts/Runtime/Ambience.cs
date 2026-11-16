@@ -171,6 +171,58 @@ namespace Atlas
             motion.active = !off && lastEnv.motionBlur > 0.01f;
         }
 
+        /// The sky, the sun (or the moon) and the light of an hour of the
+        /// day: 6 sunrise, 12 noon, 18.5 sunset, night after 20.
+        static void TimeOfDay(EnvData e, Camera cam, Light sun)
+        {
+            float t = Mathf.Repeat(e.timeOfDay, 24f);
+            float h = Mathf.Sin((t - 6f) / 12f * Mathf.PI);           // -1 midnight … 1 noon
+            float elev = h * 75f;
+            float az = -110f + (t - 6f) * 15f;
+            bool night = h < -0.05f;
+            float day = Mathf.Clamp01(h * 3f + 0.15f);                 // 0 night … 1 day
+            float low = 1f - Mathf.Clamp01(Mathf.Abs(h) * 3.2f);       // near the horizon
+            Color top = Color.Lerp(new Color(0.01f, 0.015f, 0.05f), new Color(0.12f, 0.38f, 0.9f), day);
+            Color hor = Color.Lerp(new Color(0.04f, 0.06f, 0.13f), new Color(0.68f, 0.82f, 1f), day);
+            hor = Color.Lerp(hor, new Color(1f, 0.5f, 0.25f), low * (night ? 0.25f : 0.85f));
+            top = Color.Lerp(top, new Color(0.3f, 0.3f, 0.55f), low * 0.4f);
+            if (cloudMat != null)
+            {
+                cam.clearFlags = CameraClearFlags.Skybox;
+                RenderSettings.skybox = cloudMat;
+                cloudMat.SetColor("_TopColor", top);
+                cloudMat.SetColor("_HorizonColor", hor);
+                cloudMat.SetColor("_GroundColor", Color.Lerp(hor, new Color(0.08f, 0.08f, 0.08f), 0.6f));
+                cloudMat.SetFloat("_Cover", e.cloudCover >= 0f ? e.cloudCover : 0.45f);
+                cloudMat.SetFloat("_Exposure", Mathf.Lerp(0.35f, 1.1f, day));
+            }
+            else
+            {
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = Color.Lerp(top, hor, 0.5f);
+            }
+            if (sun != null)
+            {
+                // At night the «sun» is the moon: high, cold and soft.
+                float le = night ? Mathf.Max(20f, -elev * 0.8f) : Mathf.Max(2f, elev);
+                sun.transform.rotation = Quaternion.Euler(le, night ? az + 180f : az, 0f);
+                Color sc = night ? new Color(0.55f, 0.65f, 1f) : Color.Lerp(Mathf.CorrelatedColorTemperatureToRGB(2300f), Mathf.CorrelatedColorTemperatureToRGB(5800f), Mathf.Clamp01(h * 1.6f));
+                sun.color = sc;
+                sun.intensity = night ? 0.28f : Mathf.Lerp(0.5f, 1.45f, Mathf.Clamp01(h * 1.4f));
+                if (cloudMat != null)
+                {
+                    cloudMat.SetColor("_SunColor", sc);
+                    Vector3 sd = -sun.transform.forward;
+                    cloudMat.SetVector("_SunDir", new Vector4(sd.x, sd.y, sd.z, 0f));
+                }
+            }
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = Color.Lerp(new Color(0.06f, 0.08f, 0.16f), new Color(0.62f, 0.72f, 0.9f), day);
+            RenderSettings.ambientEquatorColor = Color.Lerp(new Color(0.03f, 0.04f, 0.08f), Color.Lerp(new Color(0.45f, 0.48f, 0.55f), new Color(0.7f, 0.45f, 0.35f), low), day);
+            RenderSettings.ambientGroundColor = Color.Lerp(new Color(0.01f, 0.01f, 0.02f), new Color(0.22f, 0.2f, 0.18f), day);
+            RenderSettings.fogColor = Color.Lerp(hor, top, 0.3f);
+        }
+
         static void ApplyBloom(EnvData e)
         {
             if (bloom == null) return;
@@ -301,6 +353,8 @@ namespace Atlas
             RenderSettings.fogColor = p.sky == "" ? Color.Lerp(p.fogColor, p.background, 0.3f) : p.fogColor;
 
             // Image effects
+            if (e.timeOfDay >= 0f) TimeOfDay(e, cam, sun);
+            else if (e.cloudCover >= 0f && cloudMat != null && RenderSettings.skybox == cloudMat) cloudMat.SetFloat("_Cover", e.cloudCover);
             if (stylizeMat != null)
             {
                 stylizeMat.SetFloat("_Mode", p.stylize);

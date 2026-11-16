@@ -241,9 +241,18 @@ namespace Atlas
             bool on = timeline.activeSelf;
             float h = on ? TimelineHeight : 0f;
             bool bar = meshBar != null && meshBar.activeSelf;
-            toastHolder.anchoredPosition = new Vector2(RailWidth * 0.5f, h + (bar ? 80f : 20f));
-            var pr = propsPanel.GetComponent<RectTransform>();
-            pr.offsetMin = new Vector2(pr.offsetMin.x, h + 10f);
+            if (Desktop && menuBar != null)
+            {
+                // PC: the side panel always goes down to the status bar.
+                float dw = dockOpen ? PropsWidth : 0f;
+                toastHolder.anchoredPosition = new Vector2((RailWidth - dw) * 0.5f, StatusH + h + (bar ? 80f : 20f));
+            }
+            else
+            {
+                toastHolder.anchoredPosition = new Vector2(RailWidth * 0.5f, h + (bar ? 80f : 20f));
+                var pr = propsPanel.GetComponent<RectTransform>();
+                pr.offsetMin = new Vector2(pr.offsetMin.x, h + 10f);
+            }
             if (meshBar != null && meshBar.activeSelf) ((RectTransform)meshBar.transform).anchoredPosition = new Vector2(0f, h + 10f);
         }
 

@@ -189,6 +189,7 @@ public static class AtlasBuild
             MakeMaterial("AtlasVolume", "Atlas/VolumeBeam");
             MakeMaterial("AtlasParticle", "Atlas/Particle");
             MakeMaterial("AtlasWater", "Atlas/Water");
+            MakeMaterial("AtlasWeightView", "Atlas/WeightView");
         }
         catch (Exception e)
         {
@@ -219,7 +220,7 @@ public static class AtlasBuild
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "1.1.0";
+        PlayerSettings.bundleVersion = "1.2.0";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;

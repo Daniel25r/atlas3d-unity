@@ -15,7 +15,7 @@ namespace Atlas
     public static class Prefs
     {
         public static float uiScale = 1f, orbitSens = 1f, gizmoSize = 1f, snapMove = 0.25f, snapAngle = 15f, viewRes = 1f;
-        public static bool invertY, showFps, viewShadows = true, viewEffects = true;
+        public static bool invertY, showFps, viewShadows = true, viewEffects = true, catchDownloads;
         public static int profile = 2, maxFps = 60, msaa = 4;
         public static string lang = "";
 
@@ -46,6 +46,7 @@ namespace Atlas
             invertY = I("invertY", 0) == 1;
             showFps = I("fps", 0) == 1;
             viewShadows = I("viewShadows", 1) == 1;
+            catchDownloads = I("catchDownloads", 0) == 1;
             viewEffects = I("viewEffects", 1) == 1;
             profile = Mathf.Clamp(I("profile", 2), 0, 3);
             maxFps = I("maxFps", 60);
@@ -67,6 +68,7 @@ namespace Atlas
                 PlayerPrefs.SetInt("atlas.invertY", invertY ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.fps", showFps ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.viewShadows", viewShadows ? 1 : 0);
+                PlayerPrefs.SetInt("atlas.catchDownloads", catchDownloads ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.viewEffects", viewEffects ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.profile", profile);
                 PlayerPrefs.SetInt("atlas.maxFps", maxFps);

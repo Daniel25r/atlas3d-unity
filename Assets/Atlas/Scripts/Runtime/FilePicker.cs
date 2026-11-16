@@ -94,7 +94,7 @@ namespace Atlas
             if (t.StartsWith("image")) return Lang.T("Imágenes") + "\0*.png;*.jpg;*.jpeg;*.tga;*.bmp\0" + Lang.T("Todos los archivos") + "\0*.*\0\0";
             if (t.StartsWith("audio")) return "Audio\0*.mp3;*.ogg;*.wav\0" + Lang.T("Todos los archivos") + "\0*.*\0\0";
             if (t.StartsWith("video")) return Lang.T("Vídeo") + "\0*.mp4;*.webm;*.mov\0" + Lang.T("Todos los archivos") + "\0*.*\0\0";
-            return Lang.T("Modelos y proyectos") + "\0*.glb;*.gltf;*.fbx;*.obj;*.blend;*.3ds;*.stl;*.ply;*.zip;*.prisma;*.proj;*.pobject\0" + Lang.T("Todos los archivos") + "\0*.*\0\0";
+            return Lang.T("Modelos y proyectos") + "\0*.glb;*.gltf;*.fbx;*.obj;*.blend;*.3ds;*.stl;*.ply;*.zip;*.prisma;*.proj;*.pobject;*.mdl;*.gma\0" + Lang.T("Todos los archivos") + "\0*.*\0\0";
         }
 
         static string[] Open(string[] types, bool multi)

@@ -16,12 +16,37 @@ namespace Atlas
         /// PC / Mac / Linux (also the editor): the desktop layout.
         static bool Desktop { get { return !Application.isMobilePlatform; } }
 
-        const float MenuBarH = 40f, StatusH = 30f, OutlinerH = 300f;
+        const float MenuBarH = 40f, StatusH = 30f, OutlinerH = 230f;
 
-        RectTransform menuBar, statusBar, outliner, outlinerList;
+        RectTransform menuBar, statusBar, outliner, outlinerList, dockBg;
+        bool dockOpen = true;
         Text statusLeft, statusRight, projectLabel;
         string outlinerSig = "";
-        float outlinerAt;
+        float outlinerAt, statsAt;
+        long statTris, statVerts;
+
+        static string Short(long n) { return n >= 1000000 ? (n / 1000000f).ToString("0.0") + "M" : n >= 10000 ? (n / 1000) + "K" : n.ToString(); }
+
+        /// Triangles and vertices of what is visible (the selection when
+        /// something is selected).
+        void CountScene(out long tris, out long verts)
+        {
+            tris = 0; verts = 0;
+            foreach (var it in items)
+            {
+                if (it == null || !it.visible || (selected != null && it != selected)) continue;
+                foreach (var r in it.GetComponentsInChildren<Renderer>())
+                {
+                    Mesh m = null;
+                    var smr = r as SkinnedMeshRenderer;
+                    if (smr != null) m = smr.sharedMesh;
+                    else { var mf = r.GetComponent<MeshFilter>(); if (mf != null) m = mf.sharedMesh; }
+                    if (m == null) continue;
+                    verts += m.vertexCount;
+                    for (int s = 0; s < m.subMeshCount; s++) tris += m.GetIndexCount(s) / 3;
+                }
+            }
+        }
         Vector2Int lastScreen;
 
         // ------------------------------------------------------------------
@@ -64,6 +89,16 @@ namespace Atlas
             }
             // The 3D view leaves room for the dock on the right.
             AtlasTheme.Fill(viewArea, RailWidth, PropsWidth, MenuBarH, StatusH);
+            // Solid background of the whole dock (nothing of the 3D view
+            // shows under the panels).
+            var bg = AtlasTheme.Box(viewArea, "FondoPanel", AtlasTheme.Panel);
+            dockBg = bg.rectTransform;
+            dockBg.anchorMin = new Vector2(1f, 0f);
+            dockBg.anchorMax = new Vector2(1f, 1f);
+            dockBg.pivot = new Vector2(0f, 0.5f);
+            dockBg.offsetMin = Vector2.zero;
+            dockBg.offsetMax = new Vector2(PropsWidth, 0f);
+            dockBg.SetAsFirstSibling();
 
             BuildMenuBar();
             BuildStatusBar();
@@ -81,7 +116,8 @@ namespace Atlas
             if (close != null)
                 foreach (var b in close.GetComponentsInChildren<Button>(true)) b.gameObject.SetActive(false);
             propsPanel.SetActive(true);
-            if (propsBtn != null) propsBtn.gameObject.SetActive(false);
+            // The ⚙ button of the top bar shows / hides the side panel (N).
+            if (propsBtn != null) AtlasTheme.SetActive(propsBtn, true);
             nav.anchoredPosition = new Vector2(-24f, -86f);
             // The floating «☰» is the menu bar now.
             if (topBarRect != null)
@@ -89,8 +125,23 @@ namespace Atlas
                 var bar = topBarRect.GetChild(topBarRect.childCount - 1);
                 if (bar != null) bar.gameObject.SetActive(false);
             }
-            if (toastHolder != null) toastHolder.anchoredPosition = new Vector2((RailWidth - PropsWidth) * 0.5f, StatusH + 16f);
+            LayoutTimelineNeighbours();
             BuildInspector();
+        }
+
+        /// Shows or hides the side panel (scene list + properties): the 3D
+        /// view takes the whole width when it is hidden.
+        void ToggleDock()
+        {
+            dockOpen = !dockOpen;
+            AtlasTheme.Fill(viewArea, RailWidth, dockOpen ? PropsWidth : 0f, MenuBarH, StatusH);
+            if (dockBg != null) dockBg.gameObject.SetActive(dockOpen);
+            if (outliner != null) outliner.gameObject.SetActive(dockOpen);
+            propsPanel.SetActive(dockOpen);
+            if (propsBtn != null) AtlasTheme.SetActive(propsBtn, dockOpen);
+            if (dockOpen) BuildInspector();
+            LayoutTimelineNeighbours();
+            LayoutModePill();
         }
 
         static void Square(GameObject go)
@@ -112,9 +163,6 @@ namespace Atlas
             AtlasTheme.Fill(row, 0f, 420f, 0f, 0f);
             var hl = AtlasTheme.Row(row.gameObject, 2f, new RectOffset(10, 0, 3, 3));
             hl.childForceExpandWidth = false;
-            var logo = AtlasTheme.Label(row, "ATLAS 3D", 16, AtlasTheme.Accent, true);
-            var lle = logo.gameObject.AddComponent<LayoutElement>();
-            lle.preferredWidth = 104f;
             var names = new[] { "Archivo", "Editar", "Añadir", "Objeto", "Animación", "Render", "Ver", "Ayuda" };
             foreach (var n0 in names)
             {
@@ -161,14 +209,14 @@ namespace Atlas
             statusBar.offsetMax = new Vector2(0f, StatusH);
             statusLeft = AtlasTheme.Label(statusBar, "", 13, AtlasTheme.TextDim);
             statusLeft.horizontalOverflow = HorizontalWrapMode.Overflow;
-            AtlasTheme.Fill(statusLeft.rectTransform, 12f, 360f, 0f, 0f);
+            AtlasTheme.Fill(statusLeft.rectTransform, 12f, 580f, 0f, 0f);
             statusRight = AtlasTheme.Label(statusBar, "", 13, AtlasTheme.TextDim, false, TextAnchor.MiddleRight);
             statusRight.horizontalOverflow = HorizontalWrapMode.Overflow;
             var sr = statusRight.rectTransform;
             sr.anchorMin = new Vector2(1f, 0f);
             sr.anchorMax = new Vector2(1f, 1f);
             sr.pivot = new Vector2(1f, 0.5f);
-            sr.sizeDelta = new Vector2(340f, 0f);
+            sr.sizeDelta = new Vector2(560f, 0f);
             sr.anchoredPosition = new Vector2(-12f, 0f);
         }
 
@@ -181,7 +229,7 @@ namespace Atlas
             outliner.pivot = new Vector2(0f, 1f);
             outliner.offsetMin = new Vector2(0f, -OutlinerH);
             outliner.offsetMax = new Vector2(PropsWidth, 0f);
-            var title = AtlasTheme.Label(outliner, "ESCENA", 14, AtlasTheme.TextDim, true);
+            var title = AtlasTheme.Label(outliner, "OBJETOS", 14, AtlasTheme.TextDim, true);
             var tr = title.rectTransform;
             tr.anchorMin = new Vector2(0f, 1f);
             tr.anchorMax = new Vector2(1f, 1f);
@@ -292,7 +340,7 @@ namespace Atlas
                 outlinerSig = sig;
                 RebuildOutliner();
             }
-            if (projectLabel != null) Lang.Set(projectLabel, (store != null ? store.name + "  ·  " : "") + "ATLAS 3D " + Version);
+            if (projectLabel != null) Lang.Set(projectLabel, (store != null ? store.name + "  ·  " : "") + "v" + Version);
             if (statusLeft != null)
             {
                 string hint;
@@ -302,8 +350,13 @@ namespace Atlas
                 else hint = "Clic: seleccionar · Arrastrar o clic medio: girar · Shift+clic medio o clic derecho: desplazar · Rueda: zoom · Shift+A: añadir · G/E/R: mover, rotar, escalar · X: borrar · Espacio: reproducir";
                 Lang.Set(statusLeft, hint);
             }
+            if (Time.unscaledTime >= statsAt)
+            {
+                statsAt = Time.unscaledTime + 1f;
+                CountScene(out statTris, out statVerts);
+            }
             if (statusRight != null)
-                Lang.Set(statusRight, "Objetos: " + items.Count + "  ·  Fotograma " + Mathf.RoundToInt(frame) + " / " + endFrame);
+                Lang.Set(statusRight, "Tris " + Short(statTris) + " · Verts " + Short(statVerts) + "  ·  Objetos: " + items.Count + "  ·  Fotograma " + Mathf.RoundToInt(frame) + " / " + endFrame);
         }
 
         // ------------------------------------------------------------------
@@ -323,6 +376,7 @@ namespace Atlas
                     l.Add(new AtlasTheme.MenuItem("info", "Información del proyecto", ShowProjectInfo));
                     l.Add(AtlasTheme.MenuItem.Header("Importar y exportar"));
                     l.Add(new AtlasTheme.MenuItem("import", "Importar modelo…       Ctrl+I", ImportModel));
+                    l.Add(new AtlasTheme.MenuItem("import", "Descargas y biblioteca (Workshop)…", ShowDownloads));
                     foreach (var f0 in Exporter.Formats)
                     {
                         string f = f0;
@@ -405,6 +459,7 @@ namespace Atlas
                     l.Add(new AtlasTheme.MenuItem("sun", "Ambiente y efectos de imagen", () => Select(null)));
                     break;
                 case "Ver":
+                    l.Add(AtlasTheme.MenuItem.Check("settings", "Panel lateral (objetos y propiedades)   N", dockOpen, ToggleDock));
                     l.Add(new AtlasTheme.MenuItem("eye", "Rejilla y suelo", ToggleGrid));
                     l.Add(new AtlasTheme.MenuItem("eye", "Frente                  1 numérico", () => LookAlong(Vector3.forward)));
                     l.Add(new AtlasTheme.MenuItem("eye", "Atrás                   Ctrl+1 numérico", () => LookAlong(Vector3.back)));
@@ -441,7 +496,7 @@ namespace Atlas
             AtlasTheme.Dialog(canvasRoot, "Atajos de teclado",
                 "Ratón: clic para seleccionar; arrastrar o clic medio para girar la vista; Shift+clic medio o clic derecho para desplazarla; rueda para el zoom.\n\n" +
                 "Ctrl+Z / Ctrl+Y: deshacer / rehacer · Ctrl+S: guardar · Ctrl+D: duplicar · Ctrl+I: importar\n" +
-                "Shift+A: añadir · X o Supr: borrar · H: ocultar · Alt+A: deseleccionar\n" +
+                "Shift+A: añadir · X o Supr: borrar · H: ocultar · Alt+A: deseleccionar · N: panel lateral\n" +
                 "Q: seleccionar · G o W: mover · E: rotar · S o R: escalar · F: enfocar\n" +
                 "Tab: modelar · Ctrl+Tab: modo pose\n" +
                 "Espacio: reproducir · I o K: clave · ← →: fotograma\n" +
@@ -466,6 +521,7 @@ namespace Atlas
             if (ctrl || alt) return false;
             if (Input.GetKeyDown(KeyCode.X)) { if (selected != null && meshMode == "") DeleteSelected(); return true; }
             if (Input.GetKeyDown(KeyCode.H)) { ToggleSelectedVisible(); return true; }
+            if (Input.GetKeyDown(KeyCode.N)) { ToggleDock(); return true; }
             if (Input.GetKeyDown(KeyCode.I)) { if (selected != null) AutoKeyNow(); return true; }
             if (Input.GetKeyDown(KeyCode.S) && !shift) { SetTool(Tool.Scale); return true; }
             if (Input.GetKeyDown(KeyCode.F12)) { ToggleMenu(renderPanel); return true; }

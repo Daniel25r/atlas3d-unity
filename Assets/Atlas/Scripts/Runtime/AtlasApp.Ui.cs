@@ -342,7 +342,8 @@ namespace Atlas
             AtlasTheme.TextButton(others, "video", "Vídeo…", AddVideoPlane, false, 46f, 16);
             AtlasTheme.TextButton(others, "music", "Audio…", PickAudio, false, 46f, 16);
             AtlasTheme.TextButton(content, "import", "Importar modelo…", ImportModel, true, 50f);
-            var formats = AtlasTheme.Label(content, "GLB · glTF · FBX · OBJ · BLEND · PRISMA · 3DS · STL · PLY · ZIP", 14, AtlasTheme.TextDim, false, TextAnchor.MiddleCenter);
+            AtlasTheme.TextButton(content, "import", "Descargas y biblioteca…", ShowDownloads, false, 46f, 16);
+            var formats = AtlasTheme.Label(content, "GLB · glTF · FBX · OBJ · BLEND · PRISMA · MDL (SFM) · GMA · 3DS · STL · PLY · ZIP", 14, AtlasTheme.TextDim, false, TextAnchor.MiddleCenter);
             AtlasTheme.Le(formats.gameObject, 20f);
             addMenu = menu.gameObject;
             addMenu.SetActive(false);
@@ -415,7 +416,7 @@ namespace Atlas
 
         void ToggleProps()
         {
-            if (Desktop && menuBar != null) { BuildInspector(); return; }   // docked on PC
+            if (Desktop && menuBar != null) { ToggleDock(); return; }   // docked on PC
             propsPanel.SetActive(!propsPanel.activeSelf);
             AtlasTheme.SetActive(propsBtn, propsPanel.activeSelf);
             nav.anchoredPosition = new Vector2(propsPanel.activeSelf ? -(PropsWidth + 24f) : -24f, -86f);

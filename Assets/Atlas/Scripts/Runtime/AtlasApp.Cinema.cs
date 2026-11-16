@@ -351,6 +351,7 @@ namespace Atlas
                 new AtlasTheme.MenuItem("loop", "Invertir (al revés)", () => MotionRetime(it, -1f)),
                 new AtlasTheme.MenuItem("to_end", "Más lento (×2 de duración)", () => MotionRetime(it, 2f)),
                 new AtlasTheme.MenuItem("to_start", "Más rápido (×0,5)", () => MotionRetime(it, 0.5f)),
+                new AtlasTheme.MenuItem("delete", "Reducir claves (quitar las que sobran)", () => MotionReduce(it)),
                 new AtlasTheme.MenuItem("key", "Rebote al final de cada movimiento", () => { foreach (var k in it.keys) k.interp = "back"; Commit(true); SetFrame(frame); RefreshKeys(); Toast("Rebote puesto"); }),
             };
             AtlasTheme.Popup(canvasRoot, new Vector2(Screen.width * 0.5f, Screen.height * 0.4f), l);
@@ -416,6 +417,39 @@ namespace Atlas
             SetFrame(frame);
             RefreshKeys();
             Toast("Temblor añadido entre el fotograma " + a + " y el " + b);
+        }
+
+        /// Removes keys that the keys around them already give (almost the
+        /// same position, rotation, scale and bones halfway): lighter
+        /// animations after lip sync, shake or imported motion.
+        void MotionReduce(AtlasItem it)
+        {
+            int removed = 0;
+            for (int pass = 0; pass < 3; pass++)
+                for (int i = 1; i < it.keys.Count - 1; i++)
+                {
+                    var a = it.keys[i - 1]; var k = it.keys[i]; var b = it.keys[i + 1];
+                    if (k.uvKey || k.glowKey || (k.morphs != null && k.morphs.Count > 0) || k.skip != a.skip || k.skip != b.skip) continue;
+                    float t = (k.frame - a.frame) / (float)Mathf.Max(1, b.frame - a.frame);
+                    if ((Vector3.Lerp(a.position, b.position, t) - k.position).magnitude > 0.005f) continue;
+                    if (Quaternion.Angle(Quaternion.Slerp(a.rotation, b.rotation, t), k.rotation) > 1f) continue;
+                    if ((Vector3.Lerp(a.scale, b.scale, t) - k.scale).magnitude > 0.005f) continue;
+                    bool ok = true;
+                    if (k.bones != null)
+                        foreach (var kb in k.bones)
+                        {
+                            var ab = a.GetBone(kb.path); var bb = b.GetBone(kb.path);
+                            if (ab == null || bb == null || Quaternion.Angle(Quaternion.Slerp(ab.r, bb.r, t), kb.r) > 1.5f || (Vector3.Lerp(ab.p, bb.p, t) - kb.p).magnitude > 0.003f) { ok = false; break; }
+                        }
+                    if (!ok) continue;
+                    it.keys.RemoveAt(i);
+                    i--;
+                    removed++;
+                }
+            Commit(true);
+            SetFrame(frame);
+            RefreshKeys();
+            Toast(removed > 0 ? removed + " claves que sobraban quitadas" : "No había claves que sobraran");
         }
 
         /// factor < 0: reverse; else stretch from the first key.
