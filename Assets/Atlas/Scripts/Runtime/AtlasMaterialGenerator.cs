@@ -14,13 +14,14 @@ namespace Atlas
 {
     public class AtlasMaterialGenerator : IMaterialGenerator
     {
-        readonly UnityEngine.Material lit, transparent, litNormal;
+        readonly UnityEngine.Material lit, transparent, litNormal, cutout;
 
         public AtlasMaterialGenerator()
         {
             lit = Resources.Load<UnityEngine.Material>("AtlasLit");
             transparent = Resources.Load<UnityEngine.Material>("AtlasLitTransparent");
             litNormal = Resources.Load<UnityEngine.Material>("AtlasLitNormal");
+            cutout = Resources.Load<UnityEngine.Material>("AtlasLitCutout");
             if (transparent == null) transparent = lit;
             if (litNormal == null) litNormal = lit;
         }
@@ -58,10 +59,13 @@ namespace Atlas
         {
             if (g == null) return GetDefaultMaterial();
             var mode = g.GetAlphaMode();
-            bool see = mode != MaterialBase.AlphaMode.Opaque;
+            // MASK (cut-out hair, lace, leaves) is solid with holes, never
+            // blended: blended parts let the inside of the head show through.
+            bool mask = mode == MaterialBase.AlphaMode.Mask;
+            bool see = mode == MaterialBase.AlphaMode.Blend;
             Texture2D normal = Tex(gltf, g.NormalTexture);
             // Opaque: the normal-map variant always, so relief can be added later.
-            var tmpl = see ? transparent : litNormal;
+            var tmpl = see ? transparent : mask && cutout != null ? cutout : litNormal;
             var m = new UnityEngine.Material(tmpl);
             m.name = string.IsNullOrEmpty(g.name) ? "Material" : g.name;
 
@@ -109,7 +113,15 @@ namespace Atlas
                 m.SetFloat("_BumpScale", nt != null ? nt.scale : 1f);
             }
             if (g.doubleSided && m.HasProperty("_Cull")) m.SetFloat("_Cull", 0f);
-            if (see) MatUtil.SetTransparent(m, true);
+            if (mask) MatUtil.SetCutout(m, Mathf.Clamp(g.alphaCutoff, 0.05f, 0.95f));
+            else if (see)
+            {
+                MatUtil.SetTransparent(m, true);
+                // Many characters are exported «blended» although they are
+                // solid (alpha 1): they keep writing depth, so faces behind
+                // (the back of the head, the inside of gloves) stay hidden.
+                if (baseColor.a >= 0.99f) m.SetFloat("_ZWrite", 1f);
+            }
             return m;
         }
 

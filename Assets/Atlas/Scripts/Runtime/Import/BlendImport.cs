@@ -79,10 +79,12 @@ namespace Atlas.Import
             model.nodes.Add(new MNode { name = Path.GetFileNameWithoutExtension(path) });
             // The objects the scene shows; every object block if that fails.
             var shown = SceneObjects();
+            var helpers = HelperObjects();
             for (int bi = 0; bi < blocks.Count; bi++)
             {
                 if (blocks[bi].code != "OB") continue;
                 if (shown != null && !shown.Contains(bi)) continue;
+                if (helpers.Contains(bi)) continue;
                 var ob = StructAt(bi, 0);
                 if (!ob.ok || Int(ob, "type", 0) != 1) continue;   // OB_MESH
                 ctx = bi;
@@ -92,6 +94,10 @@ namespace Atlas.Import
                 // visibility_flag: OB_HIDE_CAMERA (1), invisible to the camera.
                 long restrict = Int(ob, "restrictflag", 0);
                 if ((restrict & 1) != 0 || (restrict & 4) != 0 || (Int(ob, "visibility_flag", 0) & 1) != 0) continue;
+                // dt: OB_BOUNDBOX (1), OB_WIRE (2) - helpers and cages that
+                // are only lines in Blender's viewport.
+                long dt = Int(ob, "dt", 5);
+                if (dt == 1 || dt == 2) continue;
                 var mesh = Mesh(meBi, ObjectMatrix(ob), ob);
                 if (mesh == null) continue;
                 mesh.name = IdName(ob);
@@ -392,6 +398,59 @@ namespace Atlas.Import
         {
             foreach (var l in ls) if (l.type == type && (name == "" || l.name == name)) return l;
             return null;
+        }
+
+        /// Objects that are not part of the model: hidden with «H» in the
+        /// view layer (Base flag BASE_HIDDEN, 1 << 8) and bone shapes
+        /// (pose channel «custom»), which Blender draws as bones.
+        HashSet<int> HelperObjects()
+        {
+            var r = new HashSet<int>();
+            try
+            {
+                int keep = ctx;
+                ctx = -1;
+                for (int i = 0; i < blocks.Count; i++)
+                {
+                    var bl = blocks[i];
+                    if (bl.sdna < 0 || bl.sdna >= sdnaStruct.Count) continue;
+                    string t = sdnaStruct[bl.sdna];
+                    if (t == "bPoseChannel")
+                    {
+                        for (int k = 0; k < Math.Max(1, bl.nr); k++)
+                        {
+                            int o = BlockOf(Ptr(StructAt(i, k), "custom"));
+                            if (o >= 0) r.Add(o);
+                        }
+                    }
+                }
+                int sc = -1;
+                for (int i = 0; i < blocks.Count; i++) if (blocks[i].code == "SC") { sc = i; break; }
+                if (sc >= 0)
+                {
+                    ctx = sc;
+                    var scene = StructAt(sc, 0);
+                    int vlb = BlockOf(Ptr(Sub(scene, "view_layers"), "first"));
+                    if (vlb >= 0)
+                    {
+                        var vl = StructAt(vlb, 0);
+                        int bb = BlockOf(Ptr(Sub(vl, "object_bases"), "first"));
+                        for (int guard = 0; bb >= 0 && guard < 100000; guard++)
+                        {
+                            var bs = StructAt(bb, 0);
+                            if ((Int(bs, "flag", 0) & (1 << 8)) != 0)
+                            {
+                                int o = BlockOf(Ptr(bs, "object"));
+                                if (o >= 0) r.Add(o);
+                            }
+                            bb = BlockOf(Ptr(bs, "next"));
+                        }
+                    }
+                }
+                ctx = keep;
+            }
+            catch (Exception) { }
+            return r;
         }
 
         /// Object blocks in the first scene's collections, skipping

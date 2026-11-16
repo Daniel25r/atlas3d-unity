@@ -177,5 +177,19 @@ namespace Atlas
             else m.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
             m.renderQueue = on ? (int)RenderQueue.Transparent : (int)RenderQueue.Geometry;
         }
+
+        /// URP Lit cut-out: solid, with holes where the texture's alpha is
+        /// below `cutoff` (hair, leaves, lace). Writes depth like an opaque
+        /// surface, so a character never looks see-through.
+        public static void SetCutout(Material m, float cutoff)
+        {
+            if (m == null) return;
+            SetTransparent(m, false);
+            m.SetFloat("_AlphaClip", 1f);
+            m.SetFloat("_Cutoff", cutoff);
+            m.EnableKeyword("_ALPHATEST_ON");
+            m.SetOverrideTag("RenderType", "TransparentCutout");
+            m.renderQueue = (int)RenderQueue.AlphaTest;
+        }
     }
 }

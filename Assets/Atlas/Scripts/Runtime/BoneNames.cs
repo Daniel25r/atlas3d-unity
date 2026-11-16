@@ -67,6 +67,7 @@ namespace Atlas
         public static string Display(string bone)
         {
             if (string.IsNullOrEmpty(bone)) return "";
+            if (IkRig.IsControl(bone)) return IkRig.Display(bone);
             string s = bone;
             foreach (var p in Prefixes)
                 if (s.ToLowerInvariant().StartsWith(p)) s = s.Substring(p.Length);

@@ -98,7 +98,14 @@ namespace Atlas
                 var ov = OverrideFor(it, i, false);
                 if (ov == null) continue;
                 var btex = LoadTexture(ov.texture);
-                if (btex != null && m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", btex);
+                if (btex != null && m.HasProperty("_BaseMap"))
+                {
+                    m.SetTexture("_BaseMap", btex);
+                    // Parts made without a texture layout (UV) showed one
+                    // pixel of the picture (often just black).
+                    foreach (var kv in it.rendererMats)
+                        if (kv.Key != null && System.Array.IndexOf(kv.Value, m) >= 0) UvFix.Ensure(kv.Key);
+                }
                 Color baseCol = ov.tint ? new Color(ov.color.r, ov.color.g, ov.color.b, o.color.a) : o.color;
                 if (ov.tint && m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", baseCol);
                 if (ov.metallic >= 0f && m.HasProperty("_Metallic")) m.SetFloat("_Metallic", ov.metallic);
@@ -108,7 +115,12 @@ namespace Atlas
                 var emap = LoadTexture(ov.emissionMap);
                 if (emap != null && m.HasProperty("_EmissionMap")) m.SetTexture("_EmissionMap", emap);
                 if ((ov.emission >= 0f || emap != null) && m.HasProperty("_EmissionColor"))
-                    m.SetColor("_EmissionColor", new Color(baseCol.r, baseCol.g, baseCol.b) * Mathf.Max(ov.emission, emap != null ? 1f : 0f));
+                {
+                    float e = Mathf.Max(ov.emission, emap != null ? 1f : 0f);
+                    if (e > 0f) m.EnableKeyword("_EMISSION");
+                    m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+                    m.SetColor("_EmissionColor", new Color(baseCol.r, baseCol.g, baseCol.b) * e);
+                }
             }
             // Hidden materials: their slots draw nothing.
             foreach (var ov in it.matOverrides)

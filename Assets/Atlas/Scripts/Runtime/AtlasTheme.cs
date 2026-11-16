@@ -635,6 +635,17 @@ namespace Atlas
             var cr = card.rectTransform;
             cr.anchorMin = cr.anchorMax = new Vector2(0f, 0f);
             cr.pivot = new Vector2(0f, 0f);
+            // Wide enough for the longest entry (long Spanish / Arabic texts
+            // were cut off), never wider than the screen.
+            float longest = 0f;
+            foreach (var e in entries)
+            {
+                if (e.header || string.IsNullOrEmpty(e.text)) continue;
+                var probe = Label(root, Lang.T(e.text), 16, TextColor);
+                longest = Mathf.Max(longest, probe.preferredWidth);
+                Object.Destroy(probe.gameObject);
+            }
+            width = Mathf.Max(width, longest + 96f);
             width = Mathf.Min(width, Mathf.Max(220f, root.rect.width - 20f));
             cr.sizeDelta = new Vector2(width, ch);
             Vector2 local;

@@ -61,6 +61,7 @@ namespace Atlas
         public string text = "";         // 3D text (titles)
         // Held by a bone («agarrar»): attach / release events on the timeline.
         public List<AnchorEvent> anchors = new List<AnchorEvent>();
+        public List<IkChain> ik = new List<IkChain>();   // IK rig: hands / feet controls
         public bool renderCam;       // renders are made from this camera
         public string lookAtId = "", followId = "";
         public Vector3 followOffset;
@@ -170,6 +171,30 @@ namespace Atlas
                 boneOrder.Add(p);
                 rest[p] = BonePose.From(p, t);
             }
+            IkRig.Sync(this);
+        }
+
+        /// IK controls behave like bones (posed, keyed, saved by path).
+        public void AddExtraBone(Transform t)
+        {
+            string p = PathOf(t);
+            if (!bones.ContainsKey(p)) boneOrder.Add(p);
+            bones[p] = t;
+            rest[p] = BonePose.From(p, t);
+        }
+
+        public void RemoveExtraBone(string p)
+        {
+            bones.Remove(p);
+            boneOrder.Remove(p);
+            rest.Remove(p);
+            pose.RemoveAll(b => b.path == p);
+            foreach (var k in keys) if (k.bones != null) k.bones.RemoveAll(b => b.path == p);
+        }
+
+        void LateUpdate()
+        {
+            if (ik.Count > 0) IkRig.Solve(this);
         }
 
         public Transform Bone(string path)
@@ -244,6 +269,7 @@ namespace Atlas
                 var t = Bone(b.path);
                 if (t != null) b.ApplyTo(t);
             }
+            if (ik.Count > 0) IkRig.Solve(this);
         }
 
         // ------------------------------------------------------------------
@@ -251,7 +277,42 @@ namespace Atlas
         // `skip`) and any posed bones: they behave like the separate tracks
         // of the Godot timeline.
 
-        public const int ChPos = 1, ChRot = 2, ChScale = 4, ChUv = 8;
+        public const int ChPos = 1, ChRot = 2, ChScale = 4, ChUv = 8, ChGlow = 16;
+
+        // Animatable glow (light of its own) of one material of a model
+        // (glowMat) or of the whole object (-1): spikes that light up, eyes,
+        // screens… glowColor.a < 0.5: the material's own color.
+        public float glow;
+        public int glowMat = -1;
+        public Color glowColor = new Color(1f, 1f, 1f, 0f);
+        readonly Dictionary<Material, Color> glowBase = new Dictionary<Material, Color>();
+
+        /// After the materials were rebuilt: their emission is the base the
+        /// glow is added to.
+        public void LookChanged()
+        {
+            glowBase.Clear();
+            ApplyGlow();
+        }
+
+        public void ApplyGlow()
+        {
+            if (glow <= 0f && glowBase.Count == 0) return;
+            var mats = new List<Material>();
+            if (kind == "model") { for (int i = 0; i < modelMats.Count; i++) if (glowMat < 0 || i == glowMat) mats.Add(modelMats[i]); }
+            else if (material != null) mats.Add(material);
+            foreach (var m in mats)
+            {
+                if (m == null || !m.HasProperty("_EmissionColor")) continue;
+                Color b;
+                if (!glowBase.TryGetValue(m, out b)) { b = m.GetColor("_EmissionColor"); glowBase[m] = b; }
+                Color c = glowColor.a >= 0.5f ? glowColor : (m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : Color.white);
+                c.a = 1f;
+                if (glow > 0f) m.EnableKeyword("_EMISSION");
+                m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+                m.SetColor("_EmissionColor", b + c * glow);
+            }
+        }
 
         // Texture placement (repeat x, y, shift x, y), animatable: faces
         // that change expression, scrolling water, screens… On a model it is
@@ -315,6 +376,7 @@ namespace Atlas
             if ((channels & ChRot) != 0) { k.rotation = transform.rotation; k.skip &= ~ChRot; }
             if ((channels & ChScale) != 0) { k.scale = transform.localScale; k.skip &= ~ChScale; }
             if ((channels & ChUv) != 0) { k.uv = uv; k.uvKey = true; }
+            if ((channels & ChGlow) != 0) { k.glow = glow; k.glowKey = true; }
             if (k.bones == null) k.bones = new List<BonePose>();
             var paths = new List<string>();
             if (bonePaths == null) foreach (var b in pose) paths.Add(b.path);
@@ -354,7 +416,7 @@ namespace Atlas
         public List<string> Tracks()
         {
             var l = new List<string>();
-            bool tp = false, tr = false, ts = false, tu = false;
+            bool tp = false, tr = false, ts = false, tu = false, tg = false;
             var bonesSeen = new List<string>();
             foreach (var k in keys)
             {
@@ -362,6 +424,7 @@ namespace Atlas
                 if ((k.skip & ChRot) == 0) tr = true;
                 if ((k.skip & ChScale) == 0) ts = true;
                 if (k.uvKey) tu = true;
+                if (k.glowKey) tg = true;
                 if (k.bones != null)
                     foreach (var b in k.bones) if (!bonesSeen.Contains(b.path)) bonesSeen.Add(b.path);
             }
@@ -369,6 +432,7 @@ namespace Atlas
             if (tr) l.Add("R");
             if (ts) l.Add("S");
             if (tu) l.Add("U");
+            if (tg) l.Add("G");
             // Bones in skeleton order.
             foreach (var path in boneOrder) if (bonesSeen.Contains(path)) l.Add("b:" + path);
             foreach (var path in bonesSeen) if (!boneOrder.Contains(path)) l.Add("b:" + path);
@@ -462,6 +526,11 @@ namespace Atlas
                     uv = new Vector4(sc.x, sc.y, of.x, of.y);
                     ApplyUv();
                 }
+                if (Segment("G", frame, out a0, out a, out b, out b1))
+                {
+                    glow = Mathf.Max(0f, Interp.Blend(a.interp, new Vector3(a0.glow, 0f, 0f), new Vector3(a.glow, 0f, 0f), new Vector3(b.glow, 0f, 0f), new Vector3(b1.glow, 0f, 0f), SegT(a, b, frame)).x);
+                    ApplyGlow();
+                }
             }
             if (bones.Count == 0) return;
             // Bones with keys follow them; the other posed bones keep the pose.
@@ -489,6 +558,7 @@ namespace Atlas
                 var t = Bone(b.path);
                 if (t != null) b.ApplyTo(t);
             }
+            if (ik.Count > 0) IkRig.Solve(this);
         }
 
         BonePose BoneAt(string path, float frame)
@@ -554,7 +624,11 @@ namespace Atlas
         public bool uvKey;
         public Vector4 uv = new Vector4(1f, 1f, 0f, 0f);
 
-        public bool Empty { get { return skip == 7 && !uvKey && (bones == null || bones.Count == 0); } }
+        /// Glow key (light of its own).
+        public bool glowKey;
+        public float glow;
+
+        public bool Empty { get { return skip == 7 && !uvKey && !glowKey && (bones == null || bones.Count == 0); } }
 
         public BonePose GetBone(string path)
         {
@@ -571,6 +645,7 @@ namespace Atlas
                 case "R": return (skip & 2) == 0;
                 case "S": return (skip & 4) == 0;
                 case "U": return uvKey;
+                case "G": return glowKey;
             }
             return track.StartsWith("b:") && GetBone(track.Substring(2)) != null;
         }
@@ -583,6 +658,7 @@ namespace Atlas
                 case "R": skip |= 2; return;
                 case "S": skip |= 4; return;
                 case "U": uvKey = false; return;
+                case "G": glowKey = false; return;
             }
             if (track.StartsWith("b:") && bones != null) bones.RemoveAll(b => b.path == track.Substring(2));
         }
@@ -595,6 +671,7 @@ namespace Atlas
                 case "R": dst.rotation = src.rotation; dst.skip &= ~2; return;
                 case "S": dst.scale = src.scale; dst.skip &= ~4; return;
                 case "U": dst.uv = src.uv; dst.uvKey = true; return;
+                case "G": dst.glow = src.glow; dst.glowKey = true; return;
             }
             if (!track.StartsWith("b:")) return;
             var v = src.GetBone(track.Substring(2));

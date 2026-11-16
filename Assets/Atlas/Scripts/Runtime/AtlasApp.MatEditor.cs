@@ -360,8 +360,33 @@ namespace Atlas
             }, true, 42f, 14);
             AtlasTheme.TextButton(ug, "undo", "Colocación original", () => { it.uv = new Vector4(1f, 1f, 0f, 0f); it.ApplyUv(); Commit(true); BuildMatEditor(); }, false, 42f, 14);
             PrefHint(c, "Para cambiar de expresión con una textura de varias caras: pon «Repetir» al tamaño de una cara (por ejemplo 0,5), mueve «Desplazar» a cada cara y guarda claves; en la línea de tiempo usa la interpolación «Constante» para que salte de una a otra.");
-            // Presets for shapes
-            if (!EditingModel)
+            // Glow (animatable): parts that light up when you want.
+            BuildGlowEditor(c, w);
+            // Presets: shapes, and a model's parts (not the glass ones).
+            if (EditingModel)
+            {
+                var pl = AtlasTheme.Label(c, "PREAJUSTES", 14, AtlasTheme.TextDim, true);
+                AtlasTheme.Le(pl.gameObject, 22f);
+                var pg = AtlasTheme.Grid(c, 3, w, 38f);
+                foreach (var p0 in MatPresets)
+                {
+                    var p = p0;
+                    if (p.shader != "" || p.opacity < 0.99f) continue;
+                    AtlasTheme.Chip(pg, p.name, () =>
+                    {
+                        ChangeMat(st =>
+                        {
+                            if (!p.keepColor) st.color = p.color;
+                            st.metallic = p.metallic;
+                            st.smooth = 1f - p.roughness;
+                            st.emission = p.emission;
+                        });
+                        Commit(true);
+                        BuildMatEditor();
+                    });
+                }
+            }
+            else
             {
                 var pl = AtlasTheme.Label(c, "PREAJUSTES", 14, AtlasTheme.TextDim, true);
                 AtlasTheme.Le(pl.gameObject, 22f);
@@ -399,6 +424,60 @@ namespace Atlas
         {
             if (string.IsNullOrEmpty(current)) AtlasTheme.TextButton(g, "image", label + "…", pick, false, 42f, 14);
             else AtlasTheme.TextButton(g, "close", "Quitar " + label.ToLowerInvariant(), remove, false, 42f, 14);
+        }
+
+        /// «Brillo animable»: the part (or the whole object) lights up; keys
+        /// turn it on and off on the timeline.
+        void BuildGlowEditor(Transform c, float w)
+        {
+            var it = meItem;
+            if (it == null) return;
+            int target = EditingModel ? meIndex : -1;
+            var gl = AtlasTheme.Label(c, "BRILLO (ANIMABLE CON CLAVES)", 14, AtlasTheme.TextDim, true);
+            AtlasTheme.Le(gl.gameObject, 22f);
+            if (it.glowMat != target && it.glow > 0f)
+                PrefHint(c, "Ahora brilla otra pieza; al mover el brillo pasa a esta.");
+            AtlasTheme.SliderRow(c, "Brillo", 0f, 12f, it.glowMat == target ? it.glow : 0f, "0.0", v =>
+            {
+                if (it.glowMat != target) { it.glow = 0f; it.ApplyGlow(); it.glowMat = target; it.LookChanged(); }
+                it.glow = v;
+                it.ApplyGlow();
+            }, () => Commit(true));
+            var cg = AtlasTheme.Grid(c, 4, w, 36f);
+            var cols = new[] { new Color(1f, 1f, 1f, 0f), new Color(1f, 0.85f, 0.2f, 1f), new Color(0.2f, 0.85f, 1f, 1f), new Color(1f, 0.15f, 0.1f, 1f), new Color(0.3f, 1f, 0.3f, 1f), new Color(1f, 0.3f, 0.9f, 1f), new Color(0.55f, 0.35f, 1f, 1f), new Color(1f, 1f, 1f, 1f) };
+            var names = new[] { "Su color", "Amarillo", "Cian", "Rojo", "Verde", "Rosa", "Violeta", "Blanco" };
+            for (int i = 0; i < cols.Length; i++)
+            {
+                var col = cols[i];
+                bool on = Mathf.Abs(it.glowColor.r - col.r) < 0.01f && Mathf.Abs(it.glowColor.g - col.g) < 0.01f && Mathf.Abs(it.glowColor.b - col.b) < 0.01f && (it.glowColor.a >= 0.5f) == (col.a >= 0.5f);
+                AtlasTheme.Chip(cg, names[i], () =>
+                {
+                    it.glowColor = col;
+                    it.ApplyGlow();
+                    Commit(true);
+                    BuildMatEditor();
+                }, on);
+            }
+            var kg = AtlasTheme.Grid(c, 2, w, 42f);
+            AtlasTheme.TextButton(kg, "key", "Clave de brillo aquí (◆)", () =>
+            {
+                if (it.glowMat != target) { it.glow = 0f; it.ApplyGlow(); it.glowMat = target; it.LookChanged(); }
+                it.SetKey(Mathf.RoundToInt(frame), AtlasItem.ChGlow, new List<string>());
+                Commit(true);
+                RefreshKeys();
+                Toast("Clave de brillo en el fotograma " + Mathf.RoundToInt(frame));
+            }, true, 42f, 14);
+            AtlasTheme.TextButton(kg, "sparkle", "Apagado / encendido", () =>
+            {
+                if (it.glowMat != target) { it.glow = 0f; it.ApplyGlow(); it.glowMat = target; it.LookChanged(); }
+                it.glow = it.glow > 0f ? 0f : 4f;
+                it.ApplyGlow();
+                it.SetKey(Mathf.RoundToInt(frame), AtlasItem.ChGlow, new List<string>());
+                Commit(true);
+                RefreshKeys();
+                BuildMatEditor();
+            }, false, 42f, 14);
+            PrefHint(c, "Para que se encienda de golpe: clave apagada en un fotograma y encendida en el siguiente, o interpolación «Constante».");
         }
 
         void SetUv(int k, float v)

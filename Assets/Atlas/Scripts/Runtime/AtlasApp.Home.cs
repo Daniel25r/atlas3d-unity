@@ -354,16 +354,15 @@ namespace Atlas
         }
 
         const string WhatsNew =
-            "• Efectos: lluvia, nieve, humo, fuego, chispas, explosiones, burbujas, confeti y magia.\n" +
-            "• Clima animado con tormenta y relámpagos.\n" +
-            "• Mundo: agua con olas, terrenos con árboles y telas que ondean.\n" +
-            "• Agarrar objetos con la mano (o cualquier hueso) y soltarlos en la animación.\n" +
-            "• Sincronizar labios con el audio.\n" +
-            "• Texto 3D para títulos.\n" +
-            "• Cámara de cine: desenfoque de fondo, de movimiento y aberración.\n" +
-            "• Render en GIF animado y PNG.\n" +
-            "• Modelado: aristas, recuadro, bisel, cuchillo, bucles y más.\n" +
-            "• Inglés y árabe en Preferencias.";
+            "• IK rig para cualquier modelo: controles en manos y pies que brazos y piernas siguen.\n" +
+            "• Brillo animable por pieza: enciende y apaga partes con claves.\n" +
+            "• El neón brilla de verdad y se puede poner en piezas de modelos.\n" +
+            "• 3 ambientes nuevos: Pesadilla retro, Cómic tinta y VHS maldito.\n" +
+            "• El audio de la animación ya suena.\n" +
+            "• La cámara ya no se vuelve lenta de cerca.\n" +
+            "• .blend sin piezas sueltas (ocultas, formas de huesos y ayudantes).\n" +
+            "• Pelo y encaje recortados sin transparencias raras en cabezas y guantes.\n" +
+            "• Texturas en piezas sin UV, menús que ya no se cortan y GLB más compatibles.";
 
         /// Once per version: what it brings.
         void ShowWhatsNew()

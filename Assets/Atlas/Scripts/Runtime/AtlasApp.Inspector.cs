@@ -51,7 +51,7 @@ namespace Atlas
             new MatPreset { name = "Goma", color = new Color(0.035f, 0.035f, 0.04f), metallic = 0f, roughness = 0.92f },
             new MatPreset { name = "Plástico", keepColor = true, metallic = 0f, roughness = 0.38f },
             new MatPreset { name = "Arcilla", color = new Color(0.78f, 0.6f, 0.5f), metallic = 0f, roughness = 0.85f },
-            new MatPreset { name = "Neón", keepColor = true, metallic = 0f, roughness = 0.5f, emission = 4f },
+            new MatPreset { name = "Neón", keepColor = true, metallic = 0f, roughness = 0.5f, emission = 5f },
             new MatPreset { name = "Mate", keepColor = true, metallic = 0f, roughness = 1f },
             new MatPreset { name = "Cristal Aero", shader = "aero", keepColor = true, roughness = 0.04f, opacity = 0.35f, emission = 2f },
             new MatPreset { name = "Burbuja", shader = "aero", color = new Color(0.75f, 0.9f, 1f), roughness = 0.02f, opacity = 0.1f, emission = 0f },

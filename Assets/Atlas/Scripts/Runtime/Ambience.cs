@@ -25,6 +25,8 @@ namespace Atlas
         public Color filter = Color.white;
         // Image effect defaults (the sliders start here)
         public float exposure, contrast, saturation, bloom, vignette, grain, fog;
+        // Full-screen look (AtlasStylize): 0 none, 1 halftone horror, 2 comic ink, 3 VHS.
+        public int stylize;
     }
 
     public static class Ambience
@@ -96,6 +98,23 @@ namespace Atlas
                 ambSky = C(0.45f, 0.3f, 0.7f), ambEquator = C(0.2f, 0.12f, 0.3f), ambGround = C(0.05f, 0.03f, 0.08f),
                 sun = C(1f, 0.35f, 0.8f), sunIntensity = 1f, sunEuler = new Vector3(40f, 120f, 0f),
                 contrast = 15f, saturation = 30f, bloom = 0.4f, vignette = 0.45f, grain = 0.15f },
+            // Printed horror poster: dark corridor, one hard yellow light,
+            // blue-violet shadows and halftone dots.
+            new AmbiencePreset { id = "halftone", name = "Pesadilla retro", background = C(0.04f, 0.045f, 0.12f), aces = true, stylize = 1,
+                ambSky = C(0.22f, 0.24f, 0.55f), ambEquator = C(0.1f, 0.1f, 0.25f), ambGround = C(0.03f, 0.03f, 0.08f),
+                sun = C(1f, 0.92f, 0.55f), sunIntensity = 2.1f, sunEuler = new Vector3(28f, 150f, 0f), fogColor = C(0.08f, 0.08f, 0.2f),
+                exposure = 0.25f, contrast = 30f, saturation = 10f, bloom = 0.25f, vignette = 0.35f, fog = 0.025f },
+            // Comic book: bright day, flat colours and ink outlines.
+            new AmbiencePreset { id = "comic_ink", name = "Cómic tinta", sky = "clouds", stylize = 2,
+                skyTop = C(0.15f, 0.5f, 1f), skyHorizon = C(0.7f, 0.9f, 1f), cloudCover = 0.4f, skyExposure = 1.15f,
+                ambSky = C(0.8f, 0.82f, 0.95f), ambEquator = C(0.55f, 0.55f, 0.62f), ambGround = C(0.3f, 0.28f, 0.3f),
+                sun = K(5600f), sunIntensity = 1.5f, sunEuler = new Vector3(48f, 35f, 0f),
+                exposure = 0.1f, contrast = 20f, saturation = 30f, bloom = 0.05f },
+            // Found-footage tape: night, cold light, rolling lines.
+            new AmbiencePreset { id = "vhs_cursed", name = "VHS maldito", background = C(0.02f, 0.02f, 0.03f), aces = true, stylize = 3,
+                ambSky = C(0.25f, 0.28f, 0.35f), ambEquator = C(0.1f, 0.1f, 0.13f), ambGround = C(0.03f, 0.03f, 0.04f),
+                sun = C(0.85f, 0.9f, 1f), sunIntensity = 0.9f, sunEuler = new Vector3(40f, 200f, 0f), fogColor = C(0.06f, 0.06f, 0.08f),
+                contrast = 15f, saturation = -25f, bloom = 0.35f, vignette = 0.3f, grain = 0.25f, fog = 0.04f },
         };
 
         public static AmbiencePreset Find(string id)
@@ -130,7 +149,34 @@ namespace Atlas
         static URP.DepthOfField dof;
         static URP.MotionBlur motion;
         static URP.ChromaticAberration chroma;
-        static Material skyMat, cloudMat;
+        static Material skyMat, cloudMat, stylizeMat;
+        static EnvData lastEnv;
+        static bool glowWanted;
+
+        /// Something in the scene glows (neon, emission): bloom makes it
+        /// shine even in looks with little bloom.
+        public static void SetGlow(bool on)
+        {
+            if (on == glowWanted) return;
+            glowWanted = on;
+            if (lastEnv != null) ApplyBloom(lastEnv);
+        }
+
+        static void ApplyBloom(EnvData e)
+        {
+            if (bloom == null) return;
+            float intensity = e.bloom * 2.5f, threshold = 0.95f;
+            if (glowWanted && intensity < 1.1f)
+            {
+                // Only what glows (HDR light above the threshold) blooms.
+                intensity = 1.1f;
+                threshold = 1.5f;
+            }
+            bloom.active = intensity > 0.02f;
+            bloom.intensity.Override(intensity);
+            bloom.threshold.Override(threshold);
+            bloom.scatter.Override(0.7f);
+        }
 
         /// Global post-processing volume and the camera's post switch.
         public static void Init(Camera cam)
@@ -162,6 +208,8 @@ namespace Atlas
             if (tmpl != null) skyMat = new Material(tmpl);
             var ct = Resources.Load<Material>("AtlasClouds");
             if (ct != null && ct.shader != null && ct.shader.isSupported) cloudMat = new Material(ct);
+            // The renderer's full-screen pass uses this very asset.
+            stylizeMat = Resources.Load<Material>("AtlasStylize");
         }
 
         public static void Apply(EnvData e, Camera cam, Light sun)
@@ -244,11 +292,14 @@ namespace Atlas
             RenderSettings.fogColor = p.sky == "" ? Color.Lerp(p.fogColor, p.background, 0.3f) : p.fogColor;
 
             // Image effects
+            if (stylizeMat != null)
+            {
+                stylizeMat.SetFloat("_Mode", p.stylize);
+                stylizeMat.SetFloat("_Amount", 1f);
+            }
             if (profile == null) return;
-            bloom.active = e.bloom > 0.01f;
-            bloom.intensity.Override(e.bloom * 2.5f);
-            bloom.threshold.Override(0.95f);
-            bloom.scatter.Override(0.7f);
+            lastEnv = e;
+            ApplyBloom(e);
             tone.mode.Override(p.aces ? URP.TonemappingMode.ACES : URP.TonemappingMode.Neutral);
             color.postExposure.Override(e.exposure);
             color.contrast.Override(e.contrast);

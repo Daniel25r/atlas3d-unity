@@ -102,6 +102,7 @@ namespace Atlas
         bool ShowBone(AtlasItem it, string path)
         {
             string leaf = BoneNames.Leaf(path);
+            if (IkRig.IsControl(path)) return true;
             if (BoneNames.IsHelper(leaf)) return false;
             if (allBones || path == activeBone) return true;
             if (!BoneNames.IsSecondary(leaf)) return true;
@@ -221,7 +222,9 @@ namespace Atlas
                     dot.rectTransform.anchoredPosition = pos[i];
                     float ds = overlayBones.Count > 60 ? 10f : overlayBones.Count > 30 ? 12f : 15f;
                     dot.rectTransform.sizeDelta = active ? new Vector2(22f, 22f) : new Vector2(ds, ds);
-                    dot.color = active ? AtlasTheme.Key : (selected.IsPosed(overlayBones[i]) ? AtlasTheme.Accent : new Color(0.92f, 0.92f, 0.96f, 0.9f));
+                    bool ctl = IkRig.IsControl(overlayBones[i]);
+                    if (ctl && !active) dot.rectTransform.sizeDelta = new Vector2(24f, 24f);
+                    dot.color = active ? AtlasTheme.Key : ctl ? new Color(1f, 0.35f, 0.75f, 0.95f) : (selected.IsPosed(overlayBones[i]) ? AtlasTheme.Accent : new Color(0.92f, 0.92f, 0.96f, 0.9f));
                 }
                 var line = overlayLines[i];
                 int pi;
@@ -387,6 +390,7 @@ namespace Atlas
                     AtlasTheme.Chip(ig, n + " huesos" + (n == 2 ? " (bípedo)" : n == 3 ? " (cuadrúpedo)" : ""), () => { ikChain = n; RefreshProps(); }, ikChain == n);
                 }
             }
+            BuildIkRigSection(it, box);
             BuildLipSyncSection(it, box);
             int hidden = HiddenBoneCount(it);
             if (hidden > 0 || allBones)
@@ -585,6 +589,49 @@ namespace Atlas
             Commit(true);
             RefreshProps();
             Toast("Pose «" + sp.name + "» aplicada (" + applied + " huesos)");
+        }
+
+        /// «IK rig»: controls on the hands and feet that the limbs follow.
+        void BuildIkRigSection(AtlasItem it, Transform box)
+        {
+            if (it.ik.Count == 0)
+            {
+                AtlasTheme.TextButton(box, "bone", "Crear IK rig (manos y pies)", () =>
+                {
+                    int n = IkRig.Create(it);
+                    overlayItem = null;
+                    if (n == 0) Toast("No encontré brazos ni piernas en este esqueleto", true);
+                    else
+                    {
+                        SetTool(Tool.Move);
+                        Toast("IK rig: mueve los puntos rosas y brazos y piernas los siguen");
+                        Commit(true);
+                    }
+                    RefreshProps();
+                }, true, 46f, 16);
+                return;
+            }
+            var g = AtlasTheme.Grid(box, 2, InnerWidth, 38f);
+            foreach (var c0 in it.ik)
+            {
+                var c = c0;
+                string path = IkRig.Prefix + c.name;
+                AtlasTheme.Chip(g, IkRig.Label(c.name) + (c.enabled ? "" : " (off)"), () =>
+                {
+                    if (activeBone == path) { c.enabled = !c.enabled; Commit(true); }
+                    else { SetTool(Tool.Move); SetActiveBone(path); }
+                    RefreshProps();
+                }, activeBone == path);
+            }
+            Hint(box, "Toca un control para elegirlo; tócalo otra vez para apagarlo o encenderlo. Muévelo o gíralo y pon claves: los pies se quedan pegados al suelo aunque muevas la cadera.");
+            AtlasTheme.TextButton(box, "delete", "Quitar IK rig", () =>
+            {
+                if (IkRig.IsControl(activeBone)) activeBone = "";
+                IkRig.Remove(it);
+                overlayItem = null;
+                Commit(true);
+                RefreshProps();
+            }, false, 40f, 15);
         }
     }
 }

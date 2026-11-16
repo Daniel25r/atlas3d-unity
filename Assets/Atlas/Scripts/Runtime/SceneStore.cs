@@ -45,6 +45,9 @@ namespace Atlas
         public List<MatOverride> mats = new List<MatOverride>();
         public Vector4 uv = new Vector4(1f, 1f, 0f, 0f);
         public int uvMat = -1;
+        public float glow;
+        public int glowMat = -1;
+        public Color glowColor = new Color(1f, 1f, 1f, 0f);
         public bool volumetric;
         public float volIntensity = 1f;
         public string physics = "";
@@ -56,6 +59,7 @@ namespace Atlas
         public int fxStart;
         public string text = "";
         public List<AnchorEvent> anchors = new List<AnchorEvent>();
+        public List<IkChain> ik = new List<IkChain>();
         public string normalMap = "", emissionMap = "";
         public float bumpStrength = 1f;
         public string lookAtId = "", followId = "";
@@ -303,6 +307,9 @@ namespace Atlas
                     mats = CopyMats(it.matOverrides),
                     uv = it.uv,
                     uvMat = it.uvMat,
+                    glow = it.glow,
+                    glowMat = it.glowMat,
+                    glowColor = it.glowColor,
                     volumetric = it.volumetric,
                     volIntensity = it.volIntensity,
                     physics = it.physics,
@@ -314,6 +321,7 @@ namespace Atlas
                     fxStart = it.fxStart,
                     text = it.text,
                     anchors = CopyAnchors(it.anchors),
+                    ik = IkRig.Copy(it.ik),
                     normalMap = it.normalMap ?? "",
                     emissionMap = it.emissionMap ?? "",
                     bumpStrength = it.bumpStrength,

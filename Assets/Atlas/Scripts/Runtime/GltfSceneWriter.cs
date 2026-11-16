@@ -122,7 +122,13 @@ namespace Atlas
             var roots = new List<int>();
             foreach (var it in items)
             {
-                if (it == null) continue;
+                if (it == null || nodeOf.ContainsKey(it.transform)) continue;
+                // An object held by another one (grabbed with a bone) is
+                // already inside it: a node can only have one parent.
+                bool inside = false;
+                for (var p = it.transform.parent; p != null; p = p.parent)
+                    foreach (var o in items) if (o != null && o != it && o.transform == p) inside = true;
+                if (inside) continue;
                 roots.Add(AddNode(it.transform, nodes, nodeOf));
             }
             if (roots.Count == 0) throw new Exception("no hay objetos que exportar");
@@ -179,8 +185,6 @@ namespace Atlas
                 js.Append("{\"inverseBindMatrices\":").Append(acc).Append(",\"joints\":[");
                 for (int i = 0; i < joints.Count; i++) js.Append(i > 0 ? "," : "").Append(joints[i]);
                 js.Append("]");
-                int rootNode;
-                if (n.smr.rootBone != null && nodeOf.TryGetValue(n.smr.rootBone, out rootNode)) js.Append(",\"skeleton\":").Append(rootNode);
                 js.Append("}");
                 skins.Add(js.ToString());
                 n.skin = skins.Count - 1;
@@ -280,6 +284,7 @@ namespace Atlas
             {
                 var c = t.GetChild(i);
                 if (c.GetComponent<Light>() != null && c.childCount == 0 && c.GetComponent<Renderer>() == null) continue;
+                if (nodeOf.ContainsKey(c) || c.name == "Volumen") continue;
                 n.children.Add(AddNode(c, nodes, nodeOf));
             }
             return idx;
@@ -320,9 +325,11 @@ namespace Atlas
                     {
                         var w = bw[i];
                         float sum = w.weight0 + w.weight1 + w.weight2 + w.weight3;
-                        if (sum <= 0f) sum = 1f;
                         int[] ji = { w.boneIndex0, w.boneIndex1, w.boneIndex2, w.boneIndex3 };
-                        float[] wi = { w.weight0 / sum, w.weight1 / sum, w.weight2 / sum, w.weight3 / sum };
+                        float[] wi;
+                        // Weights must add up to 1 (strict apps refuse the file otherwise).
+                        if (sum <= 1e-6f) wi = new float[] { 1f, 0f, 0f, 0f };
+                        else wi = new float[] { w.weight0 / sum, w.weight1 / sum, w.weight2 / sum, w.weight3 / sum };
                         for (int k = 0; k < 4; k++)
                         {
                             ushort j = (ushort)Mathf.Max(0, wi[k] > 0f ? ji[k] : 0);
@@ -343,9 +350,20 @@ namespace Atlas
                 if (t.Length < 3) continue;
                 // Mirroring flips the winding: swap two corners.
                 for (int k = 0; k + 2 < t.Length; k += 3) { int tmp = t[k + 1]; t[k + 1] = t[k + 2]; t[k + 2] = tmp; }
-                var idx = new byte[t.Length * 4];
-                Buffer.BlockCopy(t, 0, idx, 0, idx.Length);
-                int ia = bin.Accessor(bin.View(idx, 34963), 5125, t.Length, "SCALAR", "");
+                // 16-bit indices when they fit: every app reads those.
+                int ia;
+                if (n <= 65535)
+                {
+                    var idx = new byte[t.Length * 2];
+                    for (int k = 0; k < t.Length; k++) { idx[k * 2] = (byte)(t[k] & 0xff); idx[k * 2 + 1] = (byte)(t[k] >> 8); }
+                    ia = bin.Accessor(bin.View(idx, 34963), 5123, t.Length, "SCALAR", "");
+                }
+                else
+                {
+                    var idx = new byte[t.Length * 4];
+                    Buffer.BlockCopy(t, 0, idx, 0, idx.Length);
+                    ia = bin.Accessor(bin.View(idx, 34963), 5125, t.Length, "SCALAR", "");
+                }
                 var mat = mats != null && mats.Length > 0 ? mats[Mathf.Min(s, mats.Length - 1)] : null;
                 int mi = MaterialIndex(bin, mat, materials, images, textures, texIndex, matIndex);
                 prims.Add("{\"attributes\":{" + attrs + "},\"indices\":" + ia + ",\"material\":" + mi + "}");

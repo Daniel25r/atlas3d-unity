@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.0.2";
+        public const string Version = "1.0.3";
 
         Camera cam;
         Light sunLight;
@@ -99,6 +99,9 @@ namespace Atlas
             var camGo = new GameObject("Cámara");
             camGo.tag = "MainCamera";
             cam = camGo.AddComponent<Camera>();
+            // Without a listener Unity plays no sound at all (the audio of
+            // the animation was silent).
+            camGo.AddComponent<AudioListener>();
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = AtlasTheme.Viewport;
             cam.fieldOfView = 50f;
@@ -313,6 +316,9 @@ namespace Atlas
             it.noShadow = d.noShadow;
             it.uv = d.uv.x == 0f && d.uv.y == 0f ? new Vector4(1f, 1f, d.uv.z, d.uv.w) : d.uv;
             it.uvMat = d.uvMat;
+            it.glow = d.glow;
+            it.glowMat = d.glowMat;
+            it.glowColor = d.glowColor;
             it.volumetric = d.volumetric;
             it.volIntensity = d.volIntensity <= 0f ? 1f : d.volIntensity;
             it.physics = d.physics ?? "";
@@ -335,6 +341,8 @@ namespace Atlas
             it.followOffset = d.followOffset;
             it.shake = d.shake;
             it.shakeSpeed = d.shakeSpeed > 0f ? d.shakeSpeed : 0.6f;
+            it.ik = IkRig.Copy(d.ik);
+            if (it.loaded && it.HasBones) IkRig.Sync(it);
             string mf = d.meshFile ?? "";
             if (mf != (it.meshFile ?? ""))
             {
@@ -441,7 +449,7 @@ namespace Atlas
                     r.shadowCastingMode = it.noShadow || env.shadowsOff ? UnityEngine.Rendering.ShadowCastingMode.Off : UnityEngine.Rendering.ShadowCastingMode.On;
             }
             foreach (var c in it.GetComponentsInChildren<Collider>(true)) c.enabled = it.visible;
-            if (it.kind == "model") { if (it.loaded) { ApplyModelMaterials(it); it.ApplyUv(); } return; }
+            if (it.kind == "model") { if (it.loaded) { ApplyModelMaterials(it); it.ApplyUv(); it.LookChanged(); } return; }
             if (it.kind == "fx") { ApplyFxLook(it); return; }
             if (it.kind == "text") { ApplyText3D(it); return; }
             if (it.kind == "flag") { BuildCloth(it); WaveCloth(it, frame / Mathf.Max(1f, fps)); }
@@ -535,7 +543,11 @@ namespace Atlas
                 m.SetFloat("_Smoothness", it.smoothness);
                 m.EnableKeyword("_EMISSION");
                 m.SetColor("_EmissionColor", new Color(it.color.r, it.color.g, it.color.b) * it.emission);
-                m.SetTexture("_BaseMap", LoadTexture(it.texture));
+                var btex = LoadTexture(it.texture);
+                m.SetTexture("_BaseMap", btex);
+                if (btex != null)
+                    foreach (var rr in it.GetComponentsInChildren<Renderer>(true))
+                        if (!(rr is LineRenderer) && rr.gameObject.name != "Volumen") UvFix.Ensure(rr);
                 var nmap = LoadTexture(it.normalMap, true);
                 if (m.HasProperty("_BumpMap"))
                 {
@@ -553,6 +565,7 @@ namespace Atlas
             foreach (var r in it.GetComponentsInChildren<Renderer>(true))
                 if (!(r is LineRenderer) && r.gameObject.name != "Volumen") r.sharedMaterial = m;
             it.ApplyUv();
+            it.LookChanged();
         }
 
         /// Spotlight lines: a ring where the light reaches (up to 4 m) and
@@ -1241,10 +1254,9 @@ namespace Atlas
                     if (a.phase == TouchPhase.Ended || b.phase == TouchPhase.Ended || a.phase == TouchPhase.Canceled || b.phase == TouchPhase.Canceled) LookThroughEnd();
                     return;
                 }
-                if (before > 1f && now > 1f)
-                    distance = Mathf.Clamp(distance * before / now, 0.3f, 400f);
+                if (before > 1f && now > 1f) Zoom(before / now);
                 Vector2 pan = (a.deltaPosition + b.deltaPosition) * 0.5f;
-                float k = distance * 0.0016f;
+                float k = Mathf.Max(distance, ZoomFloor) * 0.0016f;
                 target.position -= cam.transform.right * pan.x * k + cam.transform.up * pan.y * k;
                 UpdateCamera();
             }
@@ -1269,7 +1281,7 @@ namespace Atlas
                     if (lookThrough != null) LookThroughTwoFingers(pd, 0f);
                     else
                     {
-                        float pk = distance * 0.0016f * (1280f / Mathf.Max(640f, Screen.width)) * 1.6f;
+                        float pk = Mathf.Max(distance, ZoomFloor) * 0.0016f * (1280f / Mathf.Max(640f, Screen.width)) * 1.6f;
                         target.position -= cam.transform.right * pd.x * pk + cam.transform.up * pd.y * pk;
                         UpdateCamera();
                     }
@@ -1283,7 +1295,7 @@ namespace Atlas
                 }
                 else if (Mathf.Abs(wheel) > 0.01f && !OverUi(-1))
                 {
-                    distance = Mathf.Clamp(distance * (1f - wheel * 0.1f), 0.3f, 400f);
+                    Zoom(1f - wheel * 0.1f);
                     UpdateCamera();
                 }
             }
@@ -1327,6 +1339,26 @@ namespace Atlas
             Toast("Clave en el fotograma " + f);
         }
 
+        const float ZoomFloor = 0.6f;
+
+        /// Zoom by `factor` (< 1 closer). Very close, the view keeps moving
+        /// forward at the same speed instead of slowing down to a crawl
+        /// (like Blender's «dolly»): the point it turns around moves along.
+        void Zoom(float factor)
+        {
+            float nd = distance * factor;
+            if (nd < ZoomFloor && factor < 1f)
+            {
+                float d0 = Mathf.Max(distance, ZoomFloor);
+                float step = d0 * (1f - factor);
+                if (distance > ZoomFloor) step -= distance - ZoomFloor;
+                target.position += cam.transform.forward * Mathf.Max(0f, step);
+                distance = ZoomFloor;
+                return;
+            }
+            distance = Mathf.Clamp(nd, ZoomFloor, 400f);
+        }
+
         void LateUpdate()
         {
             if (inspectorDirty && propsPanel != null && propsPanel.activeSelf)
@@ -1346,6 +1378,26 @@ namespace Atlas
                 LayoutModePill();
             }
             if (canvasRoot != null) gizmo.pxScale = canvasRoot.GetComponent<Canvas>().scaleFactor;
+            if (Time.unscaledTime >= glowCheckAt)
+            {
+                glowCheckAt = Time.unscaledTime + 0.4f;
+                Ambience.SetGlow(SceneGlows());
+            }
+        }
+
+        float glowCheckAt;
+
+        /// Neon, emission or an animated glow somewhere in the scene.
+        bool SceneGlows()
+        {
+            foreach (var it in items)
+            {
+                if (it == null || !it.visible || it.IsLight || it.kind == "camera") continue;
+                if (it.emission >= 1.5f || it.glow >= 1.5f) return true;
+                foreach (var o in it.matOverrides) if (o.emission >= 1.5f) return true;
+                foreach (var k in it.keys) if (k.glowKey && k.glow >= 1.5f) return true;
+            }
+            return false;
         }
 
         /// Android «back»: closes a dialog or a menu, or goes to the projects.
