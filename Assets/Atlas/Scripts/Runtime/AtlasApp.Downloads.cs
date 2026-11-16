@@ -390,13 +390,13 @@ namespace Atlas
 
         IEnumerator LoadThumb(string url, RawImage img)
         {
-            using (var req = UnityWebRequestTexture.GetTexture(url))
+            using (var req = UnityWebRequest.Get(url))
             {
                 req.timeout = 20;
                 yield return req.SendWebRequest();
                 if (req.result != UnityWebRequest.Result.Success || img == null) yield break;
-                var tex = DownloadHandlerTexture.GetContent(req);
-                if (tex == null) yield break;
+                var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (!tex.LoadImage(req.downloadHandler.data)) { Destroy(tex); yield break; }
                 img.texture = tex;
                 img.color = Color.white;
                 var fit = img.gameObject.AddComponent<AspectRatioFitter>();
