@@ -618,7 +618,7 @@ namespace Atlas
 
         /// Pop-up menu next to `screenPos` (like Godot's PopupMenu); a tap
         /// outside closes it.
-        public static GameObject Popup(RectTransform root, Vector2 screenPos, List<MenuItem> entries, float width = 330f)
+        public static GameObject Popup(RectTransform root, Vector2 screenPos, List<MenuItem> entries, float width = 330f, bool dropDown = false)
         {
             var dim = Box(root, "Dialogo", new Color(0f, 0f, 0f, 0.15f));
             Fill(dim.rectTransform);
@@ -652,9 +652,9 @@ namespace Atlas
             RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screenPos, null, out local);
             // root pivot -> bottom-left coordinates
             float lx = local.x - root.rect.xMin, ly = local.y - root.rect.yMin;
-            float x = Mathf.Clamp(lx - width * 0.5f, 8f, root.rect.width - width - 8f);
-            float y = ly + 12f;
-            if (y + ch > root.rect.height - 8f) y = ly - ch - 12f;
+            float x = Mathf.Clamp(dropDown ? lx : lx - width * 0.5f, 8f, root.rect.width - width - 8f);
+            float y = dropDown ? ly - ch - 2f : ly + 12f;
+            if (!dropDown && y + ch > root.rect.height - 8f) y = ly - ch - 12f;
             y = Mathf.Clamp(y, 8f, root.rect.height - ch - 8f);
             cr.anchoredPosition = new Vector2(x, y);
             ScrollRect sr;

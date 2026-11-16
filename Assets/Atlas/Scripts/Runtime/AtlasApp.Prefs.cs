@@ -108,6 +108,7 @@ namespace Atlas
             {
                 var scaler = canvasRoot.GetComponent<CanvasScaler>();
                 if (scaler != null) scaler.referenceResolution = new Vector2(1280f, 640f) / Prefs.uiScale;
+                ApplyDesktopScale();
             }
             Application.targetFrameRate = Prefs.maxFps;
             var urp = Urp;

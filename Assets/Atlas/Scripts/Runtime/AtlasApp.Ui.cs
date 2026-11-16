@@ -134,6 +134,7 @@ namespace Atlas
             timeline.SetActive(false);
             SetTimelineState(1);
             propsPanel.SetActive(false);
+            if (Desktop) BuildDesktopUi();
         }
 
         void BuildRail()
@@ -406,6 +407,7 @@ namespace Atlas
 
         void ToggleProps()
         {
+            if (Desktop && menuBar != null) { BuildInspector(); return; }   // docked on PC
             propsPanel.SetActive(!propsPanel.activeSelf);
             AtlasTheme.SetActive(propsBtn, propsPanel.activeSelf);
             nav.anchoredPosition = new Vector2(propsPanel.activeSelf ? -(PropsWidth + 24f) : -24f, -86f);

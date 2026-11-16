@@ -354,6 +354,7 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• PC: nueva interfaz de escritorio estilo Blender: menús, lista de escena, propiedades fijas, barra de estado y atajos (Shift+A, X, H, teclado numérico).\n" +
             "• IK rig para cualquier modelo: controles en manos y pies que brazos y piernas siguen.\n" +
             "• Brillo animable por pieza: enciende y apaga partes con claves.\n" +
             "• El neón brilla de verdad y se puede poner en piezas de modelos.\n" +

@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.0.3";
+        public const string Version = "1.0.4";
 
         Camera cam;
         Light sunLight;
@@ -1278,7 +1278,16 @@ namespace Atlas
                     Vector2 m = Input.mousePosition;
                     Vector2 pd = m - panLast;
                     panLast = m;
+                    bool shiftHeld = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
                     if (lookThrough != null) LookThroughTwoFingers(pd, 0f);
+                    else if (Desktop && Input.GetMouseButton(2) && !shiftHeld)
+                    {
+                        // Blender: the middle button turns the view.
+                        float ok = 0.25f * Prefs.orbitSens;
+                        yaw += pd.x * ok;
+                        pitch = Mathf.Clamp(pitch - pd.y * ok * (Prefs.invertY ? -1f : 1f), -85f, 85f);
+                        UpdateCamera();
+                    }
                     else
                     {
                         float pk = Mathf.Max(distance, ZoomFloor) * 0.0016f * (1280f / Mathf.Max(640f, Screen.width)) * 1.6f;
@@ -1310,6 +1319,7 @@ namespace Atlas
             if (es != null && es.currentSelectedGameObject != null && es.currentSelectedGameObject.GetComponent<InputField>() != null) return;
             bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) || Input.GetKey(KeyCode.LeftCommand);
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            if (DesktopKeys(ctrl, shift)) return;
             if (ctrl && Input.GetKeyDown(KeyCode.Z)) { if (shift) Redo(); else Undo(); return; }
             if (ctrl && Input.GetKeyDown(KeyCode.Y)) { Redo(); return; }
             if (ctrl && Input.GetKeyDown(KeyCode.S)) { SaveNow(true); return; }
@@ -1370,6 +1380,7 @@ namespace Atlas
             if (poseMode && propsPanel != null && propsPanel.activeSelf) FillBoneFields();
             UpdateBoneOverlay();
             UpdateMeshOverlay();
+            UpdateDesktop();
             UpdateLookThrough();
             UpdateReflections();
             if (viewArea != null && Mathf.Abs(viewArea.rect.width - lastViewW) > 1f)
