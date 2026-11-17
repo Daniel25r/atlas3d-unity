@@ -1,0 +1,964 @@
+# ATLAS 3D - translations. One line per text: Spanish § English § Arabic.
+# «\n» is a line break. Texts not listed stay in Spanish.
+ (bloqueado)§ (locked)§ (مقفل)
+ (bípedo)§ (biped)§ (ثنائي الأرجل)
+ (copia)§ (copy)§ (نسخة)
+ (cuadrúpedo)§ (quadruped)§ (رباعي الأرجل)
+ archivos)§ files)§ ملفات)
+ caras · § faces · § وجوه ·
+ clave§ key§ مفتاح
+ claves§ keys§ مفاتيح
+ claves borradas§ keys deleted§ مفاتيح محذوفة
+ claves copiadas§ keys copied§ مفاتيح منسوخة
+ claves pegadas§ keys pasted§ مفاتيح ملصقة
+ fotogramas§ frames§ إطارات
+ fotogramas…§ frames…§ إطارات…
+ guardado§ saved§ محفوظ
+ huesos§ bones§ عظام
+ huesos)§ bones)§ عظام)
+ listo: elige dónde guardarlo§ ready: choose where to save it§ جاهز: اختر مكان حفظه
+ núcleos · § cores · § أنوية ·
+ objeto§ object§ كائن
+ objetos§ objects§ كائنات
+ proyectos recuperados§ projects restored§ مشاريع مستعادة
+ triángulos§ triangles§ مثلثات
+ vértices§ vertices§ رؤوس
+ vértices · § vertices · § رؤوس ·
+ · Duración: § · Length: § · المدة:
+ · Luces: § · Lights: § · الأضواء:
+ · Modelos: § · Models: § · النماذج:
+ · animado§ · animated§ · متحرك
+(oculto) §(hidden) §(مخفي)
+(sin audio)§(no audio)§(بدون صوت)
+) en el fotograma §) at frame §) في الإطار
+): se guardan los fotogramas en ZIP§): the frames are saved in a ZIP§): تُحفظ الإطارات في ملف ZIP
+, sin el audio§, without the audio§، بدون الصوت
+ATLAS 3D · versión §ATLAS 3D · version §ATLAS 3D · الإصدار
+Abajo§Down§أسفل
+Abrir§Open§فتح
+Abrir en el editor de materiales…§Open in the material editor…§فتح في محرر المواد…
+Acciones§Actions§إجراءات
+Aceleración (ease in)§Accelerate (ease in)§تسارع (ease in)
+Acerca de§About§حول
+Acerca de ATLAS 3D§About ATLAS 3D§حول ATLAS 3D
+Adelante§Forward§للأمام
+Agarrar§Grab§إمساك
+Ahora se llama «§Now it is called «§أصبح اسمه «
+Al modelar o esculpir, la forma se convierte en una malla editable: puedes mover vértices, extruir caras o esculpirla como arcilla. Todo se puede deshacer.§When you model or sculpt, the shape becomes an editable mesh: you can move vertices, extrude faces or sculpt it like clay. Everything can be undone.§عند النمذجة أو النحت يتحول الشكل إلى شبكة قابلة للتعديل: يمكنك تحريك الرؤوس وبثق الوجوه أو نحته كالطين. يمكن التراجع عن كل شيء.
+Al moverla se aplica a este material del modelo (por ejemplo, la cara para cambiar de expresión).§Moving it applies to this material of the model (for example, the face to change expression).§عند تحريكها تُطبَّق على هذه المادة من النموذج (مثلاً الوجه لتغيير التعبير).
+Al suelo§To the ground§إلى الأرض
+Ala§Wing§جناح
+Alargar 5 segundos§Add 5 seconds§إضافة 5 ثوانٍ
+Alcance§Range§المدى
+Alisa bultos y arrugas.§Smooths out bumps and wrinkles.§يُنعّم النتوءات والتجاعيد.
+Alta§High§عالية
+Ambiente§Ambience§الأجواء
+Ambiente rápido (un toque)§Quick ambience (one tap)§أجواء سريعة (بلمسة)
+Ambiente: §Ambience: §الأجواء:
+Animación§Animation§الحركة
+Animación (fotogramas en ZIP)§Animation (frames in a ZIP)§الحركة (إطارات في ZIP)
+Animación alargada hasta el fotograma §Animation extended to frame §تم تمديد الحركة حتى الإطار
+Animación del modelo§Model animation§حركة النموذج
+Animar§Animate§تحريك
+Animar: elige un fotograma, coloca el objeto y pulsa la clave ◆§Animate: pick a frame, place the object and press the key ◆§التحريك: اختر إطارًا وضع الكائن واضغط المفتاح ◆
+Anime§Anime§أنمي
+Antebrazo§Forearm§الساعد
+Anular§Ring§البنصر
+Anímala con la clave amarilla como cualquier objeto: el render de la animación sigue su recorrido, con su temblor.§Animate it with the yellow key like any object: the animation render follows its path, with its shake.§حرّكها بالمفتاح الأصفر مثل أي كائن: يتبع عرض الحركة مسارها مع اهتزازها.
+Aplana la zona como una espátula.§Flattens the area like a spatula.§يسطّح المنطقة كالمِلوَق.
+Aplanar§Flatten§تسطيح
+Aplicar§Apply§تطبيق
+Archivo: §File: §الملف:
+Arcilla§Clay§طين
+Arrastra la zona entera siguiendo el dedo.§Drags the whole area along with your finger.§يسحب المنطقة كلها مع إصبعك.
+Aspecto del modelo§Model look§مظهر النموذج
+Atardecer§Sunset§الغروب
+Atrás§Back§للخلف
+Audio puesto: la animación se alargó a §Audio added: the animation was extended to §تمت إضافة الصوت: مُدِّدت الحركة إلى
+Audio puesto: suena al reproducir la animación§Audio added: it plays with the animation§تمت إضافة الصوت: يُسمع عند تشغيل الحركة
+Audio quitado (Deshacer lo recupera)§Audio removed (Undo brings it back)§تمت إزالة الصوت (التراجع يعيده)
+Audio: empezar en el fotograma §Audio: start at frame §الصوت: يبدأ في الإطار
+Audio…§Audio…§صوت…
+Avanzado§Advanced§متقدم
+Avisos§Notices§تنبيهات
+Ayer, §Yesterday, §أمس،
+Añade capas de arcilla que rellenan los huecos y aplanan un poco.§Adds layers of clay that fill holes and flatten a little.§يضيف طبقات طين تملأ الفراغات وتسطّح قليلًا.
+Añadir audio (MP3, OGG, WAV)…§Add audio (MP3, OGG, WAV)…§إضافة صوت (MP3، OGG، WAV)…
+Bloqueado: no se mueve ni se selecciona en la vista§Locked: it can't be moved or selected in the view§مقفل: لا يتحرك ولا يُحدَّد في العرض
+Borde§Edge§الحافة
+Bordes suaves (antialiasing)§Smooth edges (antialiasing)§حواف ناعمة (تنعيم)
+Borrado (Deshacer lo recupera)§Deleted (Undo brings it back)§تم الحذف (التراجع يعيده)
+Borrar§Delete§حذف
+Borrar caras§Delete faces§حذف الوجوه
+Borrar claves§Delete keys§حذف المفاتيح
+Borrar claves aquí / seleccionadas§Delete keys here / selected§حذف المفاتيح هنا / المحددة
+Borrar de Mis materiales§Delete from My materials§حذف من موادي
+Borrar mis poses…§Delete my poses…§حذف وضعياتي…
+Borrar todas§Delete all§حذف الكل
+Borrar uno de Mis materiales…§Delete one of My materials…§حذف مادة من موادي…
+Borrar…§Delete…§حذف…
+Brazo§Arm§الذراع
+Brillo§Brightness§السطوع
+Burbuja§Bubble§فقاعة
+Buscar hueso (brazo, mano, cabeza…)§Find bone (arm, hand, head…)§ابحث عن عظمة (ذراع، يد، رأس…)
+COLOCACIÓN DE LA TEXTURA (ANIMABLE)§TEXTURE PLACEMENT (ANIMATABLE)§موضع النسيج (قابل للتحريك)
+COLOR BASE§BASE COLOR§اللون الأساسي
+Cabeza§Head§الرأس
+Cadera§Hips§الورك
+Cae y choca§Falls and collides§يسقط ويصطدم
+Cambiar nombre§Rename§إعادة التسمية
+Cambiar nombre…§Rename…§إعادة التسمية…
+Cambiar relieve…§Change relief…§تغيير البروز…
+Cambiar…§Change…§تغيير…
+Campo visual§Field of view§مجال الرؤية
+Cancelar§Cancel§إلغاء
+Caras§Faces§الوجوه
+Caras insertadas: ahora puedes extruirlas o moverlas§Faces inset: now you can extrude or move them§تم إدراج الوجوه: يمكنك الآن بثقها أو تحريكها
+Carpeta de proyectos: §Projects folder: §مجلد المشاريع:
+Ceja§Eyebrow§الحاجب
+Cerrar§Close§إغلاق
+Cerrar proyecto§Close project§إغلاق المشروع
+Cielo§Sky§السماء
+Cielo con nubes§Cloudy sky§سماء غائمة
+Cilindro§Cylinder§أسطوانة
+Cine§Cinema§سينما
+Clave (§Key (§مفتاح (
+Clave aquí§Key here§مفتاح هنا
+Clave automática desactivada§Auto key off§المفتاح التلقائي متوقف
+Clave automática: cada cambio crea una clave§Auto key: every change makes a key§المفتاح التلقائي: كل تغيير يُنشئ مفتاحًا
+Clave borrada§Key deleted§تم حذف المفتاح
+Clave copiada§Key copied§تم نسخ المفتاح
+Clave de textura aquí (◆)§Texture key here (◆)§مفتاح نسيج هنا (◆)
+Clave de textura en el fotograma §Texture key at frame §مفتاح نسيج في الإطار
+Clave pegada§Key pasted§تم لصق المفتاح
+Claves§Keys§المفاتيح
+Claves borradas (Deshacer las recupera)§Keys deleted (Undo brings them back)§تم حذف المفاتيح (التراجع يعيدها)
+Claves de animación§Animation keys§مفاتيح الحركة
+Clavícula§Collarbone§الترقوة
+Cola§Tail§الذيل
+Colocación original§Original placement§الموضع الأصلي
+Color (tiñe la textura)§Color (tints the texture)§اللون (يصبغ النسيج)
+Color base§Base color§اللون الأساسي
+Color§Color§اللون
+Columna§Spine§العمود الفقري
+Con Girar giras el hueso; con Mover lo desplazas y con Escalar lo estiras (personajes elásticos).§With Rotate you turn the bone; with Move you shift it and with Scale you stretch it (stretchy characters).§بالتدوير تدير العظمة، وبالتحريك تزيحها، وبالتحجيم تمدّها (شخصيات مطاطية).
+Cono§Cone§مخروط
+Constante§Constant§ثابت
+Contraste§Contrast§التباين
+Convirtiendo «§Converting «§جارٍ تحويل «
+Copia creada: «§Copy created: «§تم إنشاء نسخة: «
+Copia de todos los proyectos§Copy of all projects§نسخة من كل المشاريع
+Copia de todos los proyectos (.zip)§Backup of all projects (.zip)§نسخة احتياطية من كل المشاريع (.zip)
+Copia de «§Backup of «§نسخة احتياطية من «
+Copia del proyecto§Project backup§نسخة احتياطية للمشروع
+Copia del proyecto (.zip)§Project backup (.zip)§نسخة احتياطية للمشروع (.zip)
+Copiar claves§Copy keys§نسخ المفاتيح
+Correr§Run§ركض
+Crear§Create§إنشاء
+Cristal Aero§Aero glass§زجاج إيرو
+Cromo§Chrome§كروم
+Cuadrado 1080§Square 1080§مربع 1080
+Cubo§Cube§مكعب
+Cuello§Neck§الرقبة
+Cálida§Warm§دافئة
+Cámara§Camera§الكاميرا
+Cámara §Camera §كاميرا
+Cámara activa (la que usa el render)§Active camera (the one the render uses)§الكاميرا النشطة (التي يستخدمها العرض)
+Cámara colocada desde la vista actual§Camera placed from the current view§وُضعت الكاميرا من العرض الحالي
+Cámara colocada desde la vista actual: los renders salen por ella§Camera placed from the current view: renders come out through it§وُضعت الكاميرا من العرض الحالي: تُصوَّر العروض من خلالها
+Cámara puesta en la vista actual§Camera moved to the current view§نُقلت الكاميرا إلى العرض الحالي
+Cápsula§Capsule§كبسولة
+Código HEX: escríbelo y pulsa Intro§HEX code: type it and press Enter§رمز HEX: اكتبه واضغط إدخال
+Código no válido: usa #RRGGBB (por ejemplo #FF8800)§Invalid code: use #RRGGBB (for example #FF8800)§رمز غير صالح: استخدم ‎#RRGGBB (مثلًا ‎#FF8800)
+Cómic§Comic§قصص مصورة
+Cúbica (curva suave)§Cubic (smooth curve)§تكعيبي (منحنى ناعم)
+Dedo§Finger§الإصبع
+Dedo del pie§Toe§إصبع القدم
+Densidad del haz§Beam density§كثافة الشعاع
+Dentro de la cámara: un dedo la gira, dos dedos la mueven, pellizca para acercarla. El recuadro es lo que sale en el render.§Inside the camera: one finger turns it, two fingers move it, pinch to push it closer. The frame is what comes out in the render.§داخل الكاميرا: إصبع واحد يديرها، وإصبعان يحرّكانها، والقرص يقرّبها. الإطار هو ما يظهر في العرض.
+Desaceleración (ease out)§Decelerate (ease out)§تباطؤ (ease out)
+Desbloqueado§Unlocked§غير مقفل
+Desde la vista§From the view§من العرض
+Deseleccionar claves§Deselect keys§إلغاء تحديد المفاتيح
+Desplazar X§Shift X§إزاحة X
+Desplazar Y§Shift Y§إزاحة Y
+Dibujar§Draw§رسم
+Dispositivo: §Device: §الجهاز:
+Duplicar§Duplicate§تكرار
+Duración de la animación§Animation length§مدة الحركة
+Duración: §Length: §المدة:
+Día§Day§نهار
+EXPORTAR MODELO 3D§EXPORT 3D MODEL§تصدير نموذج ثلاثي الأبعاد
+Editor de materiales · §Material editor · §محرر المواد ·
+Editor de materiales…§Material editor…§محرر المواد…
+Efectos de imagen§Image effects§تأثيرات الصورة
+Efectos de imagen en el visor§Image effects in the view§تأثيرات الصورة في العرض
+Eje§Axis§المحور
+Ejes§Axes§المحاور
+El MP4 no funcionó en este teléfono (§The MP4 didn't work on this phone (§لم يعمل MP4 على هذا الهاتف (
+El MP4 se guarda en tu galería o donde elijas. Los fotogramas JPG (con el audio en el ZIP) sirven para editarlos en CapCut, VN o cualquier editor.§The MP4 is saved to your gallery or wherever you choose. The JPG frames (with the audio in the ZIP) can be edited in CapCut, VN or any editor.§يُحفظ ملف MP4 في معرضك أو حيث تختار. إطارات JPG (مع الصوت في ZIP) صالحة للتحرير في CapCut أو VN أو أي محرر.
+El modelo todavía se está cargando…§The model is still loading…§لا يزال النموذج قيد التحميل…
+El objeto ya no existe.§The object no longer exists.§الكائن لم يعد موجودًا.
+El vídeo MP4 se hace en Android: aquí se guardan los fotogramas en ZIP§MP4 video is made on Android: here the frames are saved in a ZIP§يُصنع فيديو MP4 على أندرويد: هنا تُحفظ الإطارات في ZIP
+Elegir archivos§Choose files§اختيار الملفات
+Elige dos o más vértices para unirlos§Pick two or more vertices to merge them§اختر رأسين أو أكثر لدمجها
+Elige en cada objeto «Cae y choca» o «Fijo (choca)» (Propiedades → Física). Luego «Simular» guarda la caída como claves desde el fotograma actual.§On each object choose «Falls and collides» or «Fixed (collides)» (Properties → Physics). Then «Simulate» saves the fall as keys from the current frame.§اختر لكل كائن «يسقط ويصطدم» أو «ثابت (يصطدم)» (الخصائص ← الفيزياء). ثم «محاكاة» تحفظ السقوط كمفاتيح من الإطار الحالي.
+Elige primero un material del modelo (tócalo otra vez)§First pick a material of the model (tap it again)§اختر أولًا مادة من النموذج (المسه مرة أخرى)
+Elástica (muelle)§Elastic (spring)§مرن (نابض)
+Emisión§Emission§الانبعاث
+Emisión (brillo propio)§Emission (own glow)§الانبعاث (توهج ذاتي)
+En mano§Handheld§محمولة باليد
+En modo pose, toca una articulación en el visor (o elige un hueso en la lista) y gírala con el manipulador. Las rotaciones se animan con claves.§In pose mode, tap a joint in the view (or pick a bone in the list) and rotate it with the manipulator. Rotations are animated with keys.§في وضع الوضعية، المس مفصلًا في العرض (أو اختر عظمة من القائمة) وأدرها بالمتحكم. تُحرَّك الدورانات بالمفاتيح.
+Entendido§Got it§فهمت
+Entra en modo pose y elige un hueso§Enter pose mode and pick a bone§ادخل وضع الوضعية واختر عظمة
+Entrar en modo pose§Enter pose mode§دخول وضع الوضعية
+Equilibrado§Balanced§متوازن
+Esa imagen no se puede leer (usa PNG o JPG)§That image can't be read (use PNG or JPG)§لا يمكن قراءة هذه الصورة (استخدم PNG أو JPG)
+Escala§Scale§الحجم
+Escala de la interfaz§Interface scale§حجم الواجهة
+Escalar§Scale§تحجيم
+Escena vacía (Deshacer la recupera)§Scene emptied (Undo brings it back)§تم إفراغ المشهد (التراجع يعيده)
+Escenario§Stage§المسرح
+Escena§Scene§المشهد
+Escribe los segundos (por ejemplo 10s) o los fotogramas (por ejemplo 240).§Type the seconds (for example 10s) or the frames (for example 240).§اكتب الثواني (مثلًا 10s) أو الإطارات (مثلًا 240).
+Esculpir§Sculpt§نحت
+Esculpir: arrastra un dedo sobre la forma (dos dedos mueven la cámara). Cada trazo se deshace por separado.§Sculpt: drag a finger over the shape (two fingers move the camera). Each stroke undoes separately.§النحت: اسحب إصبعًا على الشكل (إصبعان يحرّكان الكاميرا). يُتراجع عن كل ضربة على حدة.
+Esculpir: arrastra un dedo sobre la forma (dos dedos mueven la cámara). Tiene pocos puntos: pulsa «Más detalle» para esculpir con detalle.§Sculpt: drag a finger over the shape (two fingers move the camera). It has few points: press «More detail» to sculpt finely.§النحت: اسحب إصبعًا على الشكل (إصبعان يحرّكان الكاميرا). نقاطه قليلة: اضغط «تفاصيل أكثر» للنحت بدقة.
+Ese archivo no es una copia de proyectos de ATLAS 3D§That file is not an ATLAS 3D projects backup§هذا الملف ليس نسخة احتياطية لمشاريع ATLAS 3D
+Esfera§Sphere§كرة
+Espejo X§Mirror X§مرآة X
+Espejo X (lado +X copiado)§Mirror X (+X side copied)§مرآة X (نُسخ الجانب ‎+X)
+Esqueleto y pose§Skeleton and pose§الهيكل والوضعية
+Esta es la nueva versión hecha en Unity: más fluida y con mejor imagen (URP, sombras suaves, efectos de cine). §This is the new version made in Unity: smoother and better looking (URP, soft shadows, film effects). §هذا هو الإصدار الجديد المصنوع بـ Unity: أكثر سلاسة وبصورة أفضل (URP، ظلال ناعمة، تأثيرات سينمائية).
+Esta pose es de otro esqueleto: ningún hueso coincide.§This pose is from another skeleton: no bone matches.§هذه الوضعية لهيكل آخر: لا تتطابق أي عظمة.
+Este hueso no tiene claves: pulsa ◆ para guardar una aquí.§This bone has no keys: press ◆ to save one here.§هذه العظمة بلا مفاتيح: اضغط ◆ لحفظ مفتاح هنا.
+Este modelo no tiene huesos con pose§This model has no posed bones§هذا النموذج ليس فيه عظام بوضعية
+Este modelo no trae animaciones (o todavía se está cargando).§This model has no animations (or it is still loading).§هذا النموذج بلا حركات (أو لا يزال قيد التحميل).
+Este objeto no tiene material§This object has no material§هذا الكائن بلا مادة
+Este proyecto de Prisma3D no trae dentro las mallas de sus objetos§This Prisma3D project doesn't include its objects' meshes§مشروع Prisma3D هذا لا يتضمن شبكات كائناته
+Estilo SFM§SFM style§نمط SFM
+Estirar§Stretch§تمديد
+Estudio ATLAS§ATLAS studio§استوديو ATLAS
+Estudio de creación 3D · versión §3D creation studio · version §استوديو الإبداع ثلاثي الأبعاد · الإصدار
+Estudio de creación y animación 3D para móviles.\n\n§3D creation and animation studio for phones.\n\n§استوديو إبداع وتحريك ثلاثي الأبعاد للهواتف.\n\n
+Exportando a §Exporting to §جارٍ التصدير إلى
+Exposición§Exposure§التعريض
+Extruido: muévelo con el manipulador§Extruded: move it with the manipulator§تم البثق: حرّكه بالمتحكم
+Extruir§Extrude§بثق
+FPS máximos§Max FPS§أقصى FPS
+Falta el vídeo «§The video is missing «§الفيديو مفقود «
+Faltan las mallas del proyecto§The project's meshes are missing§شبكات المشروع مفقودة
+Fijo (choca)§Fixed (collides)§ثابت (يصطدم)
+Fin§End§النهاية
+Foco§Spotlight§كشاف
+Forma original recuperada (Deshacer la vuelve a dejar como estaba)§Original shape restored (Undo puts it back as it was)§تمت استعادة الشكل الأصلي (التراجع يعيده كما كان)
+Formas: §Shapes: §الأشكال:
+Formato no compatible.§Format not supported.§صيغة غير مدعومة.
+Fuerza§Strength§القوة
+Fuerza de la gravedad§Gravity strength§قوة الجاذبية
+Fuerza del relieve§Relief strength§قوة البروز
+Física§Physics§الفيزياء
+Física lista: §Physics ready: §الفيزياء جاهزة:
+Física y gravedad§Physics and gravity§الفيزياء والجاذبية
+Física: §Physics: §الفيزياء:
+Gel brillante§Shiny gel§جل لامع
+Gira la luz con la herramienta Girar para apuntarla.§Turn the light with the Rotate tool to aim it.§أدر الضوء بأداة التدوير لتوجيهه.
+Girar§Rotate§تدوير
+Goma§Rubber§مطاط
+Gran angular§Wide angle§زاوية واسعة
+Grano§Grain§الحبيبات
+Guarda aquí los materiales que te gusten para usarlos en cualquier proyecto.§Save here the materials you like to use them in any project.§احفظ هنا المواد التي تعجبك لاستخدامها في أي مشروع.
+Guardado§Saving§الحفظ
+Guardado en Mis materiales§Saved in My materials§تم الحفظ في موادي
+Guardar§Save§حفظ
+Guardar clave de…§Save key of…§حفظ مفتاح لـ…
+Guardar en Mis materiales§Save in My materials§حفظ في موادي
+Guardar en Mis materiales…§Save in My materials…§حفظ في موادي…
+Guardar mi pose§Save my pose§حفظ وضعيتي
+Guía de inicio§Getting started§دليل البدء
+Halo volumétrico§Volumetric halo§هالة حجمية
+Haz de luz volumétrico§Volumetric light beam§شعاع ضوء حجمي
+Herramientas§Tools§الأدوات
+Hincha la zona hacia fuera en todas direcciones.§Swells the area outwards in every direction.§ينفخ المنطقة للخارج في كل الاتجاهات.
+Hoja de animación (todos los objetos)§Dope sheet (all objects)§ورقة الحركة (كل الكائنات)
+Hoja de animación: todas las claves de todos los objetos. Amplía (▴) para ver una pista por propiedad.§Dope sheet: all keys of all objects. Expand (▴) to see one track per property.§ورقة الحركة: كل مفاتيح كل الكائنات. وسّع (▴) لرؤية مسار لكل خاصية.
+Hombro§Shoulder§الكتف
+Hoy, §Today, §اليوم،
+Hueso: §Bone: §العظمة:
+IK: elige el hueso de la punta (pie, mano, cola) y arrástralo con Mover§IK: pick the tip bone (foot, hand, tail) and drag it with Move§IK: اختر عظمة الطرف (قدم، يد، ذيل) واسحبها بأداة التحريك
+IK: mover la punta y que la cadena la siga§IK: move the tip and the chain follows§IK: حرّك الطرف لتتبعه السلسلة
+Imagen§Image§صورة
+Imagen (PNG)§Image (PNG)§صورة (PNG)
+Imagen colocada: muévela, gírala o escálala como cualquier objeto§Image placed: move, rotate or scale it like any object§تم وضع الصورة: حرّكها أو أدرها أو حجّمها مثل أي كائن
+Imagen…§Image…§صورة…
+Importa GLB, glTF, FBX, OBJ (+MTL), BLEND, Prisma3D, 3DS, STL, PLY y ZIP; exporta GLB, glTF, OBJ, STL, PLY y 3MF.\n\n§Imports GLB, glTF, FBX, OBJ (+MTL), BLEND, Prisma3D, 3DS, STL, PLY and ZIP; exports GLB, glTF, OBJ, STL, PLY and 3MF.\n\n§يستورد GLB وglTF وFBX وOBJ (+MTL) وBLEND وPrisma3D و3DS وSTL وPLY وZIP؛ ويصدّر GLB وglTF وOBJ وSTL وPLY و3MF.\n\n
+Importando «§Importing «§جارٍ استيراد «
+Importar modelo§Import model§استيراد نموذج
+Importar modelo…§Import model…§استيراد نموذج…
+Imán desactivado§Snapping off§الالتقاط متوقف
+Imán: girar (°)§Snap: rotate (°)§الالتقاط: تدوير (°)
+Imán: mover (m)§Snap: move (m)§الالتقاط: تحريك (م)
+Imán: mover de 0,25 m en 0,25 m, girar de 15° en 15°, escalar de 0,1 en 0,1§Snapping: move in steps of 0.25 m, rotate in 15° steps, scale in 0.1 steps§الالتقاط: تحريك بخطوات 0.25 م، وتدوير بخطوات 15°، وتحجيم بخطوات 0.1
+Inflar§Inflate§نفخ
+Información§Information§معلومات
+Inicio§Start§البداية
+Insertar§Inset§إدراج
+Intensidad§Intensity§الشدة
+Interfaz§Interface§الواجهة
+Interpolación (hasta la clave siguiente)§Interpolation (to the next key)§الاستيفاء (حتى المفتاح التالي)
+Interpolación, copiar y pegar…§Interpolation, copy and paste…§الاستيفاء والنسخ واللصق…
+Interpolación: §Interpolation: §الاستيفاء:
+Invertir§Invert§عكس
+Invertir caras§Flip faces§قلب الوجوه
+Invertir órbita vertical§Invert vertical orbit§عكس الدوران العمودي
+Junta los puntos hacia el centro (bordes más marcados).§Pulls the points towards the centre (sharper edges).§يجمع النقاط نحو المركز (حواف أوضح).
+La animación ahora termina en el fotograma §The animation now ends at frame §تنتهي الحركة الآن في الإطار
+La animación dura §The animation lasts §مدة الحركة
+La animación elegida se reproduce con la línea de tiempo y sale en el render.§The chosen animation plays with the timeline and appears in the render.§تُشغَّل الحركة المختارة مع الخط الزمني وتظهر في العرض.
+La cámara apunta siempre a «§The camera always points at «§الكاميرا تتجه دائمًا نحو «
+La cámara viaja con «§The camera travels with «§الكاميرا تتحرك مع «
+La escena está vacía. Añade formas, luces o importa un modelo con el botón +.§The scene is empty. Add shapes, lights or import a model with the + button.§المشهد فارغ. أضف أشكالًا أو أضواء أو استورد نموذجًا بزر +.
+La gravedad (dirección y fuerza) está en la escena: toca el fondo y busca «Física y gravedad».§Gravity (direction and strength) is in the scene: tap the background and look for «Physics and gravity».§الجاذبية (الاتجاه والقوة) في المشهد: المس الخلفية وابحث عن «الفيزياء والجاذبية».
+La malla ya es muy densa para el móvil§The mesh is already too dense for a phone§الشبكة كثيفة جدًا للهاتف
+Las sombras y los efectos del visor sólo cambian lo que ves al editar: el render siempre sale completo.§The view's shadows and effects only change what you see while editing: the render always comes out complete.§الظلال والتأثيرات في العرض تغيّر فقط ما تراه أثناء التحرير: يخرج العرض النهائي كاملًا دائمًا.
+Letra Inter (licencia OFL).§Inter typeface (OFL license).§خط Inter (رخصة OFL).
+Levanta la superficie bajo el dedo (con «Invertir», la hunde).§Raises the surface under your finger (with «Invert», it sinks it).§يرفع السطح تحت إصبعك (مع «عكس» يُخفضه).
+Ligero§Light§خفيف
+Lineal§Linear§خطي
+Listo§Done§تم
+Los .c4d son archivos internos de Cinema 4D (formato cerrado). En Cinema 4D usa Exportar → FBX o glTF.§.c4d files are Cinema 4D's own files (closed format). In Cinema 4D use Export → FBX or glTF.§ملفات ‎.c4d خاصة بـ Cinema 4D (صيغة مغلقة). في Cinema 4D استخدم تصدير ← FBX أو glTF.
+Los .max son archivos internos de 3ds Max (formato cerrado). En 3ds Max usa Exportar → FBX.§.max files are 3ds Max's own files (closed format). In 3ds Max use Export → FBX.§ملفات ‎.max خاصة بـ 3ds Max (صيغة مغلقة). في 3ds Max استخدم تصدير ← FBX.
+Los .skp de SketchUp son internos: expórtalo como FBX, OBJ o glTF.§SketchUp .skp files are internal: export it as FBX, OBJ or glTF.§ملفات ‎.skp من SketchUp داخلية: صدّرها كـ FBX أو OBJ أو glTF.
+Los archivos de Maya (.ma / .mb) son internos. En Maya usa Exportar → FBX.§Maya files (.ma / .mb) are internal. In Maya use Export → FBX.§ملفات Maya (‎.ma / ‎.mb) داخلية. في Maya استخدم تصدير ← FBX.
+Los modelos importados conservan sus propios materiales y texturas.§Imported models keep their own materials and textures.§تحتفظ النماذج المستوردة بموادها ونسيجها.
+Luz§Light§ضوء
+Luz · §Light · §ضوء ·
+MIS MATERIALES§MY MATERIALS§موادي
+Malla editable§Editable mesh§شبكة قابلة للتعديل
+Malla editable: §Editable mesh: §شبكة قابلة للتعديل:
+Mandíbula§Jaw§الفك
+Mano§Hand§اليد
+Mapa de emisión§Emission map§خريطة الانبعاث
+Mapa de emisión puesto§Emission map set§تم وضع خريطة الانبعاث
+Mapa de emisión…§Emission map…§خريطة الانبعاث…
+Mapa normal§Normal map§خريطة الاتجاهات
+Mapa normal…§Normal map…§خريطة الاتجاهات…
+Mapas§Maps§الخرائط
+Marca un surco fino (con «Invertir», una cresta).§Carves a thin groove (with «Invert», a ridge).§يحفر أخدودًا رفيعًا (مع «عكس» نتوءًا).
+Masa (kg)§Mass (kg)§الكتلة (كغ)
+Mate§Matte§مطفأ
+Material§Material§المادة
+Material: §Material: §المادة:
+Materiales del modelo§Model materials§مواد النموذج
+Medio§Middle§الوسطى
+Metal cepillado§Brushed metal§معدن مصقول بالفرشاة
+Metálico§Metallic§معدني
+Meñique§Pinky§الخنصر
+Mi material§My material§مادتي
+Mi pose§My pose§وضعيتي
+Mirar a§Look at§انظر إلى
+Modelado y escultura§Modeling and sculpting§النمذجة والنحت
+Modelar§Model§نمذجة
+Modelar: toca vértices o caras y muévelos con el manipulador§Model: tap vertices or faces and move them with the manipulator§النمذجة: المس الرؤوس أو الوجوه وحرّكها بالمتحكم
+Modelo§Model§نموذج
+Modelo con §Model with §نموذج به
+Modo§Mode§الوضع
+Modo pose: toca una articulación y gírala. Pulsa la clave amarilla para animarla.§Pose mode: tap a joint and rotate it. Press the yellow key to animate it.§وضع الوضعية: المس مفصلًا وأدره. اضغط المفتاح الأصفر لتحريكه.
+Mostrar FPS y memoria§Show FPS and memory§إظهار FPS والذاكرة
+Mostrar el suelo§Show the ground§إظهار الأرض
+Mostrar también pelo, falda y ropa (§Also show hair, skirt and clothes (§إظهار الشعر والتنورة والملابس أيضًا (
+Mover§Move§تحريك
+Mover · Nada seleccionado§Move · Nothing selected§تحريك · لا شيء محدد
+Muslo§Thigh§الفخذ
+Más detalle§More detail§تفاصيل أكثر
+Más fácil: en Prisma3D comparte el proyecto con ATLAS 3D o expórtalo como .prisma.§Easier: in Prisma3D share the project with ATLAS 3D or export it as .prisma.§أسهل: في Prisma3D شارك المشروع مع ATLAS 3D أو صدّره بصيغة ‎.prisma.
+Más grande si los botones se ven pequeños; más pequeña para ver más escena. Se aplica al soltar.§Bigger if the buttons look small; smaller to see more of the scene. Applied when you let go.§أكبر إذا بدت الأزرار صغيرة؛ وأصغر لرؤية مساحة أكبر من المشهد. يُطبَّق عند الإفلات.
+Máxima§Maximum§قصوى
+Nada§Nothing§لا شيء
+Nada (libre)§None (free)§لا شيء (حرة)
+Nada (quieta)§None (still)§لا شيء (ثابتة)
+Nada seleccionado§Nothing selected§لا شيء محدد
+Natural§Natural§طبيعي
+Natural suave§Soft natural§طبيعي ناعم
+Neón§Neon§نيون
+Niebla§Fog§الضباب
+Ninguna§None§لا شيء
+Ningún objeto cae: en Propiedades → Física elige «Cae y choca»§No object falls: in Properties → Physics choose «Falls and collides»§لا يسقط أي كائن: في الخصائص ← الفيزياء اختر «يسقط ويصطدم»
+No§No§لا
+No entendí la duración: usa por ejemplo 10s o 240§I didn't understand the length: use for example 10s or 240§لم أفهم المدة: استخدم مثلًا 10s أو 240
+No hay claves copiadas§No keys copied§لا توجد مفاتيح منسوخة
+No hay claves en este fotograma (o selecciona algunas)§No keys at this frame (or select some)§لا مفاتيح في هذا الإطار (أو حدّد بعضها)
+No se encuentra el archivo del modelo.§The model file can't be found.§لا يمكن العثور على ملف النموذج.
+No se pudo abrir el modelo (¿es un GLB / glTF válido?).§The model couldn't be opened (is it a valid GLB / glTF?).§تعذّر فتح النموذج (هل هو GLB / glTF صالح؟).
+No se pudo abrir el modelo: §The model couldn't be opened: §تعذّر فتح النموذج:
+No se pudo borrar: §Couldn't delete: §تعذّر الحذف:
+No se pudo cambiar el nombre: §Couldn't rename: §تعذّرت إعادة التسمية:
+No se pudo duplicar: §Couldn't duplicate: §تعذّر التكرار:
+No se pudo exportar a §Couldn't export to §تعذّر التصدير إلى
+No se pudo guardar la malla: §Couldn't save the mesh: §تعذّر حفظ الشبكة:
+No se pudo guardar: §Couldn't save: §تعذّر الحفظ:
+No se pudo hacer el render de la animación: §Couldn't render the animation: §تعذّر عرض الحركة:
+No se pudo hacer el render: §Couldn't render: §تعذّر العرض:
+No se pudo hacer la copia: §Couldn't make the backup: §تعذّر إنشاء النسخة الاحتياطية:
+No se pudo importar: §Couldn't import: §تعذّر الاستيراد:
+No se pudo leer el audio: §Couldn't read the audio: §تعذّرت قراءة الصوت:
+No se pudo leer el modelo: §Couldn't read the model: §تعذّرت قراءة النموذج:
+No se pudo leer la carpeta de proyectos: §Couldn't read the projects folder: §تعذّرت قراءة مجلد المشاريع:
+No se pudo leer la copia: §Couldn't read the backup: §تعذّرت قراءة النسخة الاحتياطية:
+No se pudo preparar la física: §Couldn't prepare the physics: §تعذّر تجهيز الفيزياء:
+No se pudo usar el audio: §Couldn't use the audio: §تعذّر استخدام الصوت:
+No se pudo usar el vídeo: §Couldn't use the video: §تعذّر استخدام الفيديو:
+No se pudo usar la imagen: §Couldn't use the image: §تعذّر استخدام الصورة:
+No se pueden borrar todas las caras (borra el objeto)§You can't delete every face (delete the object)§لا يمكن حذف كل الوجوه (احذف الكائن)
+Noche§Night§ليل
+Noche con niebla§Foggy night§ليل ضبابي
+Nombre§Name§الاسم
+Normal§Normal§عادية
+Nublado§Overcast§غائم
+Nuevo proyecto§New project§مشروع جديد
+Objeto§Object§كائن
+Objetos de la escena§Scene objects§كائنات المشهد
+Oculto (sigue en la lista de la escena)§Hidden (still in the scene list)§مخفي (لا يزال في قائمة المشهد)
+Ojo§Eye§العين
+Opacidad§Opacity§العتامة
+Oreja§Ear§الأذن
+Oro§Gold§ذهب
+PROYECTOS RECIENTES§RECENT PROJECTS§المشاريع الأخيرة
+Para cambiar de expresión con una textura de varias caras: pon «Repetir» al tamaño de una cara (por ejemplo 0,5), mueve «Desplazar» a cada cara y guarda claves; en la línea de tiempo usa la interpolación «Constante» para que salte de una a otra.§To change expression with a texture of several faces: set «Repeat» to the size of one face (for example 0.5), move «Shift» to each face and save keys; on the timeline use «Constant» interpolation so it jumps from one to the next.§لتغيير التعبير بنسيج فيه عدة وجوه: اضبط «تكرار» على حجم وجه واحد (مثلًا 0.5)، وحرّك «إزاحة» إلى كل وجه واحفظ مفاتيح؛ وفي الخط الزمني استخدم الاستيفاء «ثابت» ليقفز من وجه إلى آخر.
+Pasa a «Caras» y elige las que quieras borrar§Switch to «Faces» and pick the ones to delete§انتقل إلى «الوجوه» واختر ما تريد حذفه
+Pasa a «Caras», elige las que quieras y pulsa Extruir§Switch to «Faces», pick the ones you want and press Extrude§انتقل إلى «الوجوه» واختر ما تريد واضغط بثق
+Pasa a «Caras», elige las que quieras y pulsa Insertar§Switch to «Faces», pick the ones you want and press Inset§انتقل إلى «الوجوه» واختر ما تريد واضغط إدراج
+Pasarse y volver§Overshoot and return§التجاوز ثم العودة
+Pecho§Chest§الصدر
+Pegar en el fotograma §Paste at frame §لصق في الإطار
+Pellizcar§Pinch§قرص
+Perfil de calidad§Quality profile§ملف الجودة
+Pesada (arranque y frenado lentos)§Heavy (slow start and stop)§ثقيلة (بدء وتوقف بطيئان)
+Pie§Foot§القدم
+Pierna§Leg§الساق
+Pincel§Brush§الفرشاة
+Pintura de coche§Car paint§طلاء سيارات
+Pirámide§Pyramid§هرم
+Plano§Plane§مستوٍ
+Pliegue§Crease§طيّة
+Plástico§Plastic§بلاستيك
+Poner textura (PNG/JPG)…§Set texture (PNG/JPG)…§وضع نسيج (PNG/JPG)…
+Ponle un nombre: lo tendrás en cualquier proyecto.§Give it a name: you'll have it in any project.§أعطه اسمًا: سيكون متاحًا في أي مشروع.
+Pose restablecida (Deshacer la recupera)§Pose reset (Undo brings it back)§تمت إعادة ضبط الوضعية (التراجع يعيدها)
+Pose «§Pose «§الوضعية «
+Pose: hueso activo§Pose: active bone§الوضعية: العظمة النشطة
+Pose: todos los huesos con pose§Pose: all posed bones§الوضعية: كل العظام ذات الوضعية
+Posición§Position§الموضع
+Posición, rotación y escala§Position, rotation and scale§الموضع والدوران والحجم
+Preferencias§Preferences§التفضيلات
+Preferencias…§Preferences…§التفضيلات…
+Primero mueve algún hueso§First move a bone§حرّك عظمة أولًا
+Probando el vídeo a §Trying the video at §تجربة الفيديو بدقة
+Propiedades§Properties§الخصائص
+Proyecta sombra§Casts a shadow§يُلقي ظلًا
+Proyecta sombras§Casts shadows§يُلقي ظلالًا
+Proyecto§Project§المشروع
+Proyecto borrado§Project deleted§تم حذف المشروع
+Proyecto guardado§Project saved§تم حفظ المشروع
+Proyecto «§Project «§المشروع «
+Proyectos§Projects§المشاريع
+Pulgar§Thumb§الإبهام
+Punta del pie§Tip of the foot§مقدمة القدم
+Punto§Point§نقطة
+Puntual§Point§نقطي
+Párpado§Eyelid§الجفن
+Quitar§Remove§إزالة
+Quitar §Remove §إزالة
+Quitar el audio§Remove the audio§إزالة الصوت
+Quitar emisión§Remove emission§إزالة الانبعاث
+Quitar relieve§Remove relief§إزالة البروز
+RENDER · TAMAÑO§RENDER · SIZE§العرض · الحجم
+Raíz§Root§الجذر
+Realista cine§Cinematic realistic§واقعي سينمائي
+Rebote§Bounce§الارتداد
+Recuperar proyectos de una copia…§Restore projects from a backup…§استعادة المشاريع من نسخة احتياطية…
+Reflejos§Reflections§الانعكاسات
+Relieve§Relief§البروز
+Relieve (bump)…§Relief (bump)…§بروز (bump)…
+Relieve desde imagen B/N…§Relief from a B/W image…§بروز من صورة أبيض وأسود…
+Relieve puesto§Relief set§تم وضع البروز
+Relleno§Fill§تعبئة
+Render§Render§العرض
+Render de la animación: §Animation render: §عرض الحركة:
+Render: §Render: §العرض:
+Renderizar imagen o vídeo…§Render image or video…§عرض صورة أو فيديو…
+Rendimiento§Performance§الأداء
+Renombrar proyecto§Rename project§إعادة تسمية المشروع
+Renombrar…§Rename…§إعادة التسمية…
+Repetir X§Repeat X§تكرار X
+Repetir Y§Repeat Y§تكرار Y
+Repetir en bucle§Loop§تكرار متواصل
+Resolución del visor§View resolution§دقة العرض
+Resplandor§Glow§التوهج
+Restablecer este material§Reset this material§إعادة ضبط هذه المادة
+Restablecer hueso§Reset bone§إعادة ضبط العظمة
+Restablecer material§Reset material§إعادة ضبط المادة
+Restablecer pose completa§Reset the whole pose§إعادة ضبط الوضعية كاملة
+Retro VHS§Retro VHS§ريترو VHS
+Rotación§Rotation§الدوران
+Rugosidad§Roughness§الخشونة
+Salir de la cámara§Leave the camera§الخروج من الكاميرا
+Salir del modo pose§Leave pose mode§الخروج من وضع الوضعية
+Satinado§Satin§ساتان
+Saturación§Saturation§التشبع
+Se borra el proyecto con sus modelos y texturas. No se puede deshacer.§The project is deleted with its models and textures. It can't be undone.§يُحذف المشروع مع نماذجه ونسيجه. لا يمكن التراجع.
+Se borran todas las poses guardadas.§All saved poses are deleted.§تُحذف كل الوضعيات المحفوظة.
+Se guarda en «Mis poses» y la puedes usar en otros personajes con el mismo esqueleto.§It's saved in «My poses» and you can use it on other characters with the same skeleton.§تُحفظ في «وضعياتي» ويمكنك استخدامها مع شخصيات أخرى بالهيكل نفسه.
+Seguir a§Follow§تتبّع
+Selecciona algo para borrarlo§Select something to delete it§حدّد شيئًا لحذفه
+Selecciona algo para duplicarlo§Select something to duplicate it§حدّد شيئًا لتكراره
+Selecciona claves (tócalas en la línea de tiempo)§Select keys (tap them on the timeline)§حدّد مفاتيح (المسها في الخط الزمني)
+Selecciona claves para copiarlas§Select keys to copy them§حدّد مفاتيح لنسخها
+Selecciona un modelo con huesos para posarlo§Select a model with bones to pose it§حدّد نموذجًا بعظام لوضعه في وضعية
+Selecciona un objeto para guardar su clave§Select an object to save its key§حدّد كائنًا لحفظ مفتاحه
+Selecciona un objeto y pulsa ◆ para guardar una clave aquí.§Select an object and press ◆ to save a key here.§حدّد كائنًا واضغط ◆ لحفظ مفتاح هنا.
+Selecciona una forma (cubo, esfera…) para modelarla o esculpirla§Select a shape (cube, sphere…) to model or sculpt it§حدّد شكلًا (مكعب، كرة…) لنمذجته أو نحته
+Seleccionar§Select§تحديد
+Seleccionar todas§Select all§تحديد الكل
+Sensibilidad de órbita§Orbit sensitivity§حساسية الدوران
+Sigue a la línea de tiempo (empieza en el fotograma 0 y se repite) y sale en el render fotograma a fotograma. El sonido del vídeo no se usa: pon la música con Audio en la línea de tiempo.§It follows the timeline (starts at frame 0 and loops) and appears in the render frame by frame. The video's sound isn't used: add music with Audio on the timeline.§يتبع الخط الزمني (يبدأ في الإطار 0 ويتكرر) ويظهر في العرض إطارًا بإطار. لا يُستخدم صوت الفيديو: أضف الموسيقى بالصوت في الخط الزمني.
+Simetría X§Symmetry X§تناظر X
+Simulando la física…§Simulating physics…§جارٍ محاكاة الفيزياء…
+Simular física → claves§Simulate physics → keys§محاكاة الفيزياء ← مفاتيح
+Sin claves. Abre «Animar», elige un fotograma, colócalo y pulsa la clave amarilla.§No keys. Open «Animate», pick a frame, place it and press the yellow key.§لا مفاتيح. افتح «تحريك» واختر إطارًا وضعه واضغط المفتاح الأصفر.
+Sin física§No physics§بدون فيزياء
+Sin giro§No rotation§بدون دوران
+Sin gravedad§No gravity§بدون جاذبية
+Sol§Sun§الشمس
+Sol (direccional)§Sun (directional)§الشمس (اتجاهية)
+Sombra§Shadow§الظل
+Sombras§Shadows§الظلال
+Sombras activadas§Shadows on§الظلال مفعلة
+Sombras desactivadas (más fluido en móviles lentos)§Shadows off (smoother on slow phones)§الظلال متوقفة (أكثر سلاسة على الهواتف البطيئة)
+Sombras en el visor§Shadows in the view§الظلال في العرض
+Suave (ease in-out)§Smooth (ease in-out)§ناعم (ease in-out)
+Suavizar§Smooth§تنعيم
+Subdividir§Subdivide§تقسيم
+Suelo§Ground§الأرض
+Suelo con cuadrícula§Ground with grid§أرض بشبكة
+Sólo escala§Scale only§الحجم فقط
+Sólo posición§Position only§الموضع فقط
+Sólo rotación§Rotation only§الدوران فقط
+TEXTURAS Y MAPAS§TEXTURES AND MAPS§النسيج والخرائط
+Tamaño§Size§الحجم
+Tamaño del manipulador§Manipulator size§حجم المتحكم
+Tarjetas§Cards§بطاقات
+Tele 135§Tele 135§تيليفوتو 135
+Temblor de cámara§Camera shake§اهتزاز الكاميرا
+Temperatura§Temperature§درجة الحرارة
+Terminar§Finish§إنهاء
+Terremoto§Earthquake§زلزال
+Terror§Horror§رعب
+Textura (UV)§Texture (UV)§النسيج (UV)
+Textura base§Base texture§النسيج الأساسي
+Textura puesta§Texture set§تم وضع النسيج
+Textura: §Texture: §النسيج:
+Toca otra vez el modelo para elegir el material de esa parte, o elígelo aquí.§Tap the model again to pick the material of that part, or pick it here.§المس النموذج مرة أخرى لاختيار مادة ذلك الجزء، أو اخترها هنا.
+Toca un objeto para seleccionarlo · un dedo gira la vista · dos dedos: zoom y desplazar§Tap an object to select it · one finger turns the view · two fingers: zoom and pan§المس كائنًا لتحديده · إصبع واحد يدير العرض · إصبعان: تكبير وإزاحة
+Toca una articulación§Tap a joint§المس مفصلًا
+Todavía no hay proyectos. Crea uno nuevo para empezar.§No projects yet. Create a new one to start.§لا توجد مشاريع بعد. أنشئ مشروعًا جديدًا للبدء.
+Todo§All§الكل
+Todo: §All: §الكل:
+Toroide§Torus§حلقة
+Tostadora§Toaster§محمصة
+Tostadora: móviles muy sencillos (sin sombras ni efectos, 30 FPS). Ligero: sin sombras. Equilibrado: todo, 60 FPS. Avanzado: hasta 120 FPS. El render final sale siempre con toda la calidad.§Toaster: very simple phones (no shadows or effects, 30 FPS). Light: no shadows. Balanced: everything, 60 FPS. Advanced: up to 120 FPS. The final render always comes out at full quality.§محمصة: هواتف بسيطة جدًا (بلا ظلال ولا تأثيرات، 30 FPS). خفيف: بلا ظلال. متوازن: كل شيء، 60 FPS. متقدم: حتى 120 FPS. يخرج العرض النهائي دائمًا بأعلى جودة.
+Transformación§Transform§التحويل
+Tus proyectos se guardan solos con cada cambio. Al desinstalar la app se borran: haz una copia antes (sirve también para pasarlos a otro teléfono).§Your projects save themselves with every change. Uninstalling the app deletes them: make a backup first (it also moves them to another phone).§تُحفظ مشاريعك تلقائيًا مع كل تغيير. عند إلغاء تثبيت التطبيق تُحذف: اصنع نسخة احتياطية أولًا (وتفيد أيضًا لنقلها إلى هاتف آخر).
+USD / USDZ todavía no se puede abrir: exporta el modelo como GLB o FBX (Blender, Reality Converter o Sketchfab lo hacen).§USD / USDZ can't be opened yet: export the model as GLB or FBX (Blender, Reality Converter or Sketchfab can do it).§لا يمكن فتح USD / USDZ بعد: صدّر النموذج كـ GLB أو FBX (يمكن ذلك عبر Blender أو Reality Converter أو Sketchfab).
+Unir§Merge§دمج
+Unir vértices§Merge vertices§دمج الرؤوس
+Usa un audio MP3, OGG o WAV§Use an MP3, OGG or WAV audio§استخدم صوتًا بصيغة MP3 أو OGG أو WAV
+Valores del ambiente§Ambience values§قيم الأجواء
+Vela§Candle§شمعة
+Velocidad§Speed§السرعة
+Ver la guía de inicio§See the getting started guide§عرض دليل البدء
+Ver por esta cámara§Look through this camera§النظر عبر هذه الكاميرا
+Vertical 9:16§Vertical 9:16§عمودي 9:16
+Vidrio§Glass§زجاج
+Visible§Visible§مرئي
+Visor§View§العرض
+Viñeta§Vignette§التظليل الجانبي
+Volver a la forma original§Back to the original shape§العودة إلى الشكل الأصلي
+Volver a todo el modelo§Back to the whole model§العودة إلى النموذج كاملًا
+Vértices§Vertices§الرؤوس
+Vértices: §Vertices: §الرؤوس:
+Vídeo§Video§فيديو
+Vídeo MP4§MP4 video§فيديو MP4
+Vídeo MP4 (§MP4 video (§فيديو MP4 (
+Vídeo MP4: §MP4 video: §فيديو MP4:
+Vídeo colocado: sigue a la línea de tiempo y sale en el render§Video placed: it follows the timeline and appears in the render§تم وضع الفيديو: يتبع الخط الزمني ويظهر في العرض
+Vídeo: §Video: §فيديو:
+Vídeo…§Video…§فيديو…
+Tono§Hue§التدرج
+Vista§View§العرض
+Tamaño:§Size:§الحجم:
+\nAmbiente: §\nAmbience: §\nالأجواء:
+\nClaves de animación: §\nAnimation keys: §\nمفاتيح الحركة:
+\nTamaño: §\nSize: §\nالحجم:
+\nTriángulos: §\nTriangles: §\nالمثلثات:
+a este proyecto de Prisma3D le faltan sus mallas (archivos .pobject de la carpeta «content»)§this Prisma3D project is missing its meshes (.pobject files of the «content» folder)§مشروع Prisma3D هذا تنقصه شبكاته (ملفات ‎.pobject من مجلد «content»)
+el .zip no contiene ningún modelo (GLB, glTF, FBX, OBJ, 3DS, PLY o STL)§the .zip contains no model (GLB, glTF, FBX, OBJ, 3DS, PLY or STL)§ملف ‎.zip لا يحتوي أي نموذج (GLB أو glTF أو FBX أو OBJ أو 3DS أو PLY أو STL)
+el lector de FBX no está disponible en este dispositivo§the FBX reader isn't available on this device§قارئ FBX غير متاح على هذا الجهاز
+el proyecto de Prisma3D está dañado o es de una versión que ATLAS no conoce todavía§the Prisma3D project is damaged or from a version ATLAS doesn't know yet§مشروع Prisma3D تالف أو من إصدار لا يعرفه ATLAS بعد
+el proyecto de Prisma3D no tiene mallas que ATLAS pueda leer§the Prisma3D project has no meshes ATLAS can read§مشروع Prisma3D لا يحتوي شبكات يستطيع ATLAS قراءتها
+entre esos archivos no hay ningún modelo (GLB, FBX, OBJ, Prisma3D…)§there's no model among those files (GLB, FBX, OBJ, Prisma3D…)§لا يوجد نموذج بين هذه الملفات (GLB، FBX، OBJ، Prisma3D…)
+este .blend está guardado comprimido; en Blender desactiva «Comprimir» al guardar (Archivo → Guardar como → ⚙) o exporta a glTF / FBX§this .blend is saved compressed; in Blender turn off «Compress» when saving (File → Save As → ⚙) or export to glTF / FBX§ملف ‎.blend هذا محفوظ مضغوطًا؛ في Blender أوقف «ضغط» عند الحفظ (ملف ← حفظ باسم ← ⚙) أو صدّر إلى glTF / FBX
+no se eligió ningún archivo§no file was chosen§لم يتم اختيار أي ملف
+no se pudo leer el archivo§the file couldn't be read§تعذّرت قراءة الملف
+ya existe un proyecto con ese nombre§a project with that name already exists§يوجد مشروع بهذا الاسم بالفعل
+«Natural» es un acabado suave, sin aspecto aceitoso. Sube el brillo para plástico, charol o metal; «Mate» lo deja como tela o goma.§«Natural» is a soft finish, not oily. Raise the gloss for plastic, patent leather or metal; «Matte» makes it like cloth or rubber.§«طبيعي» لمسة ناعمة بلا مظهر زيتي. ارفع اللمعان للبلاستيك أو الجلد اللامع أو المعدن؛ و«مطفأ» يجعله كالقماش أو المطاط.
+» (.zip)§» (.zip)§» (.zip)
+» guardada§» saved§» محفوظة
+» puesto§» set§» مُطبَّق
+» recuperado§» restored§» مستعاد
+» suena con la línea de tiempo: pulsa Animar ▶§» plays with the timeline: press Animate ▶§» يُشغَّل مع الخط الزمني: اضغط تحريك ▶
+»: cámbialo en Propiedades§»: change it in Properties§»: غيّره في الخصائص
+¿Borrar «§Delete «§حذف «
+¿Borrar «Mis poses»?§Delete «My poses»?§حذف «وضعياتي»؟
+¿Cómo se llama? (lo puedes cambiar después)§What's it called? (you can change it later)§ما اسمه؟ (يمكنك تغييره لاحقًا)
+Ángulo§Angle§الزاوية
+Índice§Index§السبابة
+• + → Cámara: los renders salen por ella; se puede animar.\n§• + → Camera: renders come out through it; it can be animated.\n§• + ← الكاميرا: تخرج العروض من خلالها؛ ويمكن تحريكها.\n
+• Animar: elige un fotograma, coloca el objeto y pulsa la clave amarilla.\n§• Animate: pick a frame, place the object and press the yellow key.\n§• التحريك: اختر إطارًا وضع الكائن واضغط المفتاح الأصفر.\n
+• Barra izquierda: Seleccionar, Mover, Girar, Escalar; + añade formas, luces y modelos.\n§• Left bar: Select, Move, Rotate, Scale; + adds shapes, lights and models.\n§• الشريط الأيسر: تحديد، تحريك، تدوير، تحجيم؛ و+ يضيف أشكالًا وأضواء ونماذج.\n
+• Engranaje: propiedades, materiales y «Ambiente rápido».\n§• Gear: properties, materials and «Quick ambience».\n§• الترس: الخصائص والمواد و«أجواء سريعة».\n
+• Formas: botones Modelar (vértices y caras, extruir…) y Esculpir (pinceles como arcilla).\n§• Shapes: Model buttons (vertices and faces, extrude…) and Sculpt (clay-like brushes).\n§• الأشكال: زرا النمذجة (رؤوس ووجوه، بثق…) والنحت (فُرش كالطين).\n
+• Imán (barra izquierda): mover, girar y escalar a saltos exactos.\n§• Magnet (left bar): move, rotate and scale in exact steps.\n§• المغناطيس (الشريط الأيسر): تحريك وتدوير وتحجيم بخطوات دقيقة.\n
+• Modelos con huesos: botón del hueso → toca una articulación y gírala.\n§• Models with bones: bone button → tap a joint and rotate it.\n§• النماذج ذات العظام: زر العظمة ← المس مفصلًا وأدره.\n
+• Render: imagen o la animación completa.§• Render: an image or the whole animation.§• العرض: صورة أو الحركة كاملة.
+• Toca un objeto para seleccionarlo (brilla en naranja).\n§• Tap an object to select it (it glows orange).\n§• المس كائنًا لتحديده (يتوهج باللون البرتقالي).\n
+• Un dedo gira la vista; dos dedos acercan y desplazan.\n§• One finger turns the view; two fingers zoom and pan.\n§• إصبع واحد يدير العرض؛ وإصبعان للتكبير والإزاحة.\n
+★ Guardar mi pose…§★ Save my pose…§★ حفظ وضعيتي…
+Idioma§Language§اللغة
+El idioma cambia al volver a abrir la pantalla.§The language changes when the screen reloads.§تتغير اللغة عند إعادة تحميل الشاشة.
+Pelo§Hair§الشعر
+Barra izquierda§Left bar§الشريط الأيسر
+OBJETO§OBJECT§كائن
+MODELAR§MODEL§نمذجة
+ESCULPIR§SCULPT§نحت
+POSE§POSE§وضعية
+Seleccionar · Nada seleccionado§Select · Nothing selected§تحديد · لا شيء محدد
+Girar · Nada seleccionado§Rotate · Nothing selected§تدوير · لا شيء محدد
+Escalar · Nada seleccionado§Scale · Nothing selected§تحجيم · لا شيء محدد
+Escena · Propiedades§Scene · Properties§المشهد · الخصائص
+FORMAS§SHAPES§الأشكال
+LUCES§LIGHTS§الأضواء
+OTROS§OTHERS§أخرى
+PROYECTO§PROJECT§المشروع
+Bombilla§Light bulb§مصباح
+Renombrar§Rename§إعادة التسمية
+Nueva escena§New scene§مشهد جديد
+Abrir proyecto§Open project§فتح المشروع
+Duplicar proyecto§Duplicate project§تكرار المشروع
+Borrar proyecto§Delete project§حذف المشروع
+Mover · §Move · §تحريك · 
+Seleccionar · §Select · §تحديد · 
+Girar · §Rotate · §تدوير · 
+Escalar · §Scale · §تحجيم · 
+ESCENA§SCENE§المشهد
+PROPIEDADES§PROPERTIES§الخصائص
+Aristas§Edges§الحواف
+Recuadro§Box select§تحديد بمستطيل
+Recuadro: arrastra un dedo para elegir todo lo que quede dentro§Box select: drag a finger to pick everything inside§تحديد بمستطيل: اسحب إصبعًا لاختيار كل ما بداخله
+Recuadro desactivado§Box select off§التحديد بمستطيل متوقف
+ elegidos con el recuadro§ picked with the box§ محددة بالمستطيل
+Bisel§Bevel§شطف
+Bisel (todas las aristas)§Bevel (all edges)§شطف (كل الحواف)
+Fino§Thin§رفيع
+Medio§Medium§متوسط
+Grueso§Thick§سميك
+Conectar§Connect§وصل
+Crear cara§Make face§إنشاء وجه
+Cuchillo§Knife§سكين
+Cuchillo: dibuja una línea de lado a lado de la forma (o elige vértices en orden y pulsa Conectar)§Knife: draw a line across the shape (or pick vertices in order and press Connect)§السكين: ارسم خطًا عبر الشكل (أو اختر رؤوسًا بالترتيب واضغط وصل)
+Cuchillo desactivado§Knife off§السكين متوقف
+El cuchillo no cruzó ninguna cara: dibuja la línea de lado a lado de la forma§The knife didn't cross any face: draw the line right across the shape§لم يقطع السكين أي وجه: ارسم الخط عبر الشكل كله
+Corte en bucle§Loop cut§قطع حلقي
+Bucle§Loop§حلقة
+Anillo§Ring§طوق
+Bucle: §Loop: §حلقة: 
+Anillo: §Ring: §طوق: 
+ aristas§ edges§ حواف
+Disolver§Dissolve§إذابة
+Disolver aristas§Dissolve edges§إذابة الحواف
+Disolver vértices§Dissolve vertices§إذابة الرؤوس
+Elige vértices o aristas para disolverlos§Pick vertices or edges to dissolve them§اختر رؤوسًا أو حوافًا لإذابتها
+Subdivisión suave§Smooth subdivision§تقسيم ناعم
+Sombreado y liso§Shading and smooth§التظليل والنعومة
+Sombreado§Shading§التظليل
+Suave (curvo)§Smooth (curved)§ناعم (منحنٍ)
+Automático (aristas marcadas)§Auto (sharp edges kept)§تلقائي (حواف حادة)
+Plano (facetado)§Flat (faceted)§مسطح (أوجه)
+Liso (subdivisión sin tocar la malla)§Smooth view (subdivision that keeps the mesh)§عرض ناعم (تقسيم دون تغيير الشبكة)
+Sin liso§No smoothing§بدون تنعيم
+Nivel §Level §المستوى 
+Sombreado suave§Smooth shading§تظليل ناعم
+Sombreado automático§Auto shading§تظليل تلقائي
+Sombreado plano§Flat shading§تظليل مسطح
+UV automáticas§Auto UVs§UV تلقائية
+UV automáticas (proyección de caja)§Auto UVs (box projection)§UV تلقائية (إسقاط صندوقي)
+La textura cubre la forma§The texture covers the shape§النسيج يغطي الشكل
+Repetir ×§Repeat ×§تكرار ×
+Elige (en orden) dos o más vértices de una misma cara§Pick (in order) two or more vertices of the same face§اختر (بالترتيب) رأسين أو أكثر من الوجه نفسه
+Esos vértices no comparten una cara (o ya están unidos por una arista)§Those vertices don't share a face (or are already joined by an edge)§هذه الرؤوس لا تشترك في وجه (أو متصلة بحافة بالفعل)
+Elige tres o más vértices (o aristas) para crear una cara§Pick three or more vertices (or edges) to make a face§اختر ثلاثة رؤوس (أو حواف) أو أكثر لإنشاء وجه
+Pasa a «Aristas» y elige una arista§Switch to «Edges» and pick an edge§انتقل إلى «الحواف» واختر حافة
+Pasa a «Aristas», elige una arista y pulsa Corte en bucle§Switch to «Edges», pick an edge and press Loop cut§انتقل إلى «الحواف» واختر حافة واضغط قطع حلقي
+Esa arista no está entre cuadriláteros: el corte en bucle necesita caras de 4 lados§That edge isn't between quads: loop cut needs 4-sided faces§هذه الحافة ليست بين رباعيات: القطع الحلقي يحتاج وجوهًا رباعية
+EFECTOS§EFFECTS§المؤثرات
+MUNDO§WORLD§العالم
+Lluvia§Rain§مطر
+Nieve§Snow§ثلج
+Polvo§Dust§غبار
+Humo§Smoke§دخان
+Chispas§Sparks§شرارات
+Fuego§Fire§نار
+Explosión§Explosion§انفجار
+Burbujas§Bubbles§فقاعات
+Confeti§Confetti§قصاصات ملونة
+Magia§Magic§سحر
+Efecto§Effect§مؤثر
+Cantidad§Amount§الكمية
+Otra variación§Another variation§تنويع آخر
+Escálalo con Escalar para que cubra más o menos; gíralo para cambiar hacia dónde sale. Lo que ves al mover la línea de tiempo es justo lo que sale en el render.§Scale it to cover more or less; rotate it to change where it shoots. What you see when you move the timeline is exactly what the render shows.§حجّمه ليغطي مساحة أكبر أو أصغر؛ وأدره لتغيير اتجاهه. ما تراه عند تحريك الخط الزمني هو بالضبط ما يظهر في العرض.
+Efecto añadido: muévelo como cualquier objeto; sale igual en el render§Effect added: move it like any object; it looks the same in the render§تمت إضافة المؤثر: حرّكه مثل أي كائن؛ يظهر كما هو في العرض
+Clima (animado)§Weather (animated)§الطقس (متحرك)
+Despejado§Clear§صافٍ
+Despejado (quitar clima)§Clear (remove weather)§صافٍ (إزالة الطقس)
+Tormenta con rayos§Thunderstorm§عاصفة رعدية
+Niebla densa§Dense fog§ضباب كثيف
+Clima despejado§Clear weather§طقس صافٍ
+Clima: §Weather: §الطقس: 
+ (sale en el render)§ (appears in the render)§ (يظهر في العرض)
+La lluvia y la nieve van siempre alrededor de la cámara; la tormenta hace relámpagos. Todo se mueve con la línea de tiempo y sale en el render.§Rain and snow always surround the camera; the storm makes lightning. Everything moves with the timeline and shows in the render.§يحيط المطر والثلج بالكاميرا دائمًا؛ والعاصفة تصنع البرق. كل شيء يتحرك مع الخط الزمني ويظهر في العرض.
+Agua§Water§ماء
+Terreno§Terrain§تضاريس
+Tela§Cloth§قماش
+Mar§Sea§بحر
+Lago§Lake§بحيرة
+Piscina§Pool§مسبح
+Lava§Lava§حمم
+Colinas§Hills§تلال
+Montañas nevadas§Snowy mountains§جبال مثلجة
+Desierto§Desert§صحراء
+Isla§Island§جزيرة
+Bandera§Flag§علم
+Cortina§Curtain§ستارة
+Capa§Cape§عباءة
+Olas§Waves§الأمواج
+Altura§Height§الارتفاع
+Viento§Wind§الرياح
+Otro terreno§Another terrain§تضاريس أخرى
+Otra forma de ondear§Another way to wave§تموّج مختلف
+Las olas se mueven con la línea de tiempo y reflejan el cielo; escálala para cubrir más.§The waves move with the timeline and reflect the sky; scale it to cover more.§تتحرك الأمواج مع الخط الزمني وتعكس السماء؛ حجّمها لتغطي مساحة أكبر.
+Escálalo para hacerlo más grande. El centro queda casi llano para poner personajes.§Scale it to make it bigger. The middle stays almost flat for characters.§حجّمها لتكبر. يبقى الوسط شبه مستوٍ لوضع الشخصيات.
+Ponle una imagen (bandera, estampado) en el Editor de materiales de abajo.§Give it an image (flag, pattern) in the Material editor below.§ضع لها صورة (علم، نقش) من محرر المواد في الأسفل.
+Agua: sus olas se mueven con la línea de tiempo§Water: its waves move with the timeline§الماء: تتحرك أمواجه مع الخط الزمني
+Terreno creado: cámbialo en Propiedades (otra forma, más árboles…)§Terrain created: change it in Properties (another shape, more trees…)§تم إنشاء التضاريس: غيّرها في الخصائص (شكل آخر، أشجار أكثر…)
+Tela: ondea con la línea de tiempo; ponle una imagen desde el Editor de materiales§Cloth: it waves with the timeline; give it an image from the Material editor§القماش: يتموج مع الخط الزمني؛ ضع له صورة من محرر المواد
+Texto 3D§3D text§نص ثلاثي الأبعاد
+Texto 3D (títulos)§3D text (titles)§نص ثلاثي الأبعاد (عناوين)
+Texto§Text§نص
+Plano§Flat§مسطح
+Relieve 3D§3D relief§بروز ثلاثي الأبعاد
+Neón§Neon§نيون
+Texto 3D: cambia lo que dice en Propiedades§3D text: change what it says in Properties§نص ثلاثي الأبعاد: غيّر ما يقوله في الخصائص
+Muévelo, gíralo y escálalo como cualquier objeto; anima la opacidad o la escala con claves para títulos que aparecen.§Move, rotate and scale it like any object; animate its opacity or scale with keys for titles that appear.§حرّكه وأدره وحجّمه مثل أي كائن؛ حرّك العتامة أو الحجم بالمفاتيح لعناوين تظهر تدريجيًا.
+Agarrar con un hueso§Hold with a bone§الإمساك بعظمة
+Ve al fotograma donde lo agarra, coloca el objeto en la mano y elige el personaje y el hueso.§Go to the frame where it's grabbed, place the object in the hand and pick the character and the bone.§انتقل إلى الإطار الذي يُمسك فيه، وضع الكائن في اليد واختر الشخصية والعظمة.
+Buscar hueso (mano, boca…) y pulsa Intro§Find a bone (hand, mouth…) and press Enter§ابحث عن عظمة (يد، فم…) واضغط إدخال
+Momentos§Moments§اللحظات
+Agarre ajustado§Grip adjusted§تم ضبط الإمساك
+Soltado en el fotograma §Let go at frame §تم الإفلات في الإطار 
+Sincronizar labios (audio)§Lip sync (audio)§مزامنة الشفاه (صوت)
+Primero pon un audio (+ → Audio…): la boca se moverá con la voz.§First add an audio (+ → Audio…): the mouth will move with the voice.§أضف صوتًا أولًا (+ ← صوت…): سيتحرك الفم مع الصوت.
+Elige el hueso de la mandíbula (tócalo en el visor) y vuelve aquí.§Pick the jaw bone (tap it in the view) and come back here.§اختر عظمة الفك (المسها في العرض) ثم عد إلى هنا.
+Apertura de la boca (°)§Mouth opening (°)§فتحة الفم (°)
+Generar movimiento de boca§Generate mouth movement§إنشاء حركة الفم
+Falta el audio o el hueso de la boca§The audio or the mouth bone is missing§الصوت أو عظمة الفم مفقودة
+GIF animado§Animated GIF§GIF متحرك
+PNG (ZIP)§PNG (ZIP)§PNG (ZIP)
+Cámara de cine§Film camera§كاميرا سينمائية
+Desenfoque de fondo (profundidad de campo)§Background blur (depth of field)§تمويه الخلفية (عمق الميدان)
+Distancia de enfoque (m)§Focus distance (m)§مسافة التركيز (م)
+Cuánto desenfoca§How much it blurs§مقدار التمويه
+Enfocar el objeto seleccionado§Focus on the selected object§التركيز على الكائن المحدد
+Desenfoque de movimiento§Motion blur§تمويه الحركة
+Aberración cromática§Chromatic aberration§الزيغ اللوني
+Selecciona el objeto que quieres enfocar§Select the object you want to focus on§حدّد الكائن الذي تريد التركيز عليه
+Novedades§What's new§ما الجديد
+Física y gravedad§Physics and gravity§الفيزياء والجاذبية
+Simular física → claves§Simulate physics → keys§محاكاة الفيزياء ← مفاتيح
+Haz de luz volumétrico§Volumetric light beam§شعاع ضوء حجمي
+• Efectos: lluvia, nieve, humo, fuego, chispas, explosiones, burbujas, confeti y magia.\n• Clima animado con tormenta y relámpagos.\n• Mundo: agua con olas, terrenos con árboles y telas que ondean.\n• Agarrar objetos con la mano (o cualquier hueso) y soltarlos en la animación.\n• Sincronizar labios con el audio.\n• Texto 3D para títulos.\n• Cámara de cine: desenfoque de fondo, de movimiento y aberración.\n• Render en GIF animado y PNG.\n• Modelado: aristas, recuadro, bisel, cuchillo, bucles y más.\n• Inglés y árabe en Preferencias.§• Effects: rain, snow, smoke, fire, sparks, explosions, bubbles, confetti and magic.\n• Animated weather with storms and lightning.\n• World: water with waves, terrains with trees and waving cloth.\n• Hold objects with the hand (or any bone) and let go during the animation.\n• Lip sync with the audio.\n• 3D text for titles.\n• Film camera: background blur, motion blur and aberration.\n• Render as animated GIF and PNG.\n• Modeling: edges, box select, bevel, knife, loops and more.\n• English and Arabic in Preferences.§• مؤثرات: مطر وثلج ودخان ونار وشرارات وانفجارات وفقاعات وقصاصات ملونة وسحر.\n• طقس متحرك مع عواصف وبرق.\n• العالم: ماء بأمواج، وتضاريس بأشجار، وأقمشة تتموج.\n• الإمساك بالأشياء باليد (أو أي عظمة) وإفلاتها أثناء الحركة.\n• مزامنة الشفاه مع الصوت.\n• نص ثلاثي الأبعاد للعناوين.\n• كاميرا سينمائية: تمويه الخلفية والحركة والزيغ اللوني.\n• العرض بصيغة GIF متحرك وPNG.\n• النمذجة: الحواف، التحديد بمستطيل، الشطف، السكين، الحلقات والمزيد.\n• الإنجليزية والعربية في التفضيلات.
+Novedades · ATLAS 3D §What's new · ATLAS 3D §ما الجديد · ATLAS 3D 
+• PC: nueva interfaz de escritorio estilo Blender: menús, lista de escena, propiedades fijas, barra de estado y atajos (Shift+A, X, H, teclado numérico).\n• IK rig para cualquier modelo: controles en manos y pies que brazos y piernas siguen.\n• Brillo animable por pieza: enciende y apaga partes con claves.\n• El neón brilla de verdad y se puede poner en piezas de modelos.\n• 3 ambientes nuevos: Pesadilla retro, Cómic tinta y VHS maldito.\n• El audio de la animación ya suena.\n• La cámara ya no se vuelve lenta de cerca.\n• .blend sin piezas sueltas (ocultas, formas de huesos y ayudantes).\n• Pelo y encaje recortados sin transparencias raras en cabezas y guantes.\n• Texturas en piezas sin UV, menús que ya no se cortan y GLB más compatibles.§• PC: new Blender-style desktop interface: menus, scene list, docked properties, status bar and shortcuts (Shift+A, X, H, numpad).\n• IK rig for any model: controls on the hands and feet that arms and legs follow.\n• Animatable glow per part: turn parts on and off with keys.\n• Neon really glows and works on model parts.\n• 3 new ambiences: Retro nightmare, Comic ink and Cursed VHS.\n• The animation's audio now plays.\n• The camera no longer gets slow up close.\n• .blend files without stray pieces (hidden, bone shapes and helpers).\n• Hair and lace cut out without strange see-through heads and gloves.\n• Textures on parts without UVs, menus no longer cut off and more compatible GLB.§• الحاسوب: واجهة سطح مكتب جديدة بأسلوب Blender: قوائم، قائمة المشهد، خصائص ثابتة، شريط حالة واختصارات (Shift+A، X، H، لوحة الأرقام).\n• هيكل IK لأي نموذج: أدوات تحكم في اليدين والقدمين تتبعها الذراعان والساقان.\n• توهج قابل للتحريك لكل جزء: شغّل الأجزاء وأطفئها بالمفاتيح.\n• النيون يتوهج فعلًا ويعمل على أجزاء النماذج.\n• 3 أجواء جديدة: كابوس ريترو، حبر القصص المصورة، VHS ملعون.\n• صوت الحركة يعمل الآن.\n• الكاميرا لم تعد بطيئة عن قرب.\n• ملفات ‎.blend‎ بلا قطع زائدة (مخفية، أشكال العظام والمساعدات).\n• الشعر والدانتيل مقصوصان دون شفافية غريبة في الرؤوس والقفازات.\n• خامات على أجزاء بلا UV، وقوائم لم تعد مقطوعة، وملفات GLB أكثر توافقًا.
+Crear IK rig (manos y pies)§Create IK rig (hands and feet)§إنشاء هيكل IK (اليدان والقدمان)
+No encontré brazos ni piernas en este esqueleto§No arms or legs found in this skeleton§لم أجد ذراعين أو ساقين في هذا الهيكل
+IK rig: mueve los puntos rosas y brazos y piernas los siguen§IK rig: move the pink dots and the arms and legs follow§هيكل IK: حرّك النقاط الوردية وستتبعها الذراعان والساقان
+Toca un control para elegirlo; tócalo otra vez para apagarlo o encenderlo. Muévelo o gíralo y pon claves: los pies se quedan pegados al suelo aunque muevas la cadera.§Tap a control to pick it; tap it again to turn it off or on. Move or turn it and set keys: the feet stay on the ground even when you move the hips.§المس أداة تحكم لاختيارها؛ والمسها مرة أخرى لإيقافها أو تشغيلها. حرّكها أو أدرها وضع مفاتيح: تبقى القدمان على الأرض حتى لو حركت الورك.
+Quitar IK rig§Remove IK rig§إزالة هيكل IK
+Mano izq.§Left hand§اليد اليسرى
+Mano der.§Right hand§اليد اليمنى
+Pie izq.§Left foot§القدم اليسرى
+Pie der.§Right foot§القدم اليمنى
+Extremidad§Limb§طرف
+BRILLO (ANIMABLE CON CLAVES)§GLOW (ANIMATABLE WITH KEYS)§التوهج (قابل للتحريك بالمفاتيح)
+Ahora brilla otra pieza; al mover el brillo pasa a esta.§Another part glows now; moving the glow switches it to this one.§يتوهج جزء آخر الآن؛ تحريك التوهج ينقله إلى هذا الجزء.
+Su color§Its color§لونه
+Amarillo§Yellow§أصفر
+Cian§Cyan§سماوي
+Rojo§Red§أحمر
+Verde§Green§أخضر
+Rosa§Pink§وردي
+Violeta§Violet§بنفسجي
+Blanco§White§أبيض
+Clave de brillo aquí (◆)§Glow key here (◆)§مفتاح توهج هنا (◆)
+Clave de brillo en el fotograma §Glow key at frame §مفتاح توهج في الإطار 
+Apagado / encendido§Off / on§إيقاف / تشغيل
+Para que se encienda de golpe: clave apagada en un fotograma y encendida en el siguiente, o interpolación «Constante».§To switch on at once: an off key on one frame and an on key on the next, or «Constant» interpolation.§للتشغيل فجأة: مفتاح إيقاف في إطار ومفتاح تشغيل في الإطار التالي، أو استيفاء «ثابت».
+Pesadilla retro§Retro nightmare§كابوس ريترو
+Cómic tinta§Comic ink§حبر القصص المصورة
+VHS maldito§Cursed VHS§VHS ملعون
+PREAJUSTES§PRESETS§إعدادات مسبقة
+Archivo§File§ملف
+Editar§Edit§تحرير
+Añadir§Add§إضافة
+Ver§View§عرض
+Ayuda§Help§مساعدة
+Objetos: §Objects: §الكائنات: 
+Atajos de teclado§Keyboard shortcuts§اختصارات لوحة المفاتيح
+Clic: seleccionar · Arrastrar o clic medio: girar · Shift+clic medio o clic derecho: desplazar · Rueda: zoom · Shift+A: añadir · G/E/R: mover, rotar, escalar · X: borrar · Espacio: reproducir§Click: select · Drag or middle click: orbit · Shift+middle or right click: pan · Wheel: zoom · Shift+A: add · G/E/R: move, rotate, scale · X: delete · Space: play§نقرة: تحديد · سحب أو نقرة وسطى: تدوير · Shift+وسطى أو نقرة يمنى: تحريك العرض · العجلة: تكبير · Shift+A: إضافة · G/E/R: تحريك، تدوير، تحجيم · X: حذف · مسافة: تشغيل
+Escena vacía: Añadir (Shift+A) o Archivo → Importar§Empty scene: Add (Shift+A) or File → Import§مشهد فارغ: إضافة (Shift+A) أو ملف ← استيراد
+Importar y exportar§Import and export§استيراد وتصدير
+Rejilla y suelo§Grid and floor§الشبكة والأرضية
+Ambiente y efectos de imagen§Ambience and image effects§الأجواء ومؤثرات الصورة
+• Render «Cine»: muchas pasadas como Source Filmmaker: desenfoque de lente y de movimiento reales, bordes perfectos.\n• Gobos: los focos proyectan ventanas, persianas, hojas, disco o tu imagen.\n• Luces que parpadean (luz rota) y oclusión ambiental.\n• Caras con deslizadores (sonrisa, parpadeo, bocas) animables, y labios con formas de boca.\n• Tomas: cortes entre varias cámaras en un mismo render.\n• Herramientas de movimiento: suavizar, temblor, invertir, más lento o rápido, rebote.\n• Escenarios listos: show con focos, pasillo de terror, bosque nocturno y ciudad.\n• PC: interfaz de escritorio estilo Blender con menús, lista de escena y atajos.§• «Cinema» render: many passes like Source Filmmaker: real lens and motion blur, perfect edges.\n• Gobos: spotlights project windows, blinds, leaves, disco or your picture.\n• Flickering lights (broken lamp) and ambient occlusion.\n• Faces with sliders (smile, blink, mouths), animatable, and lip sync with mouth shapes.\n• Shots: cuts between several cameras in one render.\n• Motion tools: smooth, shake, reverse, slower or faster, bounce.\n• Ready-made sets: show stage with spotlights, horror corridor, night forest and city.\n• PC: Blender-style desktop interface with menus, scene list and shortcuts.§• عرض «سينما»: تمريرات كثيرة مثل Source Filmmaker: تمويه عدسة وحركة حقيقي وحواف مثالية.\n• الغوبو: الكشافات تُسقط نوافذ أو ستائر أو أوراق أو ديسكو أو صورتك.\n• أضواء ترمش (مصباح معطل) وانسداد محيطي.\n• وجوه بمنزلقات (ابتسامة، رمش، أفواه) قابلة للتحريك، ومزامنة شفاه بأشكال الفم.\n• لقطات: قطع بين عدة كاميرات في عرض واحد.\n• أدوات الحركة: تنعيم، اهتزاز، عكس، أبطأ أو أسرع، ارتداد.\n• مشاهد جاهزة: مسرح بكشافات، ممر رعب، غابة ليلية ومدينة.\n• الحاسوب: واجهة سطح مكتب بأسلوب Blender مع قوائم وقائمة المشهد واختصارات.
+Gobo (forma que proyecta el foco)§Gobo (shape the spotlight projects)§الغوبو (الشكل الذي يُسقطه الكشاف)
+Ninguno§None§لا شيء
+Ventana§Window§نافذة
+Persiana§Blinds§ستارة
+Hojas§Leaves§أوراق
+Disco§Disco§ديسكو
+Rejilla§Grid§شبكة
+Círculo§Circle§دائرة
+Estrellas§Stars§نجوم
+Barrotes§Bars§قضبان
+Gobo con tu imagen…§Gobo with your picture…§غوبو بصورتك…
+Cambiar imagen del gobo…§Change gobo picture…§تغيير صورة الغوبو…
+Parpadeo (luz rota)§Flicker (broken lamp)§وميض (مصباح معطل)
+Oclusión ambiental (sombras en rincones y pliegues)§Ambient occlusion (shadows in corners and folds)§الانسداد المحيطي (ظلال في الزوايا والطيات)
+En el render «Cine» la oclusión ambiental siempre está activa, y el desenfoque de fondo y de movimiento se calculan con muchas pasadas (sin granos).§In the «Cinema» render ambient occlusion is always on, and depth of field and motion blur are computed with many passes (no grain).§في عرض «سينما» يكون الانسداد المحيطي مفعّلًا دائمًا، ويُحسب تمويه الخلفية والحركة بتمريرات كثيرة (بلا حبيبات).
+Cine (pasadas)§Cinema (passes)§سينما (تمريرات)
+Tomas (cortes entre cámaras)§Shots (cuts between cameras)§لقطات (قطع بين الكاميرات)
+Cortar a esta cámara en el fotograma §Cut to this camera at frame §القطع إلى هذه الكاميرا في الإطار 
+Toca un corte para quitarlo. Con cortes, el render salta de cámara en cada uno (como los planos de una película).§Tap a cut to remove it. With cuts, the render jumps camera at each one (like the shots of a film).§المس قطعًا لإزالته. مع القطوع، ينتقل العرض بين الكاميرات عند كل قطع (مثل لقطات الفيلم).
+Herramientas de movimiento…§Motion tools…§أدوات الحركة…
+Herramientas de movimiento§Motion tools§أدوات الحركة
+Suavizar (movimiento más fluido)§Smooth (more fluid motion)§تنعيم (حركة أكثر سلاسة)
+Añadir temblor§Add shake§إضافة اهتزاز
+Invertir (al revés)§Reverse§عكس
+Más lento (×2 de duración)§Slower (×2 duration)§أبطأ (×2 المدة)
+Más rápido (×0,5)§Faster (×0.5)§أسرع (×0.5)
+Rebote al final de cada movimiento§Bounce at the end of each move§ارتداد في نهاية كل حركة
+ESCENARIOS LISTOS§READY-MADE SETS§مشاهد جاهزة
+Escenarios listos§Ready-made sets§مشاهد جاهزة
+Escenario de show§Show stage§مسرح العرض
+Pasillo de terror§Horror corridor§ممر الرعب
+Bosque nocturno§Night forest§غابة ليلية
+Ciudad de noche§City at night§مدينة ليلًا
+Deslizadores de la cara y del cuerpo que trae el modelo (sonrisa, parpadeo, cejas, bocas…). Mueve y guarda una clave para animarlos.§Face and body sliders that come with the model (smile, blink, brows, mouths…). Move them and set a key to animate them.§منزلقات الوجه والجسم المرفقة بالنموذج (ابتسامة، رمش، حواجب، أفواه…). حرّكها وضع مفتاحًا لتحريكها.
+Buscar (boca, ojo, smile, blink…)§Search (mouth, eye, smile, blink…)§بحث (فم، عين، smile، blink…)
+Clave de formas (◆)§Shapes key (◆)§مفتاح الأشكال (◆)
+Todo a cero§All to zero§الكل إلى صفر
+Sincronizar labios con las formas de la boca§Lip sync with the mouth shapes§مزامنة الشفاه بأشكال الفم
+Selecciona un objeto con al menos 2 claves§Select an object with at least 2 keys§اختر كائنًا به مفتاحان على الأقل
+OBJETOS§OBJECTS§الكائنات
+Panel lateral (objetos y propiedades)   N§Side panel (objects and properties)   N§اللوحة الجانبية (الكائنات والخصائص)   N
+• Importa modelos de Source Filmmaker y Garry's Mod (.mdl con sus texturas, y addons .gma).\n• Descargas y biblioteca: descarga modelos desde un enlace (Drive, Dropbox…), atrapa lo que bajas con el navegador (PC) y descarga creaciones del Workshop de ATLAS.\n• Pintura de pesos: elige un hueso y pinta cuánto mueve cada parte (sumar, restar, suavizar, fijar, espejo).\n• Cielo con hora del día: amanecer, día, atardecer y noche con luna; nubes ajustables.\n• Reducir claves en las herramientas de movimiento.\n• PC: contador de triángulos y vértices, panel lateral que se oculta (N) y arreglos de la interfaz.§• Import Source Filmmaker and Garry's Mod models (.mdl with their textures, and .gma addons).\n• Downloads and library: download models from a link (Drive, Dropbox…), catch what your browser downloads (PC) and download ATLAS Workshop creations.\n• Weight painting: pick a bone and paint how much it moves each part (add, subtract, smooth, set, mirror).\n• Sky with time of day: sunrise, day, sunset and night with moon; adjustable clouds.\n• Reduce keys in the motion tools.\n• PC: triangle and vertex counter, side panel that hides (N) and interface fixes.§• استيراد نماذج Source Filmmaker وGarry's Mod (‎.mdl‎ مع خاماتها، وإضافات ‎.gma‎).\n• التنزيلات والمكتبة: نزّل نماذج من رابط (Drive وDropbox…)، والتقط ما ينزّله المتصفح (الحاسوب)، ونزّل إبداعات ورشة ATLAS.\n• رسم الأوزان: اختر عظمة وارسم مقدار تحريكها لكل جزء (جمع، طرح، تنعيم، تثبيت، مرآة).\n• سماء بوقت اليوم: شروق ونهار وغروب وليل مع القمر؛ غيوم قابلة للضبط.\n• تقليل المفاتيح في أدوات الحركة.\n• الحاسوب: عدّاد المثلثات والرؤوس، ولوحة جانبية تُخفى (N) وإصلاحات للواجهة.
+Descargas y biblioteca§Downloads and library§التنزيلات والمكتبة
+Descargas y biblioteca…§Downloads and library…§التنزيلات والمكتبة…
+Descargas y biblioteca (Workshop)…§Downloads and library (Workshop)…§التنزيلات والمكتبة (الورشة)…
+Descargas§Downloads§التنزيلات
+DESCARGAR DESDE UN ENLACE§DOWNLOAD FROM A LINK§التنزيل من رابط
+Pega un enlace directo a un modelo (GLB, FBX, ZIP, MDL, GMA, Prisma…) o de Google Drive, Dropbox o el Workshop de ATLAS.§Paste a direct link to a model (GLB, FBX, ZIP, MDL, GMA, Prisma…) or from Google Drive, Dropbox or the ATLAS Workshop.§الصق رابطًا مباشرًا لنموذج (GLB أو FBX أو ZIP أو MDL أو GMA أو Prisma…) أو من Google Drive أو Dropbox أو ورشة ATLAS.
+Descargar§Download§تنزيل
+ATRAPAR DESCARGAS DEL NAVEGADOR§CATCH BROWSER DOWNLOADS§التقاط تنزيلات المتصفح
+Traer aquí los modelos que descargue el navegador (carpeta Descargas)§Bring here the models the browser downloads (Downloads folder)§إحضار النماذج التي ينزّلها المتصفح إلى هنا (مجلد التنزيلات)
+Abrir carpeta§Open folder§فتح المجلد
+ARCHIVOS GUARDADOS§SAVED FILES§الملفات المحفوظة
+Todavía no hay nada descargado.§Nothing downloaded yet.§لم يُنزَّل شيء بعد.
+Importar§Import§استيراد
+WORKSHOP DE ATLAS 3D§ATLAS 3D WORKSHOP§ورشة ATLAS 3D
+Cargando creaciones…§Loading creations…§جارٍ تحميل الإبداعات…
+Subir mi creación al Workshop…§Upload my creation to the Workshop…§رفع إبداعي إلى الورشة…
+Descargar e importar§Download and import§تنزيل واستيراد
+Todavía no hay creaciones publicadas (o no hay internet). ¡Sube la primera!§No creations published yet (or no internet). Upload the first one!§لا توجد إبداعات منشورة بعد (أو لا يوجد إنترنت). ارفع الأول!
+Cielo y hora del día§Sky and time of day§السماء ووقت اليوم
+Usar la hora del día§Use the time of day§استخدام وقت اليوم
+Hora§Hour§الساعة
+Amanecer§Sunrise§الشروق
+Nubes§Clouds§الغيوم
+La hora mueve el sol (o la luna), el color del cielo y la luz de la escena.§The hour moves the sun (or the moon), the sky colour and the scene's light.§الساعة تحرّك الشمس (أو القمر) ولون السماء وإضاءة المشهد.
+Pintar pesos de este hueso§Paint this bone's weights§رسم أوزان هذه العظمة
+Sumar§Add§جمع
+Restar§Subtract§طرح
+Fijar§Set§تثبيت
+Tamaño (px)§Size (px)§الحجم (بكسل)
+Normalizar§Normalize§تسوية
+Azul: no le afecta · Rojo: lo mueve del todo. Toca otro hueso en la lista de la derecha para pintarlo.§Blue: not affected · Red: fully moved. Tap another bone in the list on the right to paint it.§أزرق: لا يتأثر · أحمر: يتحرك بالكامل. المس عظمة أخرى في القائمة يمينًا لرسمها.
+Pesos originales§Original weights§الأوزان الأصلية
+Reducir claves (quitar las que sobran)§Reduce keys (remove the extra ones)§تقليل المفاتيح (إزالة الزائدة)
+• Prisma3D: se importan los proyectos que guardan todo en un solo archivo (antes salía «Faltan las mallas del proyecto»).\n• Los textos ya no se salen de botones, pestañas ni paneles: se ajustan a su espacio en español, inglés y árabe.\n• Las notas largas ya no se montan encima de lo que hay debajo.\n• Arreglos en la lista de objetos, la barra de estado del PC y las descargas.§• Prisma3D: projects that keep everything in one file now import (before: «The project's meshes are missing»).\n• Texts no longer spill out of buttons, tabs or panels: they fit their space in Spanish, English and Arabic.\n• Long notes no longer overlap what is below them.\n• Fixes in the object list, the PC status bar and the downloads.§• Prisma3D: أصبحت المشاريع التي تحفظ كل شيء في ملف واحد تُستورد (سابقًا: «شبكات المشروع مفقودة»).\n• النصوص لم تعد تخرج من الأزرار أو الألسنة أو اللوحات: تتكيف مع مساحتها بالإسبانية والإنجليزية والعربية.\n• الملاحظات الطويلة لم تعد تتداخل مع ما تحتها.\n• إصلاحات في قائمة الكائنات وشريط الحالة في الحاسوب والتنزيلات.
+• Prisma3D: se importan los proyectos que guardan todo en un solo archivo (antes salía «Faltan las mallas del proyecto»).\n• Modelos de Minecraft: proyectos de Blockbench (.bbmodel) y geometrías Bedrock (.geo.json) con sus huesos y texturas nítidas.\n• Las texturas pequeñas (pixel art) ya no salen borrosas.\n• Mis modelos: guarda un objeto con sus texturas y materiales y úsalo en cualquier proyecto (Añadir → Mis modelos).\n• Los textos ya no se salen de botones, pestañas ni paneles, y las notas largas no se montan encima.\n• Arreglos en la lista de objetos, la barra de estado del PC y las descargas.§• Prisma3D: projects that keep everything in one file now import (before: «The project's meshes are missing»).\n• Minecraft models: Blockbench projects (.bbmodel) and Bedrock geometry (.geo.json) with their bones and sharp textures.\n• Small textures (pixel art) are no longer blurry.\n• My models: save an object with its textures and materials and use it in any project (Add → My models).\n• Texts no longer spill out of buttons, tabs or panels, and long notes no longer overlap.\n• Fixes in the object list, the PC status bar and the downloads.§• Prisma3D: أصبحت المشاريع التي تحفظ كل شيء في ملف واحد تُستورد (سابقًا: «شبكات المشروع مفقودة»).\n• نماذج ماينكرافت: مشاريع Blockbench (‎.bbmodel‎) وهندسة Bedrock (‎.geo.json‎) مع عظامها وخاماتها الحادة.\n• الخامات الصغيرة (فن البكسل) لم تعد ضبابية.\n• نماذجي: احفظ كائنًا مع خاماته وموادّه واستخدمه في أي مشروع (إضافة ← نماذجي).\n• النصوص لم تعد تخرج من الأزرار أو الألسنة أو اللوحات، والملاحظات الطويلة لم تعد تتداخل.\n• إصلاحات في قائمة الكائنات وشريط الحالة في الحاسوب والتنزيلات.
+Guardar en Mis modelos§Save to My models§حفظ في نماذجي
+Mis modelos…§My models…§نماذجي…
+Mis modelos§My models§نماذجي
+Nombre con el que aparecerá en Añadir → Mis modelos:§Name it will have in Add → My models:§الاسم الذي سيظهر به في إضافة ← نماذجي:
+Borrar uno…§Delete one…§حذف واحد…
+Borrar de Mis modelos§Delete from My models§حذف من نماذجي
+Las luces y cámaras no se guardan en Mis modelos§Lights and cameras are not saved in My models§لا تُحفظ الأضواء والكاميرات في نماذجي
+Todavía no hay nada en Mis modelos: selecciona un objeto y pulsa «Guardar en Mis modelos»§Nothing in My models yet: select an object and tap «Save to My models»§لا شيء في نماذجي بعد: اختر كائنًا واضغط «حفظ في نماذجي»
+• Estilo dibujo (anime): sombreado en bandas y contorno, en un objeto o en toda la escena.\n• Creador de partículas: personaliza cualquier efecto (cantidad, duración, velocidad, tamaño, gravedad, forma, partícula, color, brillo y estela) y nuevo efecto Láser.\n• Color de la interfaz a elegir en Preferencias.\n• Modelos de Source (.mdl): ya no salen rayas negras atravesando el modelo.\n• Prisma3D en un solo archivo, modelos de Minecraft, Mis modelos y textos que ya no se salen (1.2.1).§• Cartoon style (anime): banded shading and outline, on one object or the whole scene.\n• Particle creator: customise any effect (amount, duration, speed, size, gravity, shape, particle, colour, glow and trail) and a new Laser effect.\n• Interface colour to choose in Preferences.\n• Source models (.mdl): no more black stripes across the model.\n• One-file Prisma3D, Minecraft models, My models and texts that no longer spill out (1.2.1).§• نمط الرسم (أنمي): تظليل بطبقات وحدود، على كائن واحد أو المشهد كله.\n• صانع الجسيمات: خصّص أي مؤثر (الكمية، المدة، السرعة، الحجم، الجاذبية، الشكل، الجسيم، اللون، التوهج والأثر) ومؤثر ليزر جديد.\n• لون الواجهة قابل للاختيار في التفضيلات.\n• نماذج Source ‏(.mdl): لا مزيد من الخطوط السوداء عبر النموذج.\n• Prisma3D في ملف واحد، ونماذج ماينكرافت، ونماذجي، ونصوص لم تعد تخرج (1.2.1).
+Estilo dibujo (anime)§Cartoon style (anime)§نمط الرسم (أنمي)
+Sombreado de dibujo y contorno§Cartoon shading and outline§تظليل الرسم والحدود
+Luz y sombra en bandas planas con un contorno negro, como en el anime o los dibujos animados.§Light and shadow in flat bands with a black outline, like anime or cartoons.§ضوء وظل بطبقات مسطحة مع حد أسود، مثل الأنمي والرسوم المتحركة.
+Contorno§Outline§الحد
+Negro§Black§أسود
+Marrón§Brown§بني
+Azul oscuro§Dark blue§أزرق داكن
+1 sombra§1 shadow§ظل واحد
+Sombra suave§Soft shadow§ظل ناعم
+Toda la escena como un dibujo animado: luz y sombra en bandas y contorno. Cada objeto se ajusta en sus propiedades.§The whole scene like a cartoon: banded light and shadow and outline. Each object is adjusted in its properties.§المشهد كله كرسوم متحركة: ضوء وظل بطبقات وحدود. يُضبط كل كائن في خصائصه.
+Estilo dibujo en todo§Cartoon style on everything§نمط الرسم على الكل
+Quitarlo de todo§Remove it from everything§إزالته من الكل
+Láser§Laser§ليزر
+Personalizar (creador de partículas)§Customise (particle creator)§تخصيص (صانع الجسيمات)
+Cuántas (×)§How many (×)§كم (×)
+Duración (×)§Duration (×)§المدة (×)
+Velocidad (×)§Speed (×)§السرعة (×)
+Tamaño (×)§Size (×)§الحجم (×)
+Gravedad§Gravity§الجاذبية
+Apertura (°)§Spread (°)§الانفتاح (°)
+Forma de salida§Emitter shape§شكل الانبعاث
+Partícula§Particle§الجسيم
+Original§Original§الأصلي
+Caja§Box§صندوق
+Línea§Line§خط
+Chispa§Spark§شرارة
+Estrella§Star§نجمة
+Cuadrado§Square§مربع
+Naranja§Orange§برتقالي
+Azul§Blue§أزرق
+Morado§Purple§أرجواني
+Brillo: original§Glow: original§التوهج: الأصلي
+Que brille§Glowing§متوهج
+Sin brillo§No glow§بلا توهج
+Estela (partículas alargadas)§Trail (stretched particles)§أثر (جسيمات ممدودة)
+Volver al efecto original§Back to the original effect§العودة إلى المؤثر الأصلي
+Color de la interfaz§Interface colour§لون الواجهة

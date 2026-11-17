@@ -152,6 +152,13 @@ public static class AtlasBuild
         if (pr != null) pr.floatValue = 1.6f;
         pr = uso.FindProperty("m_ShadowNormalBias");
         if (pr != null) pr.floatValue = 1.2f;
+        // Many spotlights with soft shadows (stages, corridors) and their
+        // gobos (light cookies).
+        pr = uso.FindProperty("m_AdditionalLightsShadowmapResolution");
+        if (pr != null) pr.intValue = 4096;
+        pr = uso.FindProperty("m_AdditionalLightsPerObjectLimit");
+        if (pr != null) pr.intValue = 8;
+        SetBool(uso, "m_SupportsLightCookies", true);
         uso.ApplyModifiedPropertiesWithoutUndo();
         EditorUtility.SetDirty(urp);
         KeepFog();
@@ -172,6 +179,7 @@ public static class AtlasBuild
         MakeMaterial("AtlasLitNormal", "Universal Render Pipeline/Lit");
         MakeMaterial("AtlasSky", "Skybox/Procedural");
         MakeMaterial("AtlasUnlitTransparent", "Universal Render Pipeline/Unlit");
+        MakeMaterial("AtlasLitCutout", "Universal Render Pipeline/Lit");
         try
         {
             MakeMaterial("AtlasHighlight", "Atlas/Highlight");
@@ -181,11 +189,26 @@ public static class AtlasBuild
             MakeMaterial("AtlasVolume", "Atlas/VolumeBeam");
             MakeMaterial("AtlasParticle", "Atlas/Particle");
             MakeMaterial("AtlasWater", "Atlas/Water");
+            MakeMaterial("AtlasWeightView", "Atlas/WeightView");
+            MakeMaterial("AtlasToon", "Atlas/Toon");
         }
         catch (Exception e)
         {
             Debug.LogWarning("ATLAS: resaltado sin shader propio: " + e.Message);
         }
+        // Full-screen looks of the quick ambiences (halftone, comic, VHS).
+        try
+        {
+            MakeMaterial("AtlasStylize", "Atlas/Stylize");
+            AddStylizePass(rendererData);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("ATLAS: sin efectos de pantalla: " + e.Message);
+        }
+        // Ambient occlusion (switched on by the app when it is wanted).
+        try { AddAOPass(rendererData); }
+        catch (Exception e) { Debug.LogWarning("ATLAS: sin oclusión ambiental: " + e.Message); }
 
         // --- The one scene: an empty one with the app object.
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -198,7 +221,7 @@ public static class AtlasBuild
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "1.0.2";
+        PlayerSettings.bundleVersion = "1.2.2";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;
@@ -261,6 +284,80 @@ public static class AtlasBuild
         Debug.Log("ATLAS: firmado con la llave fija «" + alias + "»");
     }
 
+    /// Adds the «Full Screen Pass» that draws the stylized looks after the
+    /// post-processing (once).
+    static void AddStylizePass(UniversalRendererData data)
+    {
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(ResourcesDir + "/AtlasStylize.mat");
+        if (mat == null) throw new Exception("AtlasStylize.mat no existe");
+        foreach (var f in data.rendererFeatures)
+            if (f != null && f.name == "AtlasStylize") return;
+        var feat = ScriptableObject.CreateInstance<FullScreenPassRendererFeature>();
+        feat.name = "AtlasStylize";
+        feat.passMaterial = mat;
+        feat.injectionPoint = FullScreenPassRendererFeature.InjectionPoint.AfterRenderingPostProcessing;
+        SetMember(feat, "fetchColorBuffer", true);
+        SetMember(feat, "requirements", ScriptableRenderPassInput.Color);
+        AssetDatabase.AddObjectToAsset(feat, data);
+        string guid;
+        long id;
+        AssetDatabase.TryGetGUIDAndLocalFileIdentifier(feat, out guid, out id);
+        var so = new SerializedObject(data);
+        var feats = so.FindProperty("m_RendererFeatures");
+        var map = so.FindProperty("m_RendererFeatureMap");
+        feats.arraySize++;
+        feats.GetArrayElementAtIndex(feats.arraySize - 1).objectReferenceValue = feat;
+        if (map != null)
+        {
+            map.arraySize++;
+            map.GetArrayElementAtIndex(map.arraySize - 1).longValue = id;
+        }
+        so.ApplyModifiedPropertiesWithoutUndo();
+        EditorUtility.SetDirty(data);
+        AssetDatabase.SaveAssets();
+        Debug.Log("ATLAS: efecto de pantalla añadido al renderizador");
+    }
+
+    /// URP's Screen Space Ambient Occlusion feature (internal class: made
+    /// by name), named «AtlasAO» and off until the app turns it on.
+    static void AddAOPass(UniversalRendererData data)
+    {
+        foreach (var f in data.rendererFeatures)
+            if (f != null && f.name == "AtlasAO") return;
+        var type = typeof(UniversalRendererData).Assembly.GetType("UnityEngine.Rendering.Universal.ScreenSpaceAmbientOcclusion");
+        if (type == null) throw new Exception("URP sin ScreenSpaceAmbientOcclusion");
+        var feat = (ScriptableRendererFeature)ScriptableObject.CreateInstance(type);
+        feat.name = "AtlasAO";
+        feat.SetActive(false);
+        AssetDatabase.AddObjectToAsset(feat, data);
+        string guid;
+        long id;
+        AssetDatabase.TryGetGUIDAndLocalFileIdentifier(feat, out guid, out id);
+        var so = new SerializedObject(data);
+        var feats = so.FindProperty("m_RendererFeatures");
+        var map = so.FindProperty("m_RendererFeatureMap");
+        feats.arraySize++;
+        feats.GetArrayElementAtIndex(feats.arraySize - 1).objectReferenceValue = feat;
+        if (map != null)
+        {
+            map.arraySize++;
+            map.GetArrayElementAtIndex(map.arraySize - 1).longValue = id;
+        }
+        so.ApplyModifiedPropertiesWithoutUndo();
+        EditorUtility.SetDirty(data);
+        AssetDatabase.SaveAssets();
+        Debug.Log("ATLAS: oclusión ambiental añadida al renderizador");
+    }
+
+    static void SetMember(object o, string name, object value)
+    {
+        var t = o.GetType();
+        var f = t.GetField(name, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (f != null) { f.SetValue(o, value); return; }
+        var p = t.GetProperty(name, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (p != null && p.CanWrite) p.SetValue(o, value);
+    }
+
     static void MakeMaterial(string name, string shaderName)
     {
         string path = ResourcesDir + "/" + name + ".mat";
@@ -293,6 +390,14 @@ public static class AtlasBuild
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
             Atlas.MatUtil.SetTransparent(m, true);
             m.SetColor("_BaseColor", new Color(1f, 1f, 1f, 0.5f));
+        }
+        else if (name == "AtlasLitCutout")
+        {
+            // Keeps the cut-out variant (hair, lace) in the build.
+            m.EnableKeyword("_EMISSION");
+            m.SetColor("_EmissionColor", Color.black);
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            Atlas.MatUtil.SetCutout(m, 0.5f);
         }
         else if (name == "AtlasUnlitTransparent")
         {

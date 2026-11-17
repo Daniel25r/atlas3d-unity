@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "3.8.2";
+        public const string Version = "1.2.2";
 
         Camera cam;
         Light sunLight;
@@ -57,6 +57,8 @@ namespace Atlas
             Screen.orientation = ScreenOrientation.AutoRotation;
             QualitySettings.vSyncCount = 0;
             Prefs.Load();
+            AtlasTheme.ApplyAccent(Prefs.accent);
+            Lang.Load(Prefs.lang);
             Input.simulateMouseWithTouches = false;   // a touch is not also a mouse click
             litTemplate = Resources.Load<Material>("AtlasLit");
             aeroTemplate = Resources.Load<Material>("AtlasAero");
@@ -73,6 +75,8 @@ namespace Atlas
             BuildHome();
             ShowHome(false);
             ApplyPrefs();
+            ReopenAfterLanguage();
+            ShowWhatsNew();
         }
 
         void OnApplicationPause(bool paused)
@@ -96,6 +100,9 @@ namespace Atlas
             var camGo = new GameObject("Cámara");
             camGo.tag = "MainCamera";
             cam = camGo.AddComponent<Camera>();
+            // Without a listener Unity plays no sound at all (the audio of
+            // the animation was silent).
+            camGo.AddComponent<AudioListener>();
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = AtlasTheme.Viewport;
             cam.fieldOfView = 50f;
@@ -165,6 +172,8 @@ namespace Atlas
         void ApplyEnv()
         {
             Ambience.Apply(env, cam, sunLight);
+            SetAO(AOWanted);
+            if (sunLight != null) sunBase = sunLight.intensity;
             if (!Prefs.viewShadows && !capturing && sunLight != null) sunLight.shadows = LightShadows.None;
             reflDirty = true;
         }
@@ -203,6 +212,11 @@ namespace Atlas
                 case "camera": return "Cámara";
                 case "image": return "Imagen";
                 case "video": return "Vídeo";
+                case "fx": return "Efecto";
+                case "text": return "Texto 3D";
+                case "water": return "Agua";
+                case "terrain": return "Terreno";
+                case "flag": return "Tela";
                 default: return "Modelo";
             }
         }
@@ -243,6 +257,17 @@ namespace Atlas
                 case "image":
                 case "video":
                     go = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                    break;
+                case "fx":
+                    go = MakeFx();
+                    break;
+                case "text":
+                    go = MakeText3D();
+                    break;
+                case "water":
+                case "terrain":
+                case "flag":
+                    go = MakeWorldPiece(d.kind);
                     break;
                 default: go = new GameObject(); break;
             }
@@ -293,11 +318,21 @@ namespace Atlas
             it.noShadow = d.noShadow;
             it.uv = d.uv.x == 0f && d.uv.y == 0f ? new Vector4(1f, 1f, d.uv.z, d.uv.w) : d.uv;
             it.uvMat = d.uvMat;
+            it.glow = d.glow;
+            it.glowMat = d.glowMat;
+            it.glowColor = d.glowColor;
             it.volumetric = d.volumetric;
             it.volIntensity = d.volIntensity <= 0f ? 1f : d.volIntensity;
             it.physics = d.physics ?? "";
             it.mass = d.mass <= 0f ? 1f : d.mass;
             it.videoFile = d.videoFile ?? "";
+            it.preset = d.preset ?? "";
+            it.amount = d.amount <= 0f ? 1f : d.amount;
+            it.seed = d.seed == 0 ? 1 : d.seed;
+            it.fxStart = d.fxStart;
+            it.text = d.text ?? "";
+            it.anchors = new List<AnchorEvent>();
+            if (d.anchors != null) foreach (var an in d.anchors) it.anchors.Add(an.Copy());
             it.matOverrides = new List<MatOverride>();
             if (d.mats != null) foreach (var mo in d.mats) it.matOverrides.Add(mo.Copy());
             it.normalMap = d.normalMap ?? "";
@@ -308,6 +343,19 @@ namespace Atlas
             it.followOffset = d.followOffset;
             it.shake = d.shake;
             it.shakeSpeed = d.shakeSpeed > 0f ? d.shakeSpeed : 0.6f;
+            it.ik = IkRig.Copy(d.ik);
+            it.gobo = d.gobo ?? "";
+            it.flicker = d.flicker;
+            it.toon = d.toon;
+            it.outline = d.outline;
+            it.toonSoft = d.toonSoft;
+            it.toonSteps = d.toonSteps > 0 ? d.toonSteps : 2;
+            it.outlineColor = d.outlineColor;
+            it.fx = d.fx != null ? d.fx.Copy() : new FxCustom();
+            if (it.loaded) it.ResetMorphs();
+            it.morphs = SceneStore.CopyMorphs(d.morphs);
+            if (it.loaded) it.ApplyMorphs();
+            if (it.loaded && it.HasBones) IkRig.Sync(it);
             string mf = d.meshFile ?? "";
             if (mf != (it.meshFile ?? ""))
             {
@@ -389,6 +437,7 @@ namespace Atlas
                 sceneRadiusAt = -1f;
                 it.modelMats = CollectMaterials(it);
                 it.BuildBones();
+                LoadWeights(it);
                 it.Evaluate(frame, fps);
                 ApplyLook(it);
                 if (selected == it)
@@ -414,7 +463,11 @@ namespace Atlas
                     r.shadowCastingMode = it.noShadow || env.shadowsOff ? UnityEngine.Rendering.ShadowCastingMode.Off : UnityEngine.Rendering.ShadowCastingMode.On;
             }
             foreach (var c in it.GetComponentsInChildren<Collider>(true)) c.enabled = it.visible;
-            if (it.kind == "model") { if (it.loaded) { ApplyModelMaterials(it); it.ApplyUv(); } return; }
+            if (it.kind == "model") { if (it.loaded) { ApplyModelMaterials(it); it.ApplyUv(); it.LookChanged(); ApplyToon(it); } return; }
+            if (it.kind == "fx") { ApplyFxLook(it); return; }
+            if (it.kind == "text") { ApplyText3D(it); return; }
+            if (it.kind == "flag") { BuildCloth(it); WaveCloth(it, frame / Mathf.Max(1f, fps)); }
+            if (it.kind == "water" || it.kind == "terrain") { ApplyWorldLook(it); return; }
             if (it.kind == "video")
             {
                 if (it.material == null) it.material = new Material(unlitTemplate != null ? unlitTemplate : litTemplate);
@@ -491,6 +544,8 @@ namespace Atlas
                     l.innerSpotAngle = l.spotAngle * 0.6f;
                     l.shadows = it.shadows && !env.shadowsOff && (Prefs.viewShadows || capturing) ? LightShadows.Soft : LightShadows.None;
                     l.enabled = it.visible;
+                    l.cookie = GoboOf(it);
+                    if (it.flicker > 0.001f) UpdateLights();
                 }
                 var cone = it.GetComponentInChildren<LineRenderer>(true);
                 if (cone != null) SpotCone(it, cone, col);
@@ -504,7 +559,11 @@ namespace Atlas
                 m.SetFloat("_Smoothness", it.smoothness);
                 m.EnableKeyword("_EMISSION");
                 m.SetColor("_EmissionColor", new Color(it.color.r, it.color.g, it.color.b) * it.emission);
-                m.SetTexture("_BaseMap", LoadTexture(it.texture));
+                var btex = LoadTexture(it.texture);
+                m.SetTexture("_BaseMap", btex);
+                if (btex != null)
+                    foreach (var rr in it.GetComponentsInChildren<Renderer>(true))
+                        if (!(rr is LineRenderer) && rr.gameObject.name != "Volumen") UvFix.Ensure(rr);
                 var nmap = LoadTexture(it.normalMap, true);
                 if (m.HasProperty("_BumpMap"))
                 {
@@ -517,11 +576,13 @@ namespace Atlas
                     m.SetColor("_EmissionColor", new Color(it.color.r, it.color.g, it.color.b) * Mathf.Max(1f, it.emission));
                 MatUtil.SetTransparent(m, it.opacity < 0.995f);
                 // Pictures are seen from both sides.
-                if (m.HasProperty("_Cull")) m.SetFloat("_Cull", it.kind == "image" ? 0f : 2f);
+                if (m.HasProperty("_Cull")) m.SetFloat("_Cull", it.kind == "image" || it.kind == "flag" ? 0f : 2f);
             }
             foreach (var r in it.GetComponentsInChildren<Renderer>(true))
                 if (!(r is LineRenderer) && r.gameObject.name != "Volumen") r.sharedMaterial = m;
             it.ApplyUv();
+            it.LookChanged();
+            ApplyToon(it);
         }
 
         /// Spotlight lines: a ring where the light reaches (up to 4 m) and
@@ -746,9 +807,39 @@ namespace Atlas
                 count++;
                 string nm = shownName;
                 var d = new ItemData { v = 3, kind = "model", name = string.IsNullOrEmpty(nm) ? "Modelo" : nm, position = new Vector3(target.position.x, 0f, target.position.z), modelFile = file };
-                Select(Create(d));
+                var made = Create(d);
+                Select(made);
                 Commit(true);
+                if (st.missingTex != null && st.missingTex.Length > 0) AskPrismaTextures(made, st.missingTexFrom, st.missingTex, shownName);
             }
+        }
+
+        /// A Prisma3D .proj came without the pictures of its «res» folder:
+        /// ask for them and put the model again, with its textures.
+        void AskPrismaTextures(AtlasItem made, string stored, string[] names, string shownName)
+        {
+            string list = string.Join(", ", names);
+            if (list.Length > 90) list = list.Substring(0, 90) + "…";
+            AtlasTheme.Dialog(canvasRoot, "Faltan las texturas del modelo",
+                "Este proyecto de Prisma3D guarda sus texturas aparte, en la carpeta «res» que está junto al .proj (" + list + ").\n\n" +
+                "Toca «Elegir imágenes», entra en esa carpeta «res» y márcalas todas: el modelo se pondrá con sus texturas.",
+                null, "Elegir imágenes", false, _ =>
+                {
+                    if (NativeFilePicker.IsFilePickerBusy()) return;
+                    NativeFilePicker.PickMultipleFiles(paths =>
+                    {
+                        if (paths == null || paths.Length == 0 || store == null) return;
+                        // The model without textures goes; the new one takes its place.
+                        if (made != null)
+                        {
+                            items.Remove(made);
+                            if (selected == made) Select(null);
+                            Destroy(made.gameObject);
+                        }
+                        ImportWith(s2 => s2.AddMissingFiles(stored, paths), shownName);
+                    }, new string[] { "image/*" });
+                });
+            toastHolder.SetAsLastSibling();
         }
 
         /// Image for a map of the material: "normal" (normal map), "bump"
@@ -856,6 +947,7 @@ namespace Atlas
 
         void Select(AtlasItem it)
         {
+            if (weightMode && it != selected) ExitWeightMode(true);
             if (it != selected) activeMat = -1;
             if (meshMode != "" && it != selected)
             {
@@ -880,8 +972,24 @@ namespace Atlas
             RefreshKeys();
         }
 
+        /// The middle of what a model shows (its animation may have walked
+        /// it away from the object's origin).
+        Vector3 VisualCenter(AtlasItem it)
+        {
+            bool any = false;
+            var b = new Bounds(it.transform.position, Vector3.zero);
+            foreach (var r in it.GetComponentsInChildren<Renderer>())
+            {
+                if (!r.enabled || r is ParticleSystemRenderer || r is LineRenderer) continue;
+                if (!any) { b = r.bounds; any = true; }
+                else b.Encapsulate(r.bounds);
+            }
+            return any ? b.center : it.transform.position;
+        }
+
         void ShowGizmo()
         {
+            gizmo.pivot = null;
             if (lookThrough != null) { gizmo.Show(null); return; }
             if (meshMode != "")
             {
@@ -893,6 +1001,11 @@ namespace Atlas
                 var bone = selected != null && activeBone != "" ? selected.Bone(activeBone) : null;
                 gizmo.Show(bone != null && tool != Tool.Select && !playing ? bone : null);
                 return;
+            }
+            if (selected != null && selected.kind == "model")
+            {
+                var sel = selected;
+                gizmo.pivot = () => sel != null ? VisualCenter(sel) : Vector3.zero;
             }
             gizmo.Show(selected != null && !selected.locked && tool != Tool.Select && !playing ? selected.transform : null);
         }
@@ -1101,8 +1214,12 @@ namespace Atlas
                 if (it == null) continue;
                 it.Evaluate(frame, fps);
             }
+            ApplyAnchors();
             ApplyCameraRigs();
             SyncVideos();
+            UpdateEffects();
+            UpdateWorld();
+            UpdateLights();
             RefreshTimeline();
         }
 
@@ -1134,6 +1251,8 @@ namespace Atlas
         bool draggingGizmo, orbiting;
 
         bool pinchOnUi;
+        bool panning;
+        Vector2 panLast;
 
         bool OverUi(int pointerId)
         {
@@ -1144,9 +1263,11 @@ namespace Atlas
         {
             if (Screen.safeArea != lastSafe) ApplySafeArea();
             if (Input.GetKeyDown(KeyCode.Escape)) Back();
+            Shortcuts();
             UpdateFps();
             UpdateMatPreview();
             if (store == null || home.activeSelf) { if (!rendering) CheckIncoming(); }
+            if (!rendering) UpdateCatch();
             if (store == null || home.activeSelf || rendering) return;
             if (playing)
             {
@@ -1191,8 +1312,9 @@ namespace Atlas
                 }
                 if (pinchOnUi) { moved = -1f; return; }
                 if (sculpting) EndSculpt();
+                if (weightPainting) WeightEnd();
                 if (draggingGizmo && meshDragging) { gizmo.End(); draggingGizmo = false; MeshDragEnd(); }
-                if (draggingGizmo) { gizmo.End(); draggingGizmo = false; BoneEdited(); AutoKey(); Commit(true); }
+                if (draggingGizmo) { gizmo.End(); draggingGizmo = false; BoneEdited(); if (poseMode || !Regrip(selected)) AutoKey(); Commit(true); }
                 moved = 99f;   // not a tap any more
                 Touch a = Input.GetTouch(0), b = Input.GetTouch(1);
                 Vector2 pa = a.position - a.deltaPosition, pb = b.position - b.deltaPosition;
@@ -1204,10 +1326,9 @@ namespace Atlas
                     if (a.phase == TouchPhase.Ended || b.phase == TouchPhase.Ended || a.phase == TouchPhase.Canceled || b.phase == TouchPhase.Canceled) LookThroughEnd();
                     return;
                 }
-                if (before > 1f && now > 1f)
-                    distance = Mathf.Clamp(distance * before / now, 0.3f, 400f);
+                if (before > 1f && now > 1f) Zoom(before / now);
                 Vector2 pan = (a.deltaPosition + b.deltaPosition) * 0.5f;
-                float k = distance * 0.0016f;
+                float k = Mathf.Max(distance, ZoomFloor) * 0.0016f;
                 target.position -= cam.transform.right * pan.x * k + cam.transform.up * pan.y * k;
                 UpdateCamera();
             }
@@ -1222,6 +1343,31 @@ namespace Atlas
                     MovePointer(Input.mousePosition, new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y")) * 12f);
                 else if (Input.GetMouseButtonUp(0) && moved >= 0f)
                     EndPointer(Input.mousePosition);
+                // PC: right or middle button drags the view sideways.
+                if ((Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(2)) && !OverUi(-1)) { panning = true; panLast = Input.mousePosition; }
+                if (panning && (Input.GetMouseButton(1) || Input.GetMouseButton(2)))
+                {
+                    Vector2 m = Input.mousePosition;
+                    Vector2 pd = m - panLast;
+                    panLast = m;
+                    bool shiftHeld = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+                    if (lookThrough != null) LookThroughTwoFingers(pd, 0f);
+                    else if (Desktop && Input.GetMouseButton(2) && !shiftHeld)
+                    {
+                        // Blender: the middle button turns the view.
+                        float ok = 0.25f * Prefs.orbitSens;
+                        yaw += pd.x * ok;
+                        pitch = Mathf.Clamp(pitch - pd.y * ok * (Prefs.invertY ? -1f : 1f), -85f, 85f);
+                        UpdateCamera();
+                    }
+                    else
+                    {
+                        float pk = Mathf.Max(distance, ZoomFloor) * 0.0016f * (1280f / Mathf.Max(640f, Screen.width)) * 1.6f;
+                        target.position -= cam.transform.right * pd.x * pk + cam.transform.up * pd.y * pk;
+                        UpdateCamera();
+                    }
+                }
+                if (Input.GetMouseButtonUp(1) || Input.GetMouseButtonUp(2)) { if (panning && lookThrough != null) LookThroughEnd(); panning = false; }
                 float wheel = Input.mouseScrollDelta.y;
                 if (Mathf.Abs(wheel) > 0.01f && !OverUi(-1) && lookThrough != null)
                 {
@@ -1230,10 +1376,69 @@ namespace Atlas
                 }
                 else if (Mathf.Abs(wheel) > 0.01f && !OverUi(-1))
                 {
-                    distance = Mathf.Clamp(distance * (1f - wheel * 0.1f), 0.3f, 400f);
+                    Zoom(1f - wheel * 0.1f);
                     UpdateCamera();
                 }
             }
+        }
+
+        /// Keyboard shortcuts (PC, or a keyboard on a tablet), like most 3D
+        /// programs. Not while typing in a text box.
+        void Shortcuts()
+        {
+            if (!Input.anyKeyDown || store == null || home.activeSelf || rendering) return;
+            var es = EventSystem.current;
+            if (es != null && es.currentSelectedGameObject != null && es.currentSelectedGameObject.GetComponent<InputField>() != null) return;
+            bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) || Input.GetKey(KeyCode.LeftCommand);
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            if (DesktopKeys(ctrl, shift)) return;
+            if (ctrl && Input.GetKeyDown(KeyCode.Z)) { if (shift) Redo(); else Undo(); return; }
+            if (ctrl && Input.GetKeyDown(KeyCode.Y)) { Redo(); return; }
+            if (ctrl && Input.GetKeyDown(KeyCode.S)) { SaveNow(true); return; }
+            if (ctrl && Input.GetKeyDown(KeyCode.D)) { DuplicateSelected(); return; }
+            if (ctrl) return;
+            if (Input.GetKeyDown(KeyCode.Delete) || Input.GetKeyDown(KeyCode.Backspace)) { if (selected != null && meshMode == "") DeleteSelected(); return; }
+            if (Input.GetKeyDown(KeyCode.Q)) SetTool(Tool.Select);
+            else if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.G)) SetTool(Tool.Move);
+            else if (Input.GetKeyDown(KeyCode.E)) SetTool(Tool.Rotate);
+            else if (Input.GetKeyDown(KeyCode.R)) SetTool(Tool.Scale);
+            else if (Input.GetKeyDown(KeyCode.F)) FocusSelected();
+            else if (Input.GetKeyDown(KeyCode.Space)) TogglePlay();
+            else if (Input.GetKeyDown(KeyCode.K)) { if (selected != null) { AutoKeyNow(); } }
+            else if (Input.GetKeyDown(KeyCode.LeftArrow)) StepFrame(-1);
+            else if (Input.GetKeyDown(KeyCode.RightArrow)) StepFrame(1);
+            else if (Input.GetKeyDown(KeyCode.Tab)) { if (selected != null && MeshEditable(selected)) SetMeshMode(meshMode == "model" ? "" : "model"); }
+        }
+
+        /// «K»: a key of the selection at this frame.
+        void AutoKeyNow()
+        {
+            int f = Mathf.RoundToInt(frame);
+            if (poseMode && activeBone != "") selected.SetKey(f, 0, new List<string> { activeBone });
+            else selected.SetKey(f, AtlasItem.ChPos | AtlasItem.ChRot | AtlasItem.ChScale, new List<string>());
+            Commit(true);
+            RefreshKeys();
+            Toast("Clave en el fotograma " + f);
+        }
+
+        const float ZoomFloor = 0.6f;
+
+        /// Zoom by `factor` (< 1 closer). Very close, the view keeps moving
+        /// forward at the same speed instead of slowing down to a crawl
+        /// (like Blender's «dolly»): the point it turns around moves along.
+        void Zoom(float factor)
+        {
+            float nd = distance * factor;
+            if (nd < ZoomFloor && factor < 1f)
+            {
+                float d0 = Mathf.Max(distance, ZoomFloor);
+                float step = d0 * (1f - factor);
+                if (distance > ZoomFloor) step -= distance - ZoomFloor;
+                target.position += cam.transform.forward * Mathf.Max(0f, step);
+                distance = ZoomFloor;
+                return;
+            }
+            distance = Mathf.Clamp(nd, ZoomFloor, 400f);
         }
 
         void LateUpdate()
@@ -1247,6 +1452,7 @@ namespace Atlas
             if (poseMode && propsPanel != null && propsPanel.activeSelf) FillBoneFields();
             UpdateBoneOverlay();
             UpdateMeshOverlay();
+            UpdateDesktop();
             UpdateLookThrough();
             UpdateReflections();
             if (viewArea != null && Mathf.Abs(viewArea.rect.width - lastViewW) > 1f)
@@ -1255,11 +1461,32 @@ namespace Atlas
                 LayoutModePill();
             }
             if (canvasRoot != null) gizmo.pxScale = canvasRoot.GetComponent<Canvas>().scaleFactor;
+            if (Time.unscaledTime >= glowCheckAt)
+            {
+                glowCheckAt = Time.unscaledTime + 0.4f;
+                Ambience.SetGlow(SceneGlows());
+            }
+        }
+
+        float glowCheckAt;
+
+        /// Neon, emission or an animated glow somewhere in the scene.
+        bool SceneGlows()
+        {
+            foreach (var it in items)
+            {
+                if (it == null || !it.visible || it.IsLight || it.kind == "camera") continue;
+                if (it.emission >= 1.5f || it.glow >= 1.5f) return true;
+                foreach (var o in it.matOverrides) if (o.emission >= 1.5f) return true;
+                foreach (var k in it.keys) if (k.glowKey && k.glow >= 1.5f) return true;
+            }
+            return false;
         }
 
         /// Android «back»: closes a dialog or a menu, or goes to the projects.
         void Back()
         {
+            if (weightMode) { ExitWeightMode(true); return; }
             var dlg = canvasRoot != null ? canvasRoot.Find("Dialogo") : null;
             if (dlg != null) { Destroy(dlg.gameObject); return; }
             if (matEditor != null) { CloseMatEditor(); return; }
@@ -1279,6 +1506,8 @@ namespace Atlas
             moved = 0f;
             // Sculpting: a finger on the shape is the brush.
             if (BeginSculpt(pos)) { draggingGizmo = false; orbiting = false; return; }
+            if (WeightBegin(pos)) { draggingGizmo = false; orbiting = false; return; }
+            if (MeshPointerBegin(pos)) { draggingGizmo = false; orbiting = false; return; }
             draggingGizmo = gizmo.TryBegin(pos);
             if (draggingGizmo && meshMode == "model") MeshDragBegin();
             if (draggingGizmo && poseMode) IkBegin();
@@ -1289,6 +1518,8 @@ namespace Atlas
         {
             moved += delta.magnitude;
             if (sculpting) { SculptMove(pos); return; }
+            if (weightPainting) { WeightMove(pos); return; }
+            if (MeshPointerMove(pos)) return;
             if (lookThrough != null && !draggingGizmo)
             {
                 if (moved > 6f) LookThroughDrag(delta);
@@ -1313,6 +1544,8 @@ namespace Atlas
         void EndPointer(Vector2 pos)
         {
             if (sculpting) { EndSculpt(); moved = -1f; return; }
+            if (weightPainting) { WeightEnd(); moved = -1f; return; }
+            if (MeshPointerEnd(pos)) { moved = -1f; orbiting = false; return; }
             if (lookThrough != null && cameraDragging) { LookThroughEnd(); moved = -1f; orbiting = false; return; }
             if (draggingGizmo && meshDragging)
             {
@@ -1327,6 +1560,7 @@ namespace Atlas
                 gizmo.End();
                 draggingGizmo = false;
                 BoneEdited();
+                if (!poseMode && Regrip(selected)) { Commit(true); moved = -1f; return; }
                 AutoKey();
                 Commit(true);
                 moved = -1f;

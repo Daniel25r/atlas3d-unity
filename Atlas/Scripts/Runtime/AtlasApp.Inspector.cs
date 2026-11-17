@@ -51,7 +51,7 @@ namespace Atlas
             new MatPreset { name = "Goma", color = new Color(0.035f, 0.035f, 0.04f), metallic = 0f, roughness = 0.92f },
             new MatPreset { name = "Plástico", keepColor = true, metallic = 0f, roughness = 0.38f },
             new MatPreset { name = "Arcilla", color = new Color(0.78f, 0.6f, 0.5f), metallic = 0f, roughness = 0.85f },
-            new MatPreset { name = "Neón", keepColor = true, metallic = 0f, roughness = 0.5f, emission = 4f },
+            new MatPreset { name = "Neón", keepColor = true, metallic = 0f, roughness = 0.5f, emission = 5f },
             new MatPreset { name = "Mate", keepColor = true, metallic = 0f, roughness = 1f },
             new MatPreset { name = "Cristal Aero", shader = "aero", keepColor = true, roughness = 0.04f, opacity = 0.35f, emission = 2f },
             new MatPreset { name = "Burbuja", shader = "aero", color = new Color(0.75f, 0.9f, 1f), roughness = 0.02f, opacity = 0.1f, emission = 0f },
@@ -114,12 +114,12 @@ namespace Atlas
             nameField = null;
             if (selected == null)
             {
-                propsTitle.text = "ESCENA";
+                Lang.Set(propsTitle, "ESCENA");
                 BuildSceneInspector();
             }
             else
             {
-                propsTitle.text = "PROPIEDADES";
+                Lang.Set(propsTitle, "PROPIEDADES");
                 BuildObjectInspector(selected);
             }
         }
@@ -173,8 +173,11 @@ namespace Atlas
             AtlasTheme.IconButton(r2.transform, "duplicate", DuplicateSelected, 44f, 22f);
             var del = AtlasTheme.IconButton(r2.transform, "delete", DeleteSelected, 44f, 22f);
             foreach (var ri in del.GetComponentsInChildren<RawImage>()) ri.color = AtlasTheme.Danger;
+            if (!it.IsHelper)
+                AtlasTheme.TextButton(head.transform, "save", "Guardar en Mis modelos", () => SaveToLibrary(it), false, 40f, 15);
 
             BuildTransformSection(it);
+            BuildToonSection(it);
             if (!it.IsLight && it.kind != "camera")
             {
                 var sh = Sec("Sombra", "light", false);
@@ -187,8 +190,12 @@ namespace Atlas
                 if (activeMat >= 0 && activeMat < it.modelMats.Count) BuildModelMaterialSection(it, activeMat);
                 BuildModelMaterialsList(it);
                 if (it.HasBones) BuildSkeletonSection(it);
+                BuildMorphSection(it);
                 BuildModelSection(it);
             }
+            else if (it.kind == "fx") BuildFxSection(it);
+            else if (it.kind == "text") BuildText3DSection(it);
+            else if (it.kind == "water" || it.kind == "terrain") BuildWorldSection(it);
             else if (it.kind == "video")
             {
                 var vb = Sec("Vídeo", "video");
@@ -197,9 +204,11 @@ namespace Atlas
             }
             else
             {
+                if (it.kind == "flag") BuildWorldSection(it);
                 BuildMaterialSection(it);
                 if (MeshEditable(it)) BuildModellingSection(it);
             }
+            if (!it.IsLight && it.kind != "camera" && it.kind != "model") BuildAnchorSection(it);
             if (!it.IsLight && it.kind != "camera") BuildPhysicsItemSection(it);
             BuildKeysSection(it);
             BuildInfoSection(it);
@@ -420,8 +429,27 @@ namespace Atlas
                 if (it.volumetric)
                     AtlasTheme.SliderRow(box, "Densidad del haz", 0.1f, 4f, it.volIntensity, "0.0", x => { it.volIntensity = x; ApplyLook(it); }, () => Commit(true));
             }
+            BuildGoboSection(it, box);
             if (it.kind != "light")
                 Hint(box, "Gira la luz con la herramienta Girar para apuntarla.");
+        }
+
+        /// Focus on the selected object from the camera the render uses.
+        void FocusOnSelected()
+        {
+            var target0 = selected;
+            if (target0 == null) { Toast("Selecciona el objeto que quieres enfocar"); return; }
+            var rc = RenderCamera();
+            Vector3 from = cam.transform.position;
+            if (rc != null) { Vector3 cp; Quaternion cq; CameraPose(rc, frame, out cp, out cq); from = cp; }
+            var rs = target0.GetComponentsInChildren<Renderer>();
+            Vector3 c = target0.transform.position;
+            if (rs.Length > 0) { var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds); c = b.center; }
+            env.focus = Mathf.Max(0.2f, Vector3.Distance(from, c));
+            ApplyEnv();
+            Commit(true);
+            RefreshProps();
+            Toast("Enfocado a " + env.focus.ToString("0.0") + " m");
         }
 
         void BuildModelSection(AtlasItem it)
@@ -444,13 +472,15 @@ namespace Atlas
                 foreach (var c0 in clips)
                 {
                     string c = c0;
-                    AtlasTheme.Chip(g, c, () =>
+                    // «RIG_Freddy|Freddy_Walk» → «Freddy_Walk» (the rig's name repeated on every clip).
+                    string shown = c.Contains("|") ? c.Substring(c.LastIndexOf('|') + 1) : c;
+                    AtlasTheme.Chip(g, shown, () =>
                     {
                         it.clip = c;
                         it.SampleClip(frame / fps);
                         Commit(true);
                         RefreshProps();
-                        Toast("«" + c + "» suena con la línea de tiempo: pulsa Animar ▶");
+                        Toast("«" + shown + "» se reproduce con la línea de tiempo: pulsa Animar ▶");
                     }, it.clip == c);
                 }
                 Hint(box, "La animación elegida se reproduce con la línea de tiempo y sale en el render.");
@@ -532,9 +562,10 @@ namespace Atlas
             var ic = AtlasTheme.IconImage(head.transform, "folder", 26f, AtlasTheme.AccentLight);
             AtlasTheme.Le(ic.gameObject, 26f, 26f);
             var pn = AtlasTheme.Label(head.transform, store != null ? store.name : "", 18, AtlasTheme.TextColor, true);
+            AtlasTheme.Fit(pn, 12);
             AtlasTheme.Le(pn.gameObject, 40f, -1f, 1f);
             var cnt = AtlasTheme.Label(head.transform, items.Count + (items.Count == 1 ? " objeto" : " objetos"), 14, AtlasTheme.TextDim, false, TextAnchor.MiddleRight);
-            cnt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            AtlasTheme.Fit(cnt, 10);
             AtlasTheme.Le(cnt.gameObject, 40f, 90f);
 
             var amb = Sec("Ambiente rápido (un toque)", "sparkle");
@@ -552,6 +583,29 @@ namespace Atlas
                 }, env.preset == p.id);
             }
 
+            var toonS = Sec("Estilo dibujo (anime)", "edit", false);
+            Hint(toonS, "Toda la escena como un dibujo animado: luz y sombra en bandas y contorno. Cada objeto se ajusta en sus propiedades.");
+            var tg2 = AtlasTheme.Grid(toonS, 2, InnerWidth, 40f);
+            AtlasTheme.TextButton(tg2, "edit", "Estilo dibujo en todo", () => ToonAll(true), true, 40f, 14);
+            AtlasTheme.TextButton(tg2, "undo", "Quitarlo de todo", () => ToonAll(false), false, 40f, 14);
+
+            var sky = Sec("Cielo y hora del día", "sun", false);
+            AtlasTheme.Switch(sky, "Usar la hora del día", env.timeOfDay >= 0f, on => { env.timeOfDay = on ? 12f : -1f; ApplyEnv(); Commit(true); RefreshProps(); });
+            if (env.timeOfDay >= 0f)
+            {
+                AtlasTheme.SliderRow(sky, "Hora", 0f, 24f, env.timeOfDay, "0.0", x => { env.timeOfDay = x; ApplyEnv(); }, () => Commit(true));
+                var tg = AtlasTheme.Grid(sky, 4, InnerWidth, 36f, 4f);
+                string[] tn = { "Amanecer", "Día", "Atardecer", "Noche" };
+                float[] tv = { 6.6f, 12f, 18.4f, 23f };
+                for (int i = 0; i < 4; i++)
+                {
+                    float hv = tv[i];
+                    AtlasTheme.Chip(tg, tn[i], () => { env.timeOfDay = hv; ApplyEnv(); Commit(true); RefreshProps(); }, Mathf.Abs(env.timeOfDay - hv) < 0.05f);
+                }
+            }
+            AtlasTheme.SliderRow(sky, "Nubes", 0f, 1f, env.cloudCover >= 0f ? env.cloudCover : 0.45f, "0.00", x => { env.cloudCover = x; ApplyEnv(); }, () => Commit(true));
+            Hint(sky, "La hora mueve el sol (o la luna), el color del cielo y la luz de la escena.");
+
             var fx = Sec("Efectos de imagen", "image");
             AtlasTheme.SliderRow(fx, "Exposición", -2f, 2f, env.exposure, "0.00", x => { env.exposure = x; ApplyEnv(); }, () => Commit(true));
             AtlasTheme.SliderRow(fx, "Contraste", -50f, 50f, env.contrast, "0", x => { env.contrast = x; ApplyEnv(); }, () => Commit(true));
@@ -560,6 +614,19 @@ namespace Atlas
             AtlasTheme.SliderRow(fx, "Viñeta", 0f, 1f, env.vignette, "0.00", x => { env.vignette = x; ApplyEnv(); }, () => Commit(true));
             AtlasTheme.SliderRow(fx, "Grano", 0f, 1f, env.grain, "0.00", x => { env.grain = x; ApplyEnv(); }, () => Commit(true));
             AtlasTheme.SliderRow(fx, "Niebla", 0f, 0.1f, env.fog, "0.000", x => { env.fog = x; ApplyEnv(); }, () => Commit(true));
+            var cine = AtlasTheme.Label(fx, "Cámara de cine", 15, AtlasTheme.TextColor, true);
+            AtlasTheme.Le(cine.gameObject, 26f);
+            AtlasTheme.Switch(fx, "Desenfoque de fondo (profundidad de campo)", env.dof, on => { env.dof = on; ApplyEnv(); Commit(true); RefreshProps(); });
+            if (env.dof)
+            {
+                AtlasTheme.SliderRow(fx, "Distancia de enfoque (m)", 0.2f, 60f, env.focus, "0.0", x => { env.focus = x; ApplyEnv(); }, () => Commit(true));
+                AtlasTheme.SliderRow(fx, "Cuánto desenfoca", 0f, 1f, env.dofBlur, "0.00", x => { env.dofBlur = x; ApplyEnv(); }, () => Commit(true));
+                AtlasTheme.TextButton(fx, "focus", "Enfocar el objeto seleccionado", FocusOnSelected, false, 42f, 15);
+            }
+            AtlasTheme.SliderRow(fx, "Desenfoque de movimiento", 0f, 1f, env.motionBlur, "0.00", x => { env.motionBlur = x; ApplyEnv(); }, () => Commit(true));
+            AtlasTheme.SliderRow(fx, "Aberración cromática", 0f, 1f, env.chroma, "0.00", x => { env.chroma = x; ApplyEnv(); }, () => Commit(true));
+            AtlasTheme.Switch(fx, "Oclusión ambiental (sombras en rincones y pliegues)", env.ao, on => { env.ao = on; ApplyEnv(); Commit(true); });
+            Hint(fx, "En el render «Cine» la oclusión ambiental siempre está activa, y el desenfoque de fondo y de movimiento se calculan con muchas pasadas (sin granos).");
             AtlasTheme.TextButton(fx, "undo", "Valores del ambiente", () =>
             {
                 Ambience.Reset(env, env.preset);
@@ -568,6 +635,7 @@ namespace Atlas
                 RefreshProps();
             }, false, 42f, 16);
 
+            BuildWeatherSection();
             BuildPhysicsSceneSection();
             var view = Sec("Vista", "view", false);
             AtlasTheme.Switch(view, "Sombras", !env.shadowsOff, on =>
@@ -600,6 +668,7 @@ namespace Atlas
                 var oi = AtlasTheme.IconImage(row.transform, KindIcon(it.kind), 22f, it.visible ? AtlasTheme.AccentLight : AtlasTheme.TextDim);
                 AtlasTheme.Le(oi.gameObject, 22f, 22f);
                 var nl = AtlasTheme.Label(row.transform, it.gameObject.name, 16, it.visible ? AtlasTheme.TextColor : AtlasTheme.TextDim, true);
+                AtlasTheme.Fit(nl, 11);
                 AtlasTheme.Le(nl.gameObject, 46f, -1f, 1f);
                 if (it.locked)
                 {
