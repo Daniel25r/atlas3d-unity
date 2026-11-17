@@ -71,6 +71,7 @@ namespace Atlas
         public Color outlineColor = new Color(0.05f, 0.04f, 0.06f);
         public readonly Dictionary<Material, Material> toonMats = new Dictionary<Material, Material>();
         public FxCustom fx = new FxCustom();   // particle creator settings
+        public System.Collections.Generic.List<Import.PcfFx> pcf = new System.Collections.Generic.List<Import.PcfFx>();   // SFM particles
         public bool renderCam;       // renders are made from this camera
         public string lookAtId = "", followId = "";
         public Vector3 followOffset;

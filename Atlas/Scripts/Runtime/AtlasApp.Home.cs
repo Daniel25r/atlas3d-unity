@@ -355,6 +355,7 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• NUEVO: partículas de Source / SFM (.pcf). Impórtalas como un modelo: cada sistema con sus hijos, tiempos, colores, tamaños, gravedad, giros y atracción. Empiezan en el fotograma donde las añades.\n" +
             "• Estilo dibujo (anime): sombreado en bandas y contorno, en un objeto o en toda la escena.\n" +
             "• Creador de partículas: personaliza cualquier efecto (cantidad, duración, velocidad, tamaño, gravedad, forma, partícula, color, brillo y estela) y nuevo efecto Láser.\n" +
             "• Color de la interfaz a elegir en Preferencias.\n" +
