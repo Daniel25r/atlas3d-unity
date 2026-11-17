@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.2.1";
+        public const string Version = "1.2.2";
 
         Camera cam;
         Light sunLight;
@@ -57,6 +57,7 @@ namespace Atlas
             Screen.orientation = ScreenOrientation.AutoRotation;
             QualitySettings.vSyncCount = 0;
             Prefs.Load();
+            AtlasTheme.ApplyAccent(Prefs.accent);
             Lang.Load(Prefs.lang);
             Input.simulateMouseWithTouches = false;   // a touch is not also a mouse click
             litTemplate = Resources.Load<Material>("AtlasLit");
@@ -345,6 +346,12 @@ namespace Atlas
             it.ik = IkRig.Copy(d.ik);
             it.gobo = d.gobo ?? "";
             it.flicker = d.flicker;
+            it.toon = d.toon;
+            it.outline = d.outline;
+            it.toonSoft = d.toonSoft;
+            it.toonSteps = d.toonSteps > 0 ? d.toonSteps : 2;
+            it.outlineColor = d.outlineColor;
+            it.fx = d.fx != null ? d.fx.Copy() : new FxCustom();
             if (it.loaded) it.ResetMorphs();
             it.morphs = SceneStore.CopyMorphs(d.morphs);
             if (it.loaded) it.ApplyMorphs();
@@ -456,7 +463,7 @@ namespace Atlas
                     r.shadowCastingMode = it.noShadow || env.shadowsOff ? UnityEngine.Rendering.ShadowCastingMode.Off : UnityEngine.Rendering.ShadowCastingMode.On;
             }
             foreach (var c in it.GetComponentsInChildren<Collider>(true)) c.enabled = it.visible;
-            if (it.kind == "model") { if (it.loaded) { ApplyModelMaterials(it); it.ApplyUv(); it.LookChanged(); } return; }
+            if (it.kind == "model") { if (it.loaded) { ApplyModelMaterials(it); it.ApplyUv(); it.LookChanged(); ApplyToon(it); } return; }
             if (it.kind == "fx") { ApplyFxLook(it); return; }
             if (it.kind == "text") { ApplyText3D(it); return; }
             if (it.kind == "flag") { BuildCloth(it); WaveCloth(it, frame / Mathf.Max(1f, fps)); }
@@ -575,6 +582,7 @@ namespace Atlas
                 if (!(r is LineRenderer) && r.gameObject.name != "Volumen") r.sharedMaterial = m;
             it.ApplyUv();
             it.LookChanged();
+            ApplyToon(it);
         }
 
         /// Spotlight lines: a ring where the light reaches (up to 4 m) and
@@ -799,9 +807,39 @@ namespace Atlas
                 count++;
                 string nm = shownName;
                 var d = new ItemData { v = 3, kind = "model", name = string.IsNullOrEmpty(nm) ? "Modelo" : nm, position = new Vector3(target.position.x, 0f, target.position.z), modelFile = file };
-                Select(Create(d));
+                var made = Create(d);
+                Select(made);
                 Commit(true);
+                if (st.missingTex != null && st.missingTex.Length > 0) AskPrismaTextures(made, st.missingTexFrom, st.missingTex, shownName);
             }
+        }
+
+        /// A Prisma3D .proj came without the pictures of its «res» folder:
+        /// ask for them and put the model again, with its textures.
+        void AskPrismaTextures(AtlasItem made, string stored, string[] names, string shownName)
+        {
+            string list = string.Join(", ", names);
+            if (list.Length > 90) list = list.Substring(0, 90) + "…";
+            AtlasTheme.Dialog(canvasRoot, "Faltan las texturas del modelo",
+                "Este proyecto de Prisma3D guarda sus texturas aparte, en la carpeta «res» que está junto al .proj (" + list + ").\n\n" +
+                "Toca «Elegir imágenes», entra en esa carpeta «res» y márcalas todas: el modelo se pondrá con sus texturas.",
+                null, "Elegir imágenes", false, _ =>
+                {
+                    if (NativeFilePicker.IsFilePickerBusy()) return;
+                    NativeFilePicker.PickMultipleFiles(paths =>
+                    {
+                        if (paths == null || paths.Length == 0 || store == null) return;
+                        // The model without textures goes; the new one takes its place.
+                        if (made != null)
+                        {
+                            items.Remove(made);
+                            if (selected == made) Select(null);
+                            Destroy(made.gameObject);
+                        }
+                        ImportWith(s2 => s2.AddMissingFiles(stored, paths), shownName);
+                    }, new string[] { "image/*" });
+                });
+            toastHolder.SetAsLastSibling();
         }
 
         /// Image for a map of the material: "normal" (normal map), "bump"
@@ -934,8 +972,24 @@ namespace Atlas
             RefreshKeys();
         }
 
+        /// The middle of what a model shows (its animation may have walked
+        /// it away from the object's origin).
+        Vector3 VisualCenter(AtlasItem it)
+        {
+            bool any = false;
+            var b = new Bounds(it.transform.position, Vector3.zero);
+            foreach (var r in it.GetComponentsInChildren<Renderer>())
+            {
+                if (!r.enabled || r is ParticleSystemRenderer || r is LineRenderer) continue;
+                if (!any) { b = r.bounds; any = true; }
+                else b.Encapsulate(r.bounds);
+            }
+            return any ? b.center : it.transform.position;
+        }
+
         void ShowGizmo()
         {
+            gizmo.pivot = null;
             if (lookThrough != null) { gizmo.Show(null); return; }
             if (meshMode != "")
             {
@@ -947,6 +1001,11 @@ namespace Atlas
                 var bone = selected != null && activeBone != "" ? selected.Bone(activeBone) : null;
                 gizmo.Show(bone != null && tool != Tool.Select && !playing ? bone : null);
                 return;
+            }
+            if (selected != null && selected.kind == "model")
+            {
+                var sel = selected;
+                gizmo.pivot = () => sel != null ? VisualCenter(sel) : Vector3.zero;
             }
             gizmo.Show(selected != null && !selected.locked && tool != Tool.Select && !playing ? selected.transform : null);
         }

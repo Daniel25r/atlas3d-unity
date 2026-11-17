@@ -213,22 +213,48 @@ namespace Atlas.Import
                     int numVerts = I32(vtx, sg), vertOff = I32(vtx, sg + 4), numIdx = I32(vtx, sg + 8), idxOff = I32(vtx, sg + 12);
                     Need(vtx, sg + vertOff, numVerts * 9, "vtx vértices");
                     Need(vtx, sg + idxOff, numIdx * 2, "vtx índices");
-                    for (int k = 0; k + 2 < numIdx; k += 3)
-                    {
-                        for (int c = 0; c < 3; c++)
+                    // The strips say how the indices make triangles: lists
+                    // (three each) or strips (each new index one more).
+                    int numStrips = I32(vtx, sg + 16), stripOff = I32(vtx, sg + 20);
+                    int stripSize = stride == 33 ? 35 : 27;
+                    var runs = new List<int[]>();   // start, count, isStrip
+                    if (numStrips > 0 && sg + stripOff + numStrips * stripSize <= vtx.Length)
+                        for (int st = 0; st < numStrips; st++)
                         {
-                            int li = U16(vtx, sg + idxOff + (k + c) * 2);
-                            if (li >= numVerts) { li = 0; }
-                            int orig = U16(vtx, sg + vertOff + li * 9 + 4);
-                            int gi = modelFirst + vertexOffset + orig;
-                            uint idx;
-                            if (!remap.TryGetValue(gi, out idx))
-                            {
-                                idx = (uint)(pos.Count / 3);
-                                remap[gi] = idx;
-                                AddVertex(vvd, vertStart, gi < order.Count ? order[gi] : gi, pos, nor, uv, joints, weights, numBones);
-                            }
-                            tris.Add(idx);
+                            int so = sg + stripOff + st * stripSize;
+                            int n = I32(vtx, so), io = I32(vtx, so + 4);
+                            if (n <= 0 || io < 0 || io + n > numIdx) continue;
+                            runs.Add(new[] { io, n, (vtx[so + 18] & 2) != 0 ? 1 : 0 });
+                        }
+                    if (runs.Count == 0) runs.Add(new[] { 0, numIdx, 0 });
+                    System.Func<int, int> corner = k =>
+                    {
+                        int li = U16(vtx, sg + idxOff + k * 2);
+                        if (li >= numVerts) return -1;
+                        int orig = U16(vtx, sg + vertOff + li * 9 + 4);
+                        int gi = modelFirst + vertexOffset + orig;
+                        int vi = gi < order.Count ? order[gi] : gi;
+                        if (vi < 0 || vertStart + (vi + 1) * 48 > vvd.Length) return -1;
+                        uint idx;
+                        if (!remap.TryGetValue(gi, out idx))
+                        {
+                            idx = (uint)(pos.Count / 3);
+                            remap[gi] = idx;
+                            AddVertex(vvd, vertStart, vi, pos, nor, uv, joints, weights, numBones);
+                        }
+                        return (int)idx;
+                    };
+                    foreach (var r in runs)
+                    {
+                        int count = r[2] == 1 ? r[1] - 2 : r[1] / 3;
+                        for (int t = 0; t < count; t++)
+                        {
+                            int k0, k1, k2;
+                            if (r[2] == 1) { k0 = r[0] + t; k1 = r[0] + t + ((t & 1) == 0 ? 1 : 2); k2 = r[0] + t + ((t & 1) == 0 ? 2 : 1); }
+                            else { k0 = r[0] + t * 3; k1 = k0 + 1; k2 = k0 + 2; }
+                            int a0 = corner(k0), a1 = corner(k1), a2 = corner(k2);
+                            if (a0 < 0 || a1 < 0 || a2 < 0 || a0 == a1 || a1 == a2 || a0 == a2) continue;   // broken or empty
+                            tris.Add((uint)a0); tris.Add((uint)a1); tris.Add((uint)a2);
                         }
                     }
                 }
@@ -237,12 +263,44 @@ namespace Atlas.Import
                 mesh.parts.Add(new MPart { material = mats.Get(tex), indices = tris.ToArray() });
             }
             if (mesh.parts.Count == 0) return null;
+            DropStretched(mesh.parts, pos);
+            mesh.parts.RemoveAll(p => p.indices.Length == 0);
+            if (mesh.parts.Count == 0) return null;
             mesh.pos = pos.ToArray();
             mesh.nor = nor.ToArray();
             mesh.uv = uv.ToArray();
             if (numBones > 1) { mesh.joints = joints.ToArray(); mesh.weights = weights.ToArray(); }
             foreach (var part in mesh.parts) MMesh.FixWinding(mesh.pos, mesh.nor, part.indices);
             return mesh;
+        }
+
+        /// Triangles far bigger than the model's normal ones are reading
+        /// mistakes (long dark slivers across the model): they go.
+        static void DropStretched(List<MPart> parts, List<float> pos)
+        {
+            var edges = new List<float>();
+            System.Func<uint, uint, float> len = (a, b) =>
+            {
+                float dx = pos[(int)a * 3] - pos[(int)b * 3], dy = pos[(int)a * 3 + 1] - pos[(int)b * 3 + 1], dz = pos[(int)a * 3 + 2] - pos[(int)b * 3 + 2];
+                return (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            };
+            foreach (var p in parts)
+                for (int i = 0; i + 2 < p.indices.Length; i += 3 * Math.Max(1, p.indices.Length / 30000))
+                    edges.Add(Math.Max(len(p.indices[i], p.indices[i + 1]), Math.Max(len(p.indices[i + 1], p.indices[i + 2]), len(p.indices[i], p.indices[i + 2]))));
+            if (edges.Count < 20) return;
+            edges.Sort();
+            float limit = Math.Max(edges[edges.Count / 2] * 30f, edges[(int)(edges.Count * 0.99f)] * 3f);
+            foreach (var p in parts)
+            {
+                var keep = new List<uint>(p.indices.Length);
+                for (int i = 0; i + 2 < p.indices.Length; i += 3)
+                {
+                    uint a = p.indices[i], b = p.indices[i + 1], c = p.indices[i + 2];
+                    if (Math.Max(len(a, b), Math.Max(len(b, c), len(a, c))) > limit) continue;
+                    keep.Add(a); keep.Add(b); keep.Add(c);
+                }
+                p.indices = keep.ToArray();
+            }
         }
 
         /// The SDK's strip group header has 25 bytes; newer branches (CS:GO,

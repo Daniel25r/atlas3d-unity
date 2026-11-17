@@ -65,6 +65,12 @@ namespace Atlas
         public List<MorphValue> morphs = new List<MorphValue>();   // face / shape sliders set now
         public string gobo = "";         // spotlight: shape it projects (window, blinds, leaves…)
         public float flicker;            // lights: 0 steady .. 1 broken lamp
+        public bool toon;                // «Estilo dibujo»: cel shading + outline
+        public float outline = 1.5f, toonSoft;
+        public int toonSteps = 2;
+        public Color outlineColor = new Color(0.05f, 0.04f, 0.06f);
+        public readonly Dictionary<Material, Material> toonMats = new Dictionary<Material, Material>();
+        public FxCustom fx = new FxCustom();   // particle creator settings
         public bool renderCam;       // renders are made from this camera
         public string lookAtId = "", followId = "";
         public Vector3 followOffset;

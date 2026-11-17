@@ -16,6 +16,7 @@ namespace Atlas
     {
         public static float uiScale = 1f, orbitSens = 1f, gizmoSize = 1f, snapMove = 0.25f, snapAngle = 15f, viewRes = 1f;
         public static bool invertY, showFps, viewShadows = true, viewEffects = true, catchDownloads;
+        public static int accent;
         public static int profile = 2, maxFps = 60, msaa = 4;
         public static string lang = "";
 
@@ -47,6 +48,7 @@ namespace Atlas
             showFps = I("fps", 0) == 1;
             viewShadows = I("viewShadows", 1) == 1;
             catchDownloads = I("catchDownloads", 0) == 1;
+            accent = I("accent", 0);
             viewEffects = I("viewEffects", 1) == 1;
             profile = Mathf.Clamp(I("profile", 2), 0, 3);
             maxFps = I("maxFps", 60);
@@ -69,6 +71,7 @@ namespace Atlas
                 PlayerPrefs.SetInt("atlas.fps", showFps ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.viewShadows", viewShadows ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.catchDownloads", catchDownloads ? 1 : 0);
+                PlayerPrefs.SetInt("atlas.accent", accent);
                 PlayerPrefs.SetInt("atlas.viewEffects", viewEffects ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.profile", profile);
                 PlayerPrefs.SetInt("atlas.maxFps", maxFps);
@@ -283,6 +286,22 @@ namespace Atlas
                 if (code == "ar" && ct != null && Lang.ArabicFont != null) { ct.font = Lang.ArabicFont; ct.text = ArabicShaper.Visual(ArabicShaper.Shape(Lang.Names[i])); }
                 else if (ct != null) ct.text = Lang.Names[i];
             }
+            var al = AtlasTheme.Label(c, "Color de la interfaz", 16, AtlasTheme.TextColor, true);
+            AtlasTheme.Le(al.gameObject, 26f);
+            var ag = AtlasTheme.Grid(c, 4, PrefsInner, 38f);
+            for (int i = 0; i < AtlasTheme.AccentNames.Length; i++)
+            {
+                int k = i;
+                var chip = AtlasTheme.Chip(ag, AtlasTheme.AccentNames[i], () =>
+                {
+                    if (Prefs.accent == k) return;
+                    Prefs.accent = k;
+                    Prefs.Save();
+                    ReloadInterface();
+                }, Prefs.accent == k);
+                var ct = chip.GetComponentInChildren<Text>();
+                if (ct != null) ct.color = AtlasTheme.AccentPreview(k);
+            }
             AtlasTheme.SliderRow(c, "Escala de la interfaz", 0.7f, 1.5f, Prefs.uiScale, "0.00", v => { Prefs.uiScale = v; }, () => { ApplyPrefs(); Prefs.Save(); ShowPrefs(0); });
             PrefHint(c, "Más grande si los botones se ven pequeños; más pequeña para ver más escena. Se aplica al soltar.");
             AtlasTheme.TextButton(c, "help", "Ver la guía de inicio", () => { ClosePrefs(); ShowGuide(); }, false, 44f, 16);
@@ -352,6 +371,13 @@ namespace Atlas
             if (code == Prefs.lang) return;
             Prefs.lang = code;
             Prefs.Save();
+            ReloadInterface();
+        }
+
+        /// The interface built again (language, colours): the open project
+        /// is saved and opened again.
+        void ReloadInterface()
+        {
             string reopen = store != null ? store.name : null;
             if (store != null) SaveNow(false);
             if (reopen != null) PlayerPrefs.SetString("atlas.reopen", reopen);

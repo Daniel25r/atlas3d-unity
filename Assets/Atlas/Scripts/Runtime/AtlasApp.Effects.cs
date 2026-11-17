@@ -11,8 +11,8 @@ namespace Atlas
 {
     public partial class AtlasApp
     {
-        public static readonly string[] FxPresets = { "rain", "snow", "dust", "smoke", "sparks", "fire", "explosion", "bubbles", "confetti", "magic" };
-        public static readonly string[] FxNames = { "Lluvia", "Nieve", "Polvo", "Humo", "Chispas", "Fuego", "Explosión", "Burbujas", "Confeti", "Magia" };
+        public static readonly string[] FxPresets = { "rain", "snow", "dust", "smoke", "sparks", "fire", "explosion", "bubbles", "confetti", "magic", "laser" };
+        public static readonly string[] FxNames = { "Lluvia", "Nieve", "Polvo", "Humo", "Chispas", "Fuego", "Explosión", "Burbujas", "Confeti", "Magia", "Láser" };
 
         readonly Dictionary<ParticleSystem, float> fxTime = new Dictionary<ParticleSystem, float>();
         Material particleTemplate;
@@ -314,6 +314,22 @@ namespace Atlas
                     noise.frequency = 0.8f;
                     r.sharedMaterial = FxMaterial("square", false);
                     break;
+                case "laser":
+                    // A beam of light: very fast stretched sparks in a line.
+                    main.maxParticles = 800;
+                    main.startLifetime = 0.35f;
+                    main.startSpeed = 28f;
+                    main.startSize = 0.09f;
+                    main.startColor = new Color(1f, 0.15f, 0.1f);
+                    em.rateOverTime = 260f * k;
+                    sh.shapeType = ParticleSystemShapeType.Cone;
+                    sh.angle = 0f;
+                    sh.radius = 0.005f;
+                    r.renderMode = ParticleSystemRenderMode.Stretch;
+                    r.velocityScale = 0.02f;
+                    r.lengthScale = 6f;
+                    r.sharedMaterial = FxMaterial("streak", true);
+                    break;
                 default:   // magic
                     main.maxParticles = 600;
                     main.startLifetime = new ParticleSystem.MinMaxCurve(1f, 2f);
@@ -432,7 +448,121 @@ namespace Atlas
             if (it.preset == "explosion")
                 AtlasTheme.TextButton(box, "key", "Explota en el fotograma actual (" + Mathf.RoundToInt(frame) + ")", () => { it.fxStart = Mathf.RoundToInt(frame); ApplyLook(it); Commit(true); RefreshProps(); }, true, 44f, 15);
             AtlasTheme.TextButton(box, "undo", "Otra variación", () => { it.seed = Random.Range(1, 99999); ApplyLook(it); Commit(true); }, false, 42f, 15);
+            BuildFxCreator(it, box);
             Hint(box, "Escálalo con Escalar para que cubra más o menos; gíralo para cambiar hacia dónde sale. Lo que ves al mover la línea de tiempo es justo lo que sale en el render.");
+        }
+
+        // ------------------------------------------------------------------
+        // Particle creator: the preset changed to taste
+
+        static ParticleSystem.MinMaxCurve Times(ParticleSystem.MinMaxCurve c, float k)
+        {
+            switch (c.mode)
+            {
+                case ParticleSystemCurveMode.Constant: return new ParticleSystem.MinMaxCurve(c.constant * k);
+                case ParticleSystemCurveMode.TwoConstants: return new ParticleSystem.MinMaxCurve(c.constantMin * k, c.constantMax * k);
+            }
+            c.curveMultiplier *= k;
+            return c;
+        }
+
+        public static readonly string[] FxShapes = { "", "cone", "sphere", "box", "line" };
+        public static readonly string[] FxShapeNames = { "Original", "Cono", "Esfera", "Caja", "Línea" };
+        public static readonly string[] FxTexs = { "", "dot", "puff", "streak", "star", "square", "bubble" };
+        public static readonly string[] FxTexNames = { "Original", "Punto", "Humo", "Chispa", "Estrella", "Cuadrado", "Burbuja" };
+        static readonly Color[] FxColors = { new Color(1, 1, 1, 0), Color.white, new Color(1f, 0.15f, 0.1f), new Color(1f, 0.55f, 0.1f), new Color(1f, 0.9f, 0.2f), new Color(0.3f, 1f, 0.35f), new Color(0.2f, 0.85f, 1f), new Color(0.25f, 0.4f, 1f), new Color(0.7f, 0.35f, 1f), new Color(1f, 0.35f, 0.8f) };
+        static readonly string[] FxColorNames = { "Original", "Blanco", "Rojo", "Naranja", "Amarillo", "Verde", "Cian", "Azul", "Violeta", "Rosa" };
+
+        void ApplyFxCustom(ParticleSystem ps, FxCustom c)
+        {
+            var main = ps.main;
+            main.startLifetime = Times(main.startLifetime, Mathf.Max(0.05f, c.life));
+            main.startSpeed = Times(main.startSpeed, Mathf.Max(0f, c.speed));
+            main.startSize = Times(main.startSize, Mathf.Max(0.05f, c.size));
+            main.gravityModifier = main.gravityModifier.constant + c.gravity;
+            var em = ps.emission;
+            em.rateOverTime = Times(em.rateOverTime, Mathf.Max(0f, c.rate));
+            main.maxParticles = Mathf.Clamp(Mathf.RoundToInt(main.maxParticles * Mathf.Max(1f, c.rate * c.life)), 50, 5000);
+            var sh = ps.shape;
+            switch (c.shape)
+            {
+                case "cone": sh.shapeType = ParticleSystemShapeType.Cone; break;
+                case "sphere": sh.shapeType = ParticleSystemShapeType.Sphere; break;
+                case "box": sh.shapeType = ParticleSystemShapeType.Box; break;
+                case "line": sh.shapeType = ParticleSystemShapeType.SingleSidedEdge; sh.radius = 1f; break;
+            }
+            if (c.spread >= 0f && sh.shapeType == ParticleSystemShapeType.Cone) sh.angle = c.spread;
+            if (c.color.a >= 0.5f)
+            {
+                main.startColor = new Color(c.color.r, c.color.g, c.color.b, 1f);
+                var col = ps.colorOverLifetime;
+                if (col.enabled)
+                {
+                    // Keep how it fades, drop the preset's own colours.
+                    var g = col.color.gradient;
+                    if (g != null)
+                    {
+                        var ng = new Gradient();
+                        ng.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, g.alphaKeys);
+                        col.color = ng;
+                    }
+                }
+            }
+            var r = ps.GetComponent<ParticleSystemRenderer>();
+            bool add = r.sharedMaterial != null && r.sharedMaterial.HasProperty("_SrcBlend") && r.sharedMaterial.GetFloat("_SrcBlend") == 1f;
+            if (c.glow == 1) add = true; else if (c.glow == 2) add = false;
+            string tex = c.tex;
+            if (tex != "" || c.glow != 0) r.sharedMaterial = FxMaterial(tex != "" ? tex : CurrentFxTex(r), add);
+            if (c.trail)
+            {
+                r.renderMode = ParticleSystemRenderMode.Stretch;
+                r.velocityScale = 0.06f;
+                r.lengthScale = 2f;
+            }
+        }
+
+        string CurrentFxTex(ParticleSystemRenderer r)
+        {
+            var t = r.sharedMaterial != null ? r.sharedMaterial.GetTexture("_BaseMap") : null;
+            foreach (var kv in fxTex) if (kv.Value == t) return kv.Key;
+            return "dot";
+        }
+
+        void BuildFxCreator(AtlasItem it, Transform box)
+        {
+            var c = it.fx;
+            AtlasTheme.Switch(box, "Personalizar (creador de partículas)", c.on, on => { c.on = on; ApplyLook(it); Commit(true); RefreshProps(); });
+            if (!c.on) return;
+            AtlasTheme.SliderRow(box, "Cuántas (×)", 0f, 5f, c.rate, "0.0", x => c.rate = x, () => { ApplyLook(it); Commit(true); });
+            AtlasTheme.SliderRow(box, "Duración (×)", 0.1f, 5f, c.life, "0.0", x => c.life = x, () => { ApplyLook(it); Commit(true); });
+            AtlasTheme.SliderRow(box, "Velocidad (×)", 0f, 5f, c.speed, "0.0", x => c.speed = x, () => { ApplyLook(it); Commit(true); });
+            AtlasTheme.SliderRow(box, "Tamaño (×)", 0.1f, 5f, c.size, "0.0", x => c.size = x, () => { ApplyLook(it); Commit(true); });
+            AtlasTheme.SliderRow(box, "Gravedad", -2f, 2f, c.gravity, "0.00", x => c.gravity = x, () => { ApplyLook(it); Commit(true); });
+            AtlasTheme.SliderRow(box, "Apertura (°)", -1f, 90f, c.spread, "0", x => c.spread = x, () => { ApplyLook(it); Commit(true); });
+            var l1 = AtlasTheme.Label(box, "Forma de salida", 15, AtlasTheme.TextColor, true);
+            AtlasTheme.Le(l1.gameObject, 24f);
+            var g1 = AtlasTheme.Grid(box, 3, InnerWidth, 34f, 4f);
+            for (int i = 0; i < FxShapes.Length; i++) { string v = FxShapes[i]; AtlasTheme.Chip(g1, FxShapeNames[i], () => { c.shape = v; ApplyLook(it); Commit(true); RefreshProps(); }, c.shape == v); }
+            var l2 = AtlasTheme.Label(box, "Partícula", 15, AtlasTheme.TextColor, true);
+            AtlasTheme.Le(l2.gameObject, 24f);
+            var g2 = AtlasTheme.Grid(box, 3, InnerWidth, 34f, 4f);
+            for (int i = 0; i < FxTexs.Length; i++) { string v = FxTexs[i]; AtlasTheme.Chip(g2, FxTexNames[i], () => { c.tex = v; ApplyLook(it); Commit(true); RefreshProps(); }, c.tex == v); }
+            var l3 = AtlasTheme.Label(box, "Color", 15, AtlasTheme.TextColor, true);
+            AtlasTheme.Le(l3.gameObject, 24f);
+            var g3 = AtlasTheme.Grid(box, 3, InnerWidth, 34f, 4f);
+            for (int i = 0; i < FxColors.Length; i++)
+            {
+                var v = FxColors[i];
+                bool on = (c.color.a >= 0.5f) == (v.a >= 0.5f) && (v.a < 0.5f || Mathf.Abs(c.color.r - v.r) + Mathf.Abs(c.color.g - v.g) + Mathf.Abs(c.color.b - v.b) < 0.03f);
+                var chip = AtlasTheme.Chip(g3, FxColorNames[i], () => { c.color = v; ApplyLook(it); Commit(true); RefreshProps(); }, on);
+                if (v.a >= 0.5f) chip.GetComponentInChildren<UnityEngine.UI.Text>().color = v;
+            }
+            var g4 = AtlasTheme.Grid(box, 3, InnerWidth, 34f, 4f);
+            AtlasTheme.Chip(g4, "Brillo: original", () => { c.glow = 0; ApplyLook(it); Commit(true); RefreshProps(); }, c.glow == 0);
+            AtlasTheme.Chip(g4, "Que brille", () => { c.glow = 1; ApplyLook(it); Commit(true); RefreshProps(); }, c.glow == 1);
+            AtlasTheme.Chip(g4, "Sin brillo", () => { c.glow = 2; ApplyLook(it); Commit(true); RefreshProps(); }, c.glow == 2);
+            AtlasTheme.Switch(box, "Estela (partículas alargadas)", c.trail, on => { c.trail = on; ApplyLook(it); Commit(true); });
+            AtlasTheme.TextButton(box, "undo", "Volver al efecto original", () => { it.fx = new FxCustom { on = true }; ApplyLook(it); Commit(true); RefreshProps(); }, false, 40f, 14);
         }
 
         void ApplyFxLook(AtlasItem it)
@@ -440,6 +570,7 @@ namespace Atlas
             var ps = it.GetComponent<ParticleSystem>();
             if (ps == null) return;
             ConfigureFx(ps, it.preset, it.amount, it.seed, false);
+            if (it.fx != null && it.fx.on) ApplyFxCustom(ps, it.fx);
             var mark = it.transform.Find("Marca");
             if (mark != null)
             {
@@ -540,5 +671,18 @@ namespace Atlas
             }
             Hint(box, "La lluvia y la nieve van siempre alrededor de la cámara; la tormenta hace relámpagos. Todo se mueve con la línea de tiempo y sale en el render.");
         }
+    }
+
+    /// The particle creator's changes over an effect preset.
+    [System.Serializable]
+    public class FxCustom
+    {
+        public bool on;
+        public float rate = 1f, life = 1f, speed = 1f, size = 1f, gravity, spread = -1f;
+        public string shape = "", tex = "";
+        public Color color = new Color(1f, 1f, 1f, 0f);
+        public int glow;          // 0 as the preset, 1 glows (additive), 2 no glow
+        public bool trail;
+        public FxCustom Copy() { return (FxCustom)MemberwiseClone(); }
     }
 }

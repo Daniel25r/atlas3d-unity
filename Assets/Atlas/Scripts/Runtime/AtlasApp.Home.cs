@@ -355,12 +355,11 @@ namespace Atlas
         }
 
         const string WhatsNew =
-            "• Prisma3D: se importan los proyectos que guardan todo en un solo archivo (antes salía «Faltan las mallas del proyecto»).\n" +
-            "• Modelos de Minecraft: proyectos de Blockbench (.bbmodel) y geometrías Bedrock (.geo.json) con sus huesos y texturas nítidas.\n" +
-            "• Las texturas pequeñas (pixel art) ya no salen borrosas.\n" +
-            "• Mis modelos: guarda un objeto con sus texturas y materiales y úsalo en cualquier proyecto (Añadir → Mis modelos).\n" +
-            "• Los textos ya no se salen de botones, pestañas ni paneles, y las notas largas no se montan encima.\n" +
-            "• Arreglos en la lista de objetos, la barra de estado del PC y las descargas.";
+            "• Estilo dibujo (anime): sombreado en bandas y contorno, en un objeto o en toda la escena.\n" +
+            "• Creador de partículas: personaliza cualquier efecto (cantidad, duración, velocidad, tamaño, gravedad, forma, partícula, color, brillo y estela) y nuevo efecto Láser.\n" +
+            "• Color de la interfaz a elegir en Preferencias.\n" +
+            "• Modelos de Source (.mdl): ya no salen rayas negras atravesando el modelo.\n" +
+            "• Prisma3D en un solo archivo, modelos de Minecraft, Mis modelos y textos que ya no se salen (1.2.1).";
 
         /// Once per version: what it brings.
         void ShowWhatsNew()

@@ -63,6 +63,11 @@ namespace Atlas
         public List<MorphValue> morphs = new List<MorphValue>();
         public string gobo = "";
         public float flicker;
+        public bool toon;
+        public float outline = 1.5f, toonSoft;
+        public int toonSteps = 2;
+        public Color outlineColor = new Color(0.05f, 0.04f, 0.06f);
+        public FxCustom fx = new FxCustom();
         public string normalMap = "", emissionMap = "";
         public float bumpStrength = 1f;
         public string lookAtId = "", followId = "";
@@ -333,6 +338,12 @@ namespace Atlas
                     morphs = CopyMorphs(it.morphs),
                     gobo = it.gobo ?? "",
                     flicker = it.flicker,
+                    toon = it.toon,
+                    outline = it.outline,
+                    toonSoft = it.toonSoft,
+                    toonSteps = it.toonSteps,
+                    outlineColor = it.outlineColor,
+                    fx = it.fx != null ? it.fx.Copy() : new FxCustom(),
                     normalMap = it.normalMap ?? "",
                     emissionMap = it.emissionMap ?? "",
                     bumpStrength = it.bumpStrength,
@@ -481,10 +492,17 @@ namespace Atlas
             return ConvertStored(name);
         }
 
+        /// After an import: the Prisma3D project it came from and the pictures
+        /// it could not find (asked for afterwards).
+        public string missingTexFrom = "";
+        public string[] missingTex = new string[0];
+
         /// Other formats become one GLB with everything inside.
         string ConvertStored(string name)
         {
             string inExt = Path.GetExtension(name).ToLowerInvariant();
+            missingTex = new string[0];
+            missingTexFrom = "";
             if (System.Array.IndexOf(Import.ModelConverter.Convertible, inExt) >= 0)
             {
                 string full = Path.Combine(ModelsDir, name);
@@ -495,6 +513,11 @@ namespace Atlas
                     e.folder = Path.GetDirectoryName(full);
                     e.file = name;
                     throw;
+                }
+                if (inExt == ".prisma" || inExt == ".proj" || inExt == ".pobject")
+                {
+                    missingTex = Import.PrismaImport.MissingTextures.ToArray();
+                    missingTexFrom = name;
                 }
                 if (glb != null) name = Path.GetDirectoryName(name).Replace('\\', '/') + (Path.GetDirectoryName(name) != "" ? "/" : "") + Path.GetFileName(glb);
             }

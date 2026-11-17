@@ -26,6 +26,12 @@ namespace Atlas
         public Material unlitTemplate;
         public Tool tool = Tool.Move;
         public Transform target;
+        /// Where the handles are drawn (models: the middle of what is seen,
+        /// which an animation can carry far from the object's origin).
+        public System.Func<Vector3> pivot;
+        Vector3 startPivot;
+
+        Vector3 Pivot { get { return pivot != null ? pivot() : target.position; } }
         public float pxScale = 1f;   // logical -> screen pixels (canvas scale)
         public bool snap;            // «Imán»: 0.25 m, 15°, ×0.1 (Preferencias)
         public float sizeMul = 1f, snapMove = 0.25f, snapAngle = 15f;
@@ -149,10 +155,11 @@ namespace Atlas
                 if (gameObject.activeSelf) gameObject.SetActive(false);
                 return;
             }
-            transform.position = target.position;
+            Vector3 at = Pivot;
+            transform.position = at;
             // Moving uses the world axes; turning and stretching the object's own.
             transform.rotation = tool == Tool.Move ? Quaternion.identity : target.rotation;
-            float d = Mathf.Max(0.001f, Vector3.Dot(target.position - cam.transform.position, cam.transform.forward));
+            float d = Mathf.Max(0.001f, Vector3.Dot(at - cam.transform.position, cam.transform.forward));
             float worldH = 2f * d * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
             float s = worldH * BaseSizePx * sizeMul * pxScale / Mathf.Max(1f, Screen.height);
             transform.localScale = Vector3.one * s;
@@ -241,6 +248,7 @@ namespace Atlas
             active = h;
             s0 = screen;
             startPos = target.position;
+            startPivot = Pivot;
             startRot = target.rotation;
             startScale = target.localScale;
             Colors();
@@ -263,9 +271,16 @@ namespace Atlas
                     Vector3 axis = startRot * (active == 0 ? Vector3.right : active == 1 ? Vector3.up : Vector3.forward);
                     float ang = AxisRotation(axis, s0, s1);
                     if (snap) ang = Snap(ang, snapAngle);
-                    target.rotation = Quaternion.AngleAxis(ang, axis) * startRot;
+                    var q = Quaternion.AngleAxis(ang, axis);
+                    target.rotation = q * startRot;
+                    target.position = startPivot + q * (startPos - startPivot);   // turns around the handles
                 }
-                else target.rotation = FreeRotation(s0, s1) * startRot;
+                else
+                {
+                    var q = FreeRotation(s0, s1);
+                    target.rotation = q * startRot;
+                    target.position = startPivot + q * (startPos - startPivot);
+                }
             }
             else
             {
@@ -277,7 +292,11 @@ namespace Atlas
                     s[active] = startScale[active] * f;
                     target.localScale = s;
                 }
-                else target.localScale = startScale * f;
+                else
+                {
+                    target.localScale = startScale * f;
+                    target.position = startPivot + (startPos - startPivot) * f;   // grows around the handles
+                }
             }
         }
 

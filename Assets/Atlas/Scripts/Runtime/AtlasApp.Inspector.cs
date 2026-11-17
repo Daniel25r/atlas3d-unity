@@ -177,6 +177,7 @@ namespace Atlas
                 AtlasTheme.TextButton(head.transform, "save", "Guardar en Mis modelos", () => SaveToLibrary(it), false, 40f, 15);
 
             BuildTransformSection(it);
+            BuildToonSection(it);
             if (!it.IsLight && it.kind != "camera")
             {
                 var sh = Sec("Sombra", "light", false);
@@ -471,13 +472,15 @@ namespace Atlas
                 foreach (var c0 in clips)
                 {
                     string c = c0;
-                    AtlasTheme.Chip(g, c, () =>
+                    // «RIG_Freddy|Freddy_Walk» → «Freddy_Walk» (the rig's name repeated on every clip).
+                    string shown = c.Contains("|") ? c.Substring(c.LastIndexOf('|') + 1) : c;
+                    AtlasTheme.Chip(g, shown, () =>
                     {
                         it.clip = c;
                         it.SampleClip(frame / fps);
                         Commit(true);
                         RefreshProps();
-                        Toast("«" + c + "» suena con la línea de tiempo: pulsa Animar ▶");
+                        Toast("«" + shown + "» se reproduce con la línea de tiempo: pulsa Animar ▶");
                     }, it.clip == c);
                 }
                 Hint(box, "La animación elegida se reproduce con la línea de tiempo y sale en el render.");
@@ -579,6 +582,12 @@ namespace Atlas
                     Toast("Ambiente: " + p.name);
                 }, env.preset == p.id);
             }
+
+            var toonS = Sec("Estilo dibujo (anime)", "edit", false);
+            Hint(toonS, "Toda la escena como un dibujo animado: luz y sombra en bandas y contorno. Cada objeto se ajusta en sus propiedades.");
+            var tg2 = AtlasTheme.Grid(toonS, 2, InnerWidth, 40f);
+            AtlasTheme.TextButton(tg2, "edit", "Estilo dibujo en todo", () => ToonAll(true), true, 40f, 14);
+            AtlasTheme.TextButton(tg2, "undo", "Quitarlo de todo", () => ToonAll(false), false, 40f, 14);
 
             var sky = Sec("Cielo y hora del día", "sun", false);
             AtlasTheme.Switch(sky, "Usar la hora del día", env.timeOfDay >= 0f, on => { env.timeOfDay = on ? 12f : -1f; ApplyEnv(); Commit(true); RefreshProps(); });

@@ -16,10 +16,31 @@ namespace Atlas
         public static readonly Color Panel2 = Hex("1d2027");
         public static readonly Color Panel3 = Hex("262a33");
         public static readonly Color Viewport = Hex("3a3d47");
-        public static readonly Color Accent = Hex("b25cff");
-        public static readonly Color AccentButton = Hex("7b2fd6");
-        public static readonly Color AccentDim = Hex("4a2a75");
-        public static readonly Color AccentLight = Hex("d8b4ff");
+        // The interface colour (Preferencias → Color de la interfaz).
+        public static Color Accent = Hex("b25cff");
+        public static Color AccentButton = Hex("7b2fd6");
+        public static Color AccentDim = Hex("4a2a75");
+        public static Color AccentLight = Hex("d8b4ff");
+
+        public static readonly string[] AccentNames = { "Morado", "Azul", "Cian", "Verde", "Amarillo", "Naranja", "Rojo", "Rosa" };
+        static readonly float[] AccentHues = { -1f, 0.6f, 0.52f, 0.38f, 0.13f, 0.07f, 0.0f, 0.9f };
+
+        /// The accent colours from a hue (0 = ATLAS purple as designed).
+        public static void ApplyAccent(int i)
+        {
+            if (i <= 0 || i >= AccentHues.Length) return;
+            float h = AccentHues[i];
+            Accent = Color.HSVToRGB(h, 0.64f, 1f);
+            AccentButton = Color.HSVToRGB(h, 0.78f, h > 0.1f && h < 0.2f ? 0.66f : 0.82f);
+            AccentDim = Color.HSVToRGB(h, 0.64f, 0.44f);
+            AccentLight = Color.HSVToRGB(h, 0.3f, 1f);
+        }
+
+        public static Color AccentPreview(int i)
+        {
+            if (i <= 0 || i >= AccentHues.Length) return Hex("b25cff");
+            return Color.HSVToRGB(AccentHues[i], 0.64f, 1f);
+        }
         public static readonly Color TextColor = Hex("e8eaf0");
         public static readonly Color TextDim = Hex("959ba7");
         public static readonly Color Danger = Hex("e5484d");

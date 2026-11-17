@@ -57,8 +57,13 @@ namespace Atlas.Import
         // Entry point
 
         /// .prisma (zip), .proj or .pobject -> model.
+        /// Pictures the last project asked for but did not bring (a .proj
+        /// picked without its «res» folder).
+        public static readonly List<string> MissingTextures = new List<string>();
+
         public static MModel Load(string path)
         {
+            MissingTextures.Clear();
             byte[] head = new byte[8];
             using (var f = File.OpenRead(path)) f.Read(head, 0, 8);
             string projPath = path;
@@ -617,6 +622,7 @@ namespace Atlas.Import
                 {
                     ti = -1;
                     var img = FbxImport.FindImage(Path.Combine(rootDir, tex), Path.Combine("res", Path.GetFileName(tex)), rootDir);
+                    if (img == null && !MissingTextures.Contains(Path.GetFileName(tex))) MissingTextures.Add(Path.GetFileName(tex));
                     if (img != null)
                     {
                         m.textures.Add(new MTexture { data = img, mime = MModel.ImageMime(img) });
