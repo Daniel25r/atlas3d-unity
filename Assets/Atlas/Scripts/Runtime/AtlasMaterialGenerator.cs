@@ -76,6 +76,9 @@ namespace Atlas
             c.a = baseColor.a;
             m.SetColor("_BaseColor", c);
             Texture2D baseTex = pbr != null ? Tex(gltf, pbr.BaseColorTexture) : null;
+            // Pixel art (Minecraft, Blockbench, retro): small textures stay
+            // sharp instead of turning into a blur.
+            if (baseTex != null && baseTex.width <= 128 && baseTex.height <= 128) baseTex.filterMode = FilterMode.Point;
             m.SetTexture("_BaseMap", baseTex);
             float metal = pbr != null ? pbr.metallicFactor : 0f;
             float rough = pbr != null ? pbr.roughnessFactor : 1f;

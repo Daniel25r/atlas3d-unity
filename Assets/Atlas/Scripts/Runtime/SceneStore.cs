@@ -501,7 +501,7 @@ namespace Atlas
             return name;
         }
 
-        static readonly string[] MainOrder = { ".prisma", ".glb", ".gltf", ".proj", ".fbx", ".mdl", ".gma", ".obj", ".3ds", ".blend", ".zip", ".ply", ".stl", ".pobject" };
+        static readonly string[] MainOrder = { ".prisma", ".glb", ".gltf", ".proj", ".fbx", ".mdl", ".gma", ".bbmodel", ".obj", ".3ds", ".blend", ".zip", ".ply", ".stl", ".json", ".pobject" };
 
         /// Several files picked together (a .proj with its .pobject files, an
         /// OBJ with its MTL and textures, a glTF with its .bin…): all of them

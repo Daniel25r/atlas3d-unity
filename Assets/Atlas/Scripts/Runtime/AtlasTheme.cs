@@ -150,6 +150,19 @@ namespace Atlas
             return t;
         }
 
+        /// Text that always fits its box: the letters shrink (down to `min`)
+        /// instead of spilling out of buttons and panels (long Spanish,
+        /// English or Arabic texts).
+        public static void Fit(Text t, int min)
+        {
+            if (t == null) return;
+            t.horizontalOverflow = HorizontalWrapMode.Wrap;
+            t.verticalOverflow = VerticalWrapMode.Truncate;
+            t.resizeTextForBestFit = true;
+            t.resizeTextMaxSize = t.fontSize;
+            t.resizeTextMinSize = Mathf.Max(8, Mathf.Min(min, t.fontSize));
+        }
+
         static Button MakeButton(Image img, UnityAction onClick)
         {
             var b = img.gameObject.AddComponent<Button>();
@@ -207,7 +220,8 @@ namespace Atlas
         public static Button TextButton(Transform parent, string icon, string text, UnityAction onClick, bool accent = false, float height = 50f, int fontSize = 19, float width = 0f)
         {
             var img = Box(parent, "Boton", accent ? AccentButton : Panel3, 12);
-            float w = width > 0f ? width : (icon != null ? 52f : 28f) + text.Length * 10.4f;
+            string shown = Lang.T(text ?? "");
+            float w = width > 0f ? width : (icon != null ? 52f : 28f) + shown.Length * fontSize * 0.56f;
             Size(img.gameObject, w, height);
             var b = MakeButton(img, onClick);
             var row = img.gameObject.AddComponent<HorizontalLayoutGroup>();
@@ -226,7 +240,7 @@ namespace Atlas
                 le.preferredHeight = 24f;
             }
             var t = Label(img.transform, text, fontSize, TextColor, true);
-            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            Fit(t, fontSize - 7);
             var tle = t.gameObject.AddComponent<LayoutElement>();
             tle.preferredHeight = height;
             tle.flexibleWidth = 1f;
@@ -328,7 +342,15 @@ namespace Atlas
         {
             var le = go.GetComponent<LayoutElement>();
             if (le == null) le = go.AddComponent<LayoutElement>();
-            if (height >= 0f) { le.preferredHeight = height; le.minHeight = height; }
+            if (height >= 0f)
+            {
+                le.minHeight = height;
+                // A wrapping text grows with its lines instead of being drawn
+                // over what is below it; everything else has this height.
+                var tx = go.GetComponent<Text>();
+                bool grows = tx != null && tx.horizontalOverflow == HorizontalWrapMode.Wrap && !tx.resizeTextForBestFit;
+                le.preferredHeight = grows ? -1f : height;
+            }
             if (width >= 0f) { le.preferredWidth = width; le.minWidth = width; }
             if (flexWidth >= 0f) le.flexibleWidth = flexWidth;
             return le;
@@ -397,8 +419,9 @@ namespace Atlas
                 Le(ic.gameObject, 20f, 20f);
             }
             var t = Label(head.transform, title.ToUpperInvariant(), 15, TextColor, true);
-            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            Fit(t, 10);
             Le(t.gameObject, 42f, -1f, 1f);
+            t.GetComponent<LayoutElement>().preferredHeight = 42f;
             var body = Rect(sec, "Cuerpo");
             var bc = Column(body.gameObject, 8f, new RectOffset(4, 4, 2, 4));
             bc.childForceExpandWidth = true;
@@ -422,7 +445,9 @@ namespace Atlas
             if (label != null)
             {
                 var l = Label(row.transform, label, 16, TextDim);
+                Fit(l, 10);
                 Le(l.gameObject, height, labelWidth);
+                l.GetComponent<LayoutElement>().preferredHeight = height;
             }
             return row.transform;
         }
@@ -490,7 +515,9 @@ namespace Atlas
             Row(row.gameObject, 8f, new RectOffset(0, 0, 0, 0));
             var b = MakeButton(row, null);
             var l = Label(row.transform, label, 16, TextColor);
+            Fit(l, 11);
             Le(l.gameObject, 42f, -1f, 1f);
+            l.GetComponent<LayoutElement>().preferredHeight = 42f;
             var pill = Box(row.transform, "Pastilla", on ? AccentButton : Panel3, 14);
             pill.raycastTarget = false;
             Le(pill.gameObject, 28f, 50f);

@@ -770,6 +770,17 @@ namespace Atlas.Import
         // ------------------------------------------------------------------
         // Scene
 
+        /// Objects written in the project itself ([id, name, components,
+        /// parent, …] with number ids) and a mesh list after the materials.
+        static bool Embedded(List<object> e)
+        {
+            var objs = L(e[1]);
+            var first = L(objs[0]);
+            if (first == null || first.Count < 4 || first[0] is string || L(first[2]) == null) return false;
+            var m0 = L(L(e[3])[0]);
+            return m0 != null && (m0.Count == 9 || m0.Count == 11) && L(m0[1]) != null;
+        }
+
         static bool IsContent(object v)
         {
             var a = L(v);
@@ -830,6 +841,33 @@ namespace Atlas.Import
         {
             var proj = Decode(File.ReadAllBytes(projPath));
             object loneContent = null;
+            // Single-file projects (other Prisma3D versions): no «content»
+            // folder; [settings, objects, materials, meshes] all in the .proj,
+            // meshes without the edge lists.
+            var E = L(proj);
+            if (E != null && E.Count >= 4 && L(E[1]) != null && L(E[3]) != null && L(E[3]).Count > 0 && Embedded(E))
+            {
+                var meshes = new List<object>();
+                foreach (var md0 in L(E[3]))
+                {
+                    var md = L(md0);
+                    if (md == null) continue;
+                    if (md.Count == 9)
+                        meshes.Add(new List<object> { md[0], md[1], md[2], md[3], md[4], md[5], new List<object>(), new List<object>(), md[6], md[7], md[8] });
+                    else meshes.Add(md);
+                }
+                object rootId = null;
+                string rootName = "Prisma3D";
+                foreach (var o0 in L(E[1]))
+                {
+                    var o = L(o0);
+                    if (o == null || o.Count < 4) continue;
+                    if (Num(o[3], -1) < 0) { rootId = o[0]; rootName = o[1] as string ?? rootName; break; }
+                }
+                if (rootId == null) rootId = L(L(E[1])[0])[0];
+                loneContent = new List<object> { Sid(rootId), E[1], meshes };
+                proj = new List<object> { E[0], new List<object> { new List<object> { Sid(rootId), rootName, new List<object>() } }, E[2] };
+            }
             if (IsContent(proj))
             {
                 // A content file on its own: one root object, no materials.

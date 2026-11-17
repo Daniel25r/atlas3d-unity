@@ -13,7 +13,7 @@ namespace Atlas.Import
 {
     public static class ModelConverter
     {
-        public static readonly string[] Convertible = { ".fbx", ".obj", ".3ds", ".blend", ".prisma", ".proj", ".pobject", ".mdl" };
+        public static readonly string[] Convertible = { ".fbx", ".obj", ".3ds", ".blend", ".prisma", ".proj", ".pobject", ".mdl", ".bbmodel", ".json" };
 
         /// Converts `path` (inside the project) to a .glb next to it and
         /// returns the GLB's path, or null to keep the file as it is.
@@ -37,6 +37,11 @@ namespace Atlas.Import
                     break;
                 case ".mdl":
                     m = SourceMdlImport.Load(path);
+                    break;
+                case ".bbmodel":
+                case ".json":
+                    if (!BlockbenchImport.LooksMinecraft(path)) throw new Exception("ese .json no es un modelo de Minecraft (Bedrock .geo.json) ni de Blockbench");
+                    m = BlockbenchImport.Load(path);
                     break;
                 case ".prisma":
                 case ".proj":

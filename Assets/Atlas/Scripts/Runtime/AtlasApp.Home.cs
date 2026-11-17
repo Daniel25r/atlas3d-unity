@@ -219,8 +219,7 @@ namespace Atlas
             }
 
             var nl = AtlasTheme.Label(card.transform, name, 17, AtlasTheme.TextColor, true);
-            nl.horizontalOverflow = HorizontalWrapMode.Wrap;
-            nl.verticalOverflow = VerticalWrapMode.Truncate;
+            AtlasTheme.Fit(nl, 12);
             AtlasTheme.Pin(nl.rectTransform, 0f, 0f, new Vector2(12f, 34f), new Vector2(180f, 26f));
             var dl = AtlasTheme.Label(card.transform, PrettyDate(p.modified), 14, AtlasTheme.TextDim);
             AtlasTheme.Pin(dl.rectTransform, 0f, 0f, new Vector2(12f, 10f), new Vector2(180f, 22f));
@@ -251,6 +250,7 @@ namespace Atlas
             card.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             card.gameObject.AddComponent<Button>().transition = Selectable.Transition.None;
             var t = AtlasTheme.Label(card.transform, name, 19, AtlasTheme.TextColor, true);
+            AtlasTheme.Fit(t, 12);
             AtlasTheme.Le(t.gameObject, 30f);
             AtlasTheme.TextButton(card.transform, "folder", "Abrir", () => { Destroy(go); OpenProject(name); }, true, 48f);
             AtlasTheme.TextButton(card.transform, "edit", "Cambiar nombre…", () => { Destroy(go); RenameProject(name); }, false, 48f);
@@ -355,12 +355,12 @@ namespace Atlas
         }
 
         const string WhatsNew =
-            "• Importa modelos de Source Filmmaker y Garry's Mod (.mdl con sus texturas, y addons .gma).\n" +
-            "• Descargas y biblioteca: descarga modelos desde un enlace (Drive, Dropbox…), atrapa lo que bajas con el navegador (PC) y descarga creaciones del Workshop de ATLAS.\n" +
-            "• Pintura de pesos: elige un hueso y pinta cuánto mueve cada parte (sumar, restar, suavizar, fijar, espejo).\n" +
-            "• Cielo con hora del día: amanecer, día, atardecer y noche con luna; nubes ajustables.\n" +
-            "• Reducir claves en las herramientas de movimiento.\n" +
-            "• PC: contador de triángulos y vértices, panel lateral que se oculta (N) y arreglos de la interfaz.";
+            "• Prisma3D: se importan los proyectos que guardan todo en un solo archivo (antes salía «Faltan las mallas del proyecto»).\n" +
+            "• Modelos de Minecraft: proyectos de Blockbench (.bbmodel) y geometrías Bedrock (.geo.json) con sus huesos y texturas nítidas.\n" +
+            "• Las texturas pequeñas (pixel art) ya no salen borrosas.\n" +
+            "• Mis modelos: guarda un objeto con sus texturas y materiales y úsalo en cualquier proyecto (Añadir → Mis modelos).\n" +
+            "• Los textos ya no se salen de botones, pestañas ni paneles, y las notas largas no se montan encima.\n" +
+            "• Arreglos en la lista de objetos, la barra de estado del PC y las descargas.";
 
         /// Once per version: what it brings.
         void ShowWhatsNew()

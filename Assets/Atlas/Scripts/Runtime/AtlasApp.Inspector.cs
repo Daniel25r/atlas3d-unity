@@ -173,6 +173,8 @@ namespace Atlas
             AtlasTheme.IconButton(r2.transform, "duplicate", DuplicateSelected, 44f, 22f);
             var del = AtlasTheme.IconButton(r2.transform, "delete", DeleteSelected, 44f, 22f);
             foreach (var ri in del.GetComponentsInChildren<RawImage>()) ri.color = AtlasTheme.Danger;
+            if (!it.IsHelper)
+                AtlasTheme.TextButton(head.transform, "save", "Guardar en Mis modelos", () => SaveToLibrary(it), false, 40f, 15);
 
             BuildTransformSection(it);
             if (!it.IsLight && it.kind != "camera")
@@ -557,9 +559,10 @@ namespace Atlas
             var ic = AtlasTheme.IconImage(head.transform, "folder", 26f, AtlasTheme.AccentLight);
             AtlasTheme.Le(ic.gameObject, 26f, 26f);
             var pn = AtlasTheme.Label(head.transform, store != null ? store.name : "", 18, AtlasTheme.TextColor, true);
+            AtlasTheme.Fit(pn, 12);
             AtlasTheme.Le(pn.gameObject, 40f, -1f, 1f);
             var cnt = AtlasTheme.Label(head.transform, items.Count + (items.Count == 1 ? " objeto" : " objetos"), 14, AtlasTheme.TextDim, false, TextAnchor.MiddleRight);
-            cnt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            AtlasTheme.Fit(cnt, 10);
             AtlasTheme.Le(cnt.gameObject, 40f, 90f);
 
             var amb = Sec("Ambiente rápido (un toque)", "sparkle");
@@ -656,6 +659,7 @@ namespace Atlas
                 var oi = AtlasTheme.IconImage(row.transform, KindIcon(it.kind), 22f, it.visible ? AtlasTheme.AccentLight : AtlasTheme.TextDim);
                 AtlasTheme.Le(oi.gameObject, 22f, 22f);
                 var nl = AtlasTheme.Label(row.transform, it.gameObject.name, 16, it.visible ? AtlasTheme.TextColor : AtlasTheme.TextDim, true);
+                AtlasTheme.Fit(nl, 11);
                 AtlasTheme.Le(nl.gameObject, 46f, -1f, 1f);
                 if (it.locked)
                 {

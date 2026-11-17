@@ -208,10 +208,10 @@ namespace Atlas
             statusBar.offsetMin = Vector2.zero;
             statusBar.offsetMax = new Vector2(0f, StatusH);
             statusLeft = AtlasTheme.Label(statusBar, "", 13, AtlasTheme.TextDim);
-            statusLeft.horizontalOverflow = HorizontalWrapMode.Overflow;
+            AtlasTheme.Fit(statusLeft, 9);
             AtlasTheme.Fill(statusLeft.rectTransform, 12f, 580f, 0f, 0f);
             statusRight = AtlasTheme.Label(statusBar, "", 13, AtlasTheme.TextDim, false, TextAnchor.MiddleRight);
-            statusRight.horizontalOverflow = HorizontalWrapMode.Overflow;
+            AtlasTheme.Fit(statusRight, 9);
             var sr = statusRight.rectTransform;
             sr.anchorMin = new Vector2(1f, 0f);
             sr.anchorMax = new Vector2(1f, 1f);
@@ -290,7 +290,7 @@ namespace Atlas
                 ir.anchorMin = ir.anchorMax = new Vector2(0f, 0.5f);
                 ir.anchoredPosition = new Vector2(3f, 0f);
                 var name = AtlasTheme.Label(row.transform, it.gameObject.name, 14, it.visible ? AtlasTheme.TextColor : AtlasTheme.TextDim, sel);
-                name.horizontalOverflow = HorizontalWrapMode.Overflow;
+                AtlasTheme.Fit(name, 10);
                 AtlasTheme.Fill(name.rectTransform, 34f, 70f, 0f, 0f);
                 var eye = AtlasTheme.IconButton(row.transform, it.visible ? "eye" : "eye_off", () =>
                 {
@@ -428,6 +428,7 @@ namespace Atlas
                     l.Add(new AtlasTheme.MenuItem("video", "Vídeo…", AddVideoPlane));
                     l.Add(new AtlasTheme.MenuItem("music", "Audio…", PickAudio));
                     l.Add(new AtlasTheme.MenuItem("import", "Importar modelo…", ImportModel));
+                    l.Add(new AtlasTheme.MenuItem("save", "Mis modelos…", OpenLibrary));
                     break;
                 case "Objeto":
                     l.Add(new AtlasTheme.MenuItem("select", "Seleccionar             Q", () => SetTool(Tool.Select)));

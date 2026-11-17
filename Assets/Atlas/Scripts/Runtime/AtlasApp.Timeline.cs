@@ -210,7 +210,7 @@ namespace Atlas
         {
             var l = AtlasTheme.Label(bar, text, 14, AtlasTheme.TextDim);
             l.horizontalOverflow = HorizontalWrapMode.Overflow;
-            AtlasTheme.Le(l.gameObject, 40f, text.Length * 8f + 6f);
+            AtlasTheme.Le(l.gameObject, 40f, Lang.T(text).Length * 8f + 6f);
             return l.gameObject;
         }
 
