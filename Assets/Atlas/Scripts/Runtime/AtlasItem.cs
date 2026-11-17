@@ -63,6 +63,8 @@ namespace Atlas
         public List<AnchorEvent> anchors = new List<AnchorEvent>();
         public List<IkChain> ik = new List<IkChain>();   // IK rig: hands / feet controls
         public List<MorphValue> morphs = new List<MorphValue>();   // face / shape sliders set now
+        public string group = "";        // objects selected together
+        public bool pixelated;           // textures without smoothing
         public string gobo = "";         // spotlight: shape it projects (window, blinds, leaves…)
         public float flicker;            // lights: 0 steady .. 1 broken lamp
         public bool toon;                // «Estilo dibujo»: cel shading + outline

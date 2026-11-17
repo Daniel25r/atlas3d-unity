@@ -167,6 +167,7 @@ namespace Atlas
             AtlasTheme.IconButton(c, "duplicate", DuplicateSelected);
             AtlasTheme.IconButton(c, "delete", DeleteSelected);
             AtlasTheme.IconButton(c, "deselect", () => Select(null));
+            multiBtn = AtlasTheme.IconButton(c, "multiselect", ToggleMultiMode);
             AtlasTheme.Separator(c, false);
             AtlasTheme.IconButton(c, "focus", FocusSelected);
         }

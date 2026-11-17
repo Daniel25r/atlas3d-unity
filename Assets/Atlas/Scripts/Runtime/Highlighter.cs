@@ -52,6 +52,18 @@ namespace Atlas
             Clear();
             target = it;
             if (it == null || mat == null) return;
+            AddCopies(it, only, original);
+        }
+
+        /// One more object glowing with the selected one (multiple selection).
+        public void Add(AtlasItem it)
+        {
+            if (it == null || mat == null || target == null || it == target) return;
+            AddCopies(it, null, null);
+        }
+
+        void AddCopies(AtlasItem it, Material only, Dictionary<Renderer, Material[]> original)
+        {
             foreach (var r in it.GetComponentsInChildren<Renderer>())
             {
                 if (r.gameObject.layer == Gizmo.Layer) continue;

@@ -33,17 +33,43 @@ namespace Atlas
         }
 
         /// Held objects follow their bone (after the bones are posed).
+        /// Several passes, so a chain (a cup on a tray in a hand) follows too.
         void ApplyAnchors()
         {
-            foreach (var it in items)
+            for (int pass = 0; pass < 3; pass++)
             {
-                if (it == null || it.anchors.Count == 0) continue;
-                var a = ActiveAnchor(it, frame);
-                if (a == null) continue;
-                var t = AnchorTransform(a);
-                if (t == null) continue;
-                it.transform.SetPositionAndRotation(t.TransformPoint(a.pos), t.rotation * a.rot);
+                bool any = false;
+                foreach (var it in items)
+                {
+                    if (it == null || it.anchors.Count == 0) continue;
+                    var a = ActiveAnchor(it, frame);
+                    if (a == null) continue;
+                    var t = AnchorTransform(a);
+                    if (t == null) continue;
+                    it.transform.SetPositionAndRotation(t.TransformPoint(a.pos), t.rotation * a.rot);
+                    any = true;
+                }
+                if (!any) break;
             }
+        }
+
+        /// True when `a` is held (directly or through others) by `b` now.
+        bool HoldsOn(AtlasItem a, AtlasItem b)
+        {
+            var cur = a;
+            for (int i = 0; i < 16 && cur != null && b != null; i++)
+            {
+                var an = ActiveAnchor(cur, frame);
+                if (an == null) return false;
+                if (an.target == b.id) return true;
+                cur = FindItem(an.target);
+            }
+            return false;
+        }
+
+        static string GripName(string bone)
+        {
+            return string.IsNullOrEmpty(bone) ? "todo el objeto" : BoneNames.Display(BoneNames.Leaf(bone));
         }
 
         /// Moving a held object with the manipulator changes how it is held.
@@ -60,7 +86,7 @@ namespace Atlas
             return true;
         }
 
-        void Grab(AtlasItem it, AtlasItem model, string bone)
+        void Grab(AtlasItem it, AtlasItem model, string bone, bool finish = true)
         {
             int f = Mathf.RoundToInt(frame);
             var t = string.IsNullOrEmpty(bone) ? model.transform : model.Bone(bone);
@@ -78,10 +104,11 @@ namespace Atlas
             });
             it.anchors.Sort((x, y) => x.frame.CompareTo(y.frame));
             grabModel = null;
+            if (!finish) return;
             Commit(true);
             RefreshKeys();
             RefreshProps();
-            Toast("Agarrado en el fotograma " + f + ": ahora sigue a «" + BoneNames.Display(BoneNames.Leaf(bone)) + "»");
+            Toast("Pegado en el fotograma " + f + ": ahora sigue a «" + model.gameObject.name + "» (" + GripName(bone) + ")");
         }
 
         void LetGo(AtlasItem it)
@@ -102,34 +129,42 @@ namespace Atlas
         void BuildAnchorSection(AtlasItem it)
         {
             var models = new List<AtlasItem>();
-            foreach (var o in items) if (o != null && o != it && o.kind == "model" && o.HasBones) models.Add(o);
+            foreach (var o in items) if (o != null && o != it && !HoldsOn(o, it)) models.Add(o);
+            // Characters (with bones) first.
+            models.Sort((x, y) => (y.HasBones ? 1 : 0).CompareTo(x.HasBones ? 1 : 0));
             if (models.Count == 0 && it.anchors.Count == 0) return;
-            var box = Sec("Agarrar con un hueso", "bone", it.anchors.Count == 0);
+            var box = Sec("Pegar a otro objeto o hueso", "bone", it.anchors.Count == 0);
             var held = ActiveAnchor(it, frame);
             if (held != null)
             {
                 var m = FindItem(held.target);
-                Hint(box, "Ahora lo sostiene «" + (m != null ? m.gameObject.name : "?") + "» (" + BoneNames.Display(BoneNames.Leaf(held.bone)) + "). Muévelo con el manipulador para ajustar cómo lo agarra.");
+                Hint(box, "Ahora va pegado a «" + (m != null ? m.gameObject.name : "?") + "» (" + GripName(held.bone) + "). Muévelo con el manipulador para ajustar dónde va. Su propia animación de huesos sigue igual.");
                 AtlasTheme.TextButton(box, "unlock", "Soltar aquí (fotograma " + Mathf.RoundToInt(frame) + ")", () => LetGo(it), true, 46f, 16);
             }
             else
             {
-                Hint(box, "Ve al fotograma donde lo agarra, coloca el objeto en la mano y elige el personaje y el hueso.");
+                Hint(box, "Ve al fotograma donde se pega, colócalo donde debe ir (en la mano, encima de otro…) y elige a qué objeto se pega y, si tiene huesos, a qué hueso. Desde ahí lo sigue, con su animación, hasta que lo sueltes en otro fotograma.");
                 var g = AtlasTheme.Grid(box, 2, InnerWidth, 38f);
                 foreach (var m0 in models)
                 {
                     var m = m0;
                     AtlasTheme.Chip(g, m.gameObject.name, () => { grabModel = grabModel == m ? null : m; grabFilter = ""; RefreshProps(); }, grabModel == m);
                 }
-                if (grabModel != null && models.Contains(grabModel))
+                if (grabModel != null && models.Contains(grabModel) && !grabModel.HasBones)
+                {
+                    var model = grabModel;
+                    AtlasTheme.TextButton(box, "add", "Pegar a «" + model.gameObject.name + "»", () => Grab(it, model, ""), true, 42f, 15);
+                }
+                else if (grabModel != null && models.Contains(grabModel))
                 {
                     var field = AtlasTheme.TextField(box, grabFilter, v => { grabFilter = v.Trim().ToLowerInvariant(); RefreshProps(); }, 40f);
                     var ph = AtlasTheme.Label(field.transform, "Buscar hueso (mano, boca…) y pulsa Intro", 14, AtlasTheme.TextDim);
                     AtlasTheme.Fill(ph.rectTransform, 12f, 12f);
                     field.placeholder = ph;
+                    var model = grabModel;
+                    AtlasTheme.TextButton(box, "add", "Pegar a todo «" + model.gameObject.name + "»", () => Grab(it, model, ""), true, 42f, 15);
                     var bl = AtlasTheme.Grid(box, 2, InnerWidth, 36f);
                     int shown = 0;
-                    var model = grabModel;
                     foreach (var path in model.BoneOrder)
                     {
                         string leaf = BoneNames.Leaf(path);
@@ -150,7 +185,7 @@ namespace Atlas
                 {
                     var a = a0;
                     var m = FindItem(a.target);
-                    string txt = a.target == "" ? "◆ " + a.frame + ": suelto" : "◆ " + a.frame + ": lo agarra " + (m != null ? m.gameObject.name : "?") + " · " + BoneNames.Display(BoneNames.Leaf(a.bone));
+                    string txt = a.target == "" ? "◆ " + a.frame + ": suelto" : "◆ " + a.frame + ": pegado a " + (m != null ? m.gameObject.name : "?") + " · " + GripName(a.bone);
                     var row = AtlasTheme.Rect(box, "Momento").gameObject;
                     AtlasTheme.Row(row, 6f, new RectOffset(0, 0, 0, 0));
                     AtlasTheme.Le(row, 40f);

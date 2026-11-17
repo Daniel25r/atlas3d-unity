@@ -355,6 +355,10 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• Selección múltiple: Ctrl o Shift + clic en PC, o el botón de «varios» en el móvil. Muévelos, gíralos y escálalos juntos; cada uno conserva su animación.\n" +
+            "• Grupos: agrupa objetos y al tocar uno se seleccionan todos.\n" +
+            "• Pegar a otro objeto o hueso: cualquier objeto o modelo se pega a otro (o a un hueso de otro personaje) desde un fotograma y se suelta en otro.\n" +
+            "• Píxeles nítidos (estilo Minecraft) en los materiales del modelo.\n" +
             "• NUEVO: partículas de Source / SFM (.pcf). Impórtalas como un modelo: cada sistema con sus hijos, tiempos, colores, tamaños, gravedad, giros y atracción. Empiezan en el fotograma donde las añades.\n" +
             "• Estilo dibujo (anime): sombreado en bandas y contorno, en un objeto o en toda la escena.\n" +
             "• Creador de partículas: personaliza cualquier efecto (cantidad, duración, velocidad, tamaño, gravedad, forma, partícula, color, brillo y estela) y nuevo efecto Láser.\n" +

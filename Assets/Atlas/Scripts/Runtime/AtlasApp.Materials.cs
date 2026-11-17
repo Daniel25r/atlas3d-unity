@@ -219,6 +219,7 @@ namespace Atlas
         {
             if (it.modelMats.Count == 0) return;
             var box = Sec("Materiales del modelo", "material", activeMat < 0);
+            AtlasTheme.Switch(box, "Píxeles nítidos (estilo Minecraft)", it.pixelated, on => { it.pixelated = on; ApplyLook(it); Commit(true); });
             Hint(box, "Toca otra vez el modelo para elegir el material de esa parte, o elígelo aquí.");
             var g = AtlasTheme.Grid(box, 2, InnerWidth, 38f);
             for (int i = 0; i < it.modelMats.Count; i++)

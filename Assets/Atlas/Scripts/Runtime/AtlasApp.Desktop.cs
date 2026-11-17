@@ -275,13 +275,13 @@ namespace Atlas
             {
                 var it = it0;
                 if (it == null) continue;
-                bool sel = it == selected;
+                bool sel = it == selected || multi.Contains(it);
                 var row = AtlasTheme.Box(outlinerList, "Fila", sel ? AtlasTheme.AccentDim : new Color(0f, 0f, 0f, 0f), 6);
                 AtlasTheme.Le(row.gameObject, 32f);
                 var b = row.gameObject.AddComponent<Button>();
                 b.transition = Selectable.Transition.None;
-                b.onClick.AddListener(() => { Select(it); });
-                var icon = AtlasTheme.IconButton(row.transform, OutlinerIcon(it.kind), () => Select(it), 28f, 18f);
+                b.onClick.AddListener(() => { SelectTap(it); });
+                var icon = AtlasTheme.IconButton(row.transform, OutlinerIcon(it.kind), () => SelectTap(it), 28f, 18f);
                 var ir = icon.GetComponent<RectTransform>();
                 ir.anchorMin = new Vector2(0f, 0f);
                 ir.anchorMax = new Vector2(0f, 1f);
@@ -333,6 +333,8 @@ namespace Atlas
             outlinerAt = Time.unscaledTime + 0.25f;
             var sb = new System.Text.StringBuilder();
             sb.Append(selected != null ? selected.id : "-").Append('|');
+            foreach (var m in multi) if (m != null) sb.Append(m.id);
+            sb.Append('|');
             foreach (var it in items) if (it != null) sb.Append(it.id).Append(it.gameObject.name).Append(it.visible ? '1' : '0').Append(it.locked ? '1' : '0');
             string sig = sb.ToString();
             if (sig != outlinerSig)
@@ -495,7 +497,7 @@ namespace Atlas
         void ShowShortcuts()
         {
             AtlasTheme.Dialog(canvasRoot, "Atajos de teclado",
-                "Ratón: clic para seleccionar; arrastrar o clic medio para girar la vista; Shift+clic medio o clic derecho para desplazarla; rueda para el zoom.\n\n" +
+                "Ratón: clic para seleccionar (Ctrl o Shift + clic: varios a la vez; Ctrl+G agrupar, Ctrl+Shift+G desagrupar); arrastrar o clic medio para girar la vista; Shift+clic medio o clic derecho para desplazarla; rueda para el zoom.\n\n" +
                 "Ctrl+Z / Ctrl+Y: deshacer / rehacer · Ctrl+S: guardar · Ctrl+D: duplicar · Ctrl+I: importar\n" +
                 "Shift+A: añadir · X o Supr: borrar · H: ocultar · Alt+A: deseleccionar · N: panel lateral\n" +
                 "Q: seleccionar · G o W: mover · E: rotar · S o R: escalar · F: enfocar\n" +
@@ -515,6 +517,8 @@ namespace Atlas
             if (shift && Input.GetKeyDown(KeyCode.A)) { OpenDesktopMenu("Añadir", menuBar != null ? menuBar : canvasRoot); return true; }
             if (alt && Input.GetKeyDown(KeyCode.A)) { Select(null); return true; }
             if (ctrl && Input.GetKeyDown(KeyCode.I)) { ImportModel(); return true; }
+            if (ctrl && shift && Input.GetKeyDown(KeyCode.G)) { UngroupSelection(); return true; }
+            if (ctrl && Input.GetKeyDown(KeyCode.G)) { GroupSelection(); return true; }
             if (ctrl && Input.GetKeyDown(KeyCode.Tab)) { if (selected != null && selected.HasBones) TogglePose(); return true; }
             if (ctrl && Input.GetKeyDown(KeyCode.Keypad1)) { LookAlong(Vector3.back); return true; }
             if (ctrl && Input.GetKeyDown(KeyCode.Keypad3)) { LookAlong(Vector3.right); return true; }

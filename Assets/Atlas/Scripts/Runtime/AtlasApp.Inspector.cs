@@ -176,6 +176,7 @@ namespace Atlas
             if (!it.IsHelper)
                 AtlasTheme.TextButton(head.transform, "save", "Guardar en Mis modelos", () => SaveToLibrary(it), false, 40f, 15);
 
+            BuildMultiSection();
             BuildTransformSection(it);
             BuildToonSection(it);
             if (!it.IsLight && it.kind != "camera")
@@ -208,7 +209,7 @@ namespace Atlas
                 BuildMaterialSection(it);
                 if (MeshEditable(it)) BuildModellingSection(it);
             }
-            if (!it.IsLight && it.kind != "camera" && it.kind != "model") BuildAnchorSection(it);
+            BuildAnchorSection(it);
             if (!it.IsLight && it.kind != "camera") BuildPhysicsItemSection(it);
             BuildKeysSection(it);
             BuildInfoSection(it);

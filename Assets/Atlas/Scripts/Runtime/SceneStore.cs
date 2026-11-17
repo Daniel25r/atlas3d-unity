@@ -61,6 +61,8 @@ namespace Atlas
         public List<AnchorEvent> anchors = new List<AnchorEvent>();
         public List<IkChain> ik = new List<IkChain>();
         public List<MorphValue> morphs = new List<MorphValue>();
+        public string group = "";
+        public bool pixelated;
         public string gobo = "";
         public float flicker;
         public bool toon;
@@ -338,6 +340,8 @@ namespace Atlas
                     ik = IkRig.Copy(it.ik),
                     morphs = CopyMorphs(it.morphs),
                     gobo = it.gobo ?? "",
+                    group = it.group ?? "",
+                    pixelated = it.pixelated,
                     flicker = it.flicker,
                     toon = it.toon,
                     outline = it.outline,

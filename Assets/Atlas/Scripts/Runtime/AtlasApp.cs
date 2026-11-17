@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.2.3";
+        public const string Version = "1.2.4";
 
         Camera cam;
         Light sunLight;
@@ -345,6 +345,8 @@ namespace Atlas
             it.shakeSpeed = d.shakeSpeed > 0f ? d.shakeSpeed : 0.6f;
             it.ik = IkRig.Copy(d.ik);
             it.gobo = d.gobo ?? "";
+            it.group = d.group ?? "";
+            it.pixelated = d.pixelated;
             it.flicker = d.flicker;
             it.toon = d.toon;
             it.outline = d.outline;
@@ -464,7 +466,7 @@ namespace Atlas
                     r.shadowCastingMode = it.noShadow || env.shadowsOff ? UnityEngine.Rendering.ShadowCastingMode.Off : UnityEngine.Rendering.ShadowCastingMode.On;
             }
             foreach (var c in it.GetComponentsInChildren<Collider>(true)) c.enabled = it.visible;
-            if (it.kind == "model") { if (it.loaded) { ApplyModelMaterials(it); it.ApplyUv(); it.LookChanged(); ApplyToon(it); } return; }
+            if (it.kind == "model") { if (it.loaded) { ApplyModelMaterials(it); it.ApplyUv(); it.LookChanged(); ApplyToon(it); ApplyPixelated(it); } return; }
             if (it.kind == "fx") { ApplyFxLook(it); return; }
             if (it.kind == "text") { ApplyText3D(it); return; }
             if (it.kind == "flag") { BuildCloth(it); WaveCloth(it, frame / Mathf.Max(1f, fps)); }
@@ -584,6 +586,7 @@ namespace Atlas
             it.ApplyUv();
             it.LookChanged();
             ApplyToon(it);
+            ApplyPixelated(it);
         }
 
         /// Spotlight lines: a ring where the light reaches (up to 4 m) and
@@ -973,6 +976,7 @@ namespace Atlas
             selected = it;
             if (poseMode || lookThrough != null) highlighter.Clear();
             else highlighter.Show(it);
+            SelectionChanged(it);
             ShowGizmo();
             RefreshMode();
             RefreshProps();
@@ -1022,8 +1026,14 @@ namespace Atlas
             if (selected == null) { Toast("Selecciona algo para borrarlo"); return; }
             ExitPose();
             ExitMeshMode();
-            items.Remove(selected);
-            Destroy(selected.gameObject);
+            var gone = new List<AtlasItem>(multi) { selected };
+            multi.Clear();
+            foreach (var g in gone)
+            {
+                if (g == null) continue;
+                items.Remove(g);
+                Destroy(g.gameObject);
+            }
             Select(null);
             Commit(true);
             Toast("Borrado (Deshacer lo recupera)");
@@ -1048,6 +1058,7 @@ namespace Atlas
             foreach (var it in items) if (it != null) Destroy(it.gameObject);
             items.Clear();
             selected = null;
+            multi.Clear();
             meshMode = "";
             sculpting = false;
             selVerts.Clear();
@@ -1321,7 +1332,7 @@ namespace Atlas
                 if (sculpting) EndSculpt();
                 if (weightPainting) WeightEnd();
                 if (draggingGizmo && meshDragging) { gizmo.End(); draggingGizmo = false; MeshDragEnd(); }
-                if (draggingGizmo) { gizmo.End(); draggingGizmo = false; BoneEdited(); if (poseMode || !Regrip(selected)) AutoKey(); Commit(true); }
+                if (draggingGizmo) { gizmo.End(); draggingGizmo = false; BoneEdited(); GroupDragEnd(); if (poseMode || !Regrip(selected)) AutoKey(); Commit(true); }
                 moved = 99f;   // not a tap any more
                 Touch a = Input.GetTouch(0), b = Input.GetTouch(1);
                 Vector2 pa = a.position - a.deltaPosition, pb = b.position - b.deltaPosition;
@@ -1518,6 +1529,7 @@ namespace Atlas
             draggingGizmo = gizmo.TryBegin(pos);
             if (draggingGizmo && meshMode == "model") MeshDragBegin();
             if (draggingGizmo && poseMode) IkBegin();
+            if (draggingGizmo && !poseMode && meshMode == "") GroupDragBegin();
             orbiting = !draggingGizmo;
         }
 
@@ -1536,6 +1548,7 @@ namespace Atlas
             {
                 gizmo.Drag(pos);
                 if (meshDragging) MeshDragMove();
+                GroupDragMove();
                 if (poseMode && ikTip != "") IkSolve();
                 return;
             }
@@ -1567,6 +1580,7 @@ namespace Atlas
                 gizmo.End();
                 draggingGizmo = false;
                 BoneEdited();
+                GroupDragEnd();
                 if (!poseMode && Regrip(selected)) { Commit(true); moved = -1f; return; }
                 AutoKey();
                 Commit(true);
@@ -1603,7 +1617,7 @@ namespace Atlas
             {
                 if (it == null || it == selected) { if (activeBone != "") SetActiveBone(""); return; }
             }
-            Select(it);
+            SelectTap(it);
         }
 
         void UpdateCamera()
