@@ -68,6 +68,7 @@ namespace Atlas
         public int toonSteps = 2;
         public Color outlineColor = new Color(0.05f, 0.04f, 0.06f);
         public FxCustom fx = new FxCustom();
+        public List<Import.PcfFx> pcf = new List<Import.PcfFx>();   // SFM particles (.pcf)
         public string normalMap = "", emissionMap = "";
         public float bumpStrength = 1f;
         public string lookAtId = "", followId = "";
@@ -344,6 +345,7 @@ namespace Atlas
                     toonSteps = it.toonSteps,
                     outlineColor = it.outlineColor,
                     fx = it.fx != null ? it.fx.Copy() : new FxCustom(),
+                    pcf = Import.PcfImport.CopyList(it.pcf),
                     normalMap = it.normalMap ?? "",
                     emissionMap = it.emissionMap ?? "",
                     bumpStrength = it.bumpStrength,

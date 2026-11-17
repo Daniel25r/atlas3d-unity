@@ -17,7 +17,7 @@ namespace Atlas
         const string WorkshopRepo = "Daniel25r/atlas3d-workshop";
         const string WorkshopSite = "https://daniel25r.github.io/atlas3d-workshop/";
 
-        static readonly string[] ModelExts = { ".glb", ".gltf", ".fbx", ".obj", ".3ds", ".blend", ".prisma", ".proj", ".zip", ".mdl", ".gma", ".stl", ".ply" };
+        static readonly string[] ModelExts = { ".glb", ".gltf", ".fbx", ".obj", ".3ds", ".blend", ".prisma", ".proj", ".zip", ".mdl", ".gma", ".stl", ".ply", ".pcf" };
 
         GameObject dlWindow;
         Transform dlSaved, dlWorkshop;

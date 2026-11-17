@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.2.2";
+        public const string Version = "1.2.3";
 
         Camera cam;
         Light sunLight;
@@ -352,6 +352,7 @@ namespace Atlas
             it.toonSteps = d.toonSteps > 0 ? d.toonSteps : 2;
             it.outlineColor = d.outlineColor;
             it.fx = d.fx != null ? d.fx.Copy() : new FxCustom();
+            it.pcf = Import.PcfImport.CopyList(d.pcf);
             if (it.loaded) it.ResetMorphs();
             it.morphs = SceneStore.CopyMorphs(d.morphs);
             if (it.loaded) it.ApplyMorphs();
@@ -776,6 +777,12 @@ namespace Atlas
                 if (e != ".pobject" && e != ".png" && e != ".jpg" && e != ".jpeg" && e != ".mtl" && e != ".bin" && e != ".tga") { main = p; break; }
             }
             string ext = Path.GetExtension(main).ToLowerInvariant();
+            if (ext == ".pcf")
+            {
+                foreach (var p in paths) if (Import.PcfImport.IsPcf(p)) ImportPcf(p);
+                if (!string.IsNullOrEmpty(cleanup)) try { Directory.Delete(cleanup, true); } catch (System.Exception) { }
+                return;
+            }
             Toast((System.Array.IndexOf(Import.ModelConverter.Convertible, ext) >= 0 ? "Convirtiendo «" : "Importando «") + Path.GetFileName(main) + "»" + (paths.Length > 1 ? " (+" + (paths.Length - 1) + " archivos)" : "") + "…");
             ImportWith(st => st.AddModelFiles(paths), Path.GetFileNameWithoutExtension(main), cleanup);
         }

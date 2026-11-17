@@ -49,6 +49,10 @@ namespace Atlas
                             a = Mathf.Clamp01(1f - r * 1.6f) + Mathf.Clamp01(1f - Mathf.Abs(u) * 14f) * Mathf.Clamp01(1f - Mathf.Abs(v)) + Mathf.Clamp01(1f - Mathf.Abs(v) * 14f) * Mathf.Clamp01(1f - Mathf.Abs(u));
                             a = Mathf.Clamp01(a);
                             break;
+                        case "ring":
+                            a = Mathf.Clamp01(1f - Mathf.Abs(r - 0.68f) * 4.5f);
+                            a = a * a + Mathf.Clamp01(1f - r) * 0.15f;
+                            break;
                         case "square": a = Mathf.Abs(u) < 0.8f && Mathf.Abs(v) < 0.5f ? 1f : 0f; break;
                         case "bubble":
                             a = r < 1f ? Mathf.Clamp01((r - 0.78f) * 6f) * Mathf.Clamp01((1f - r) * 12f) + 0.12f : 0f;
@@ -120,6 +124,14 @@ namespace Atlas
             sh.position = Vector3.zero;
             var vel = ps.velocityOverLifetime;
             vel.enabled = false;
+            vel.radial = 0f;
+            vel.orbitalX = 0f; vel.orbitalY = 0f; vel.orbitalZ = 0f;
+            vel.speedModifier = 1f;
+            var force = ps.forceOverLifetime;
+            force.enabled = false;
+            var limit = ps.limitVelocityOverLifetime;
+            limit.enabled = false;
+            limit.drag = 0f;
             var noise = ps.noise;
             noise.enabled = false;
             var col = ps.colorOverLifetime;
@@ -129,6 +141,7 @@ namespace Atlas
             var rot = ps.rotationOverLifetime;
             rot.enabled = false;
             var r = ps.GetComponent<ParticleSystemRenderer>();
+            r.enabled = true;
             r.renderMode = ParticleSystemRenderMode.Billboard;
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             r.receiveShadows = false;
@@ -399,7 +412,7 @@ namespace Atlas
                 if (it == null || it.kind != "fx") continue;
                 var ps = it.GetComponent<ParticleSystem>();
                 if (ps == null) continue;
-                float local = it.preset == "explosion" ? t - it.fxStart / Mathf.Max(1f, fps) : t;
+                float local = it.preset == "explosion" || it.preset == "pcf" ? t - it.fxStart / Mathf.Max(1f, fps) : t;
                 if (local < 0f) { ps.Clear(true); fxTime.Remove(ps); continue; }
                 SimulateFx(ps, local);
             }
@@ -444,7 +457,10 @@ namespace Atlas
                 string p = FxPresets[i];
                 AtlasTheme.Chip(g, FxNames[i], () => { it.preset = p; ApplyLook(it); Commit(true); RefreshProps(); }, it.preset == p);
             }
+            if (it.pcf != null && it.pcf.Count > 0)
+                AtlasTheme.Chip(g, "SFM (.pcf)", () => { it.preset = "pcf"; ApplyLook(it); Commit(true); RefreshProps(); }, it.preset == "pcf");
             AtlasTheme.SliderRow(box, "Cantidad", 0.1f, 3f, it.amount, "0.0", x => it.amount = x, () => { ApplyLook(it); Commit(true); });
+            if (it.preset == "pcf") BuildPcfSection(it, box);
             if (it.preset == "explosion")
                 AtlasTheme.TextButton(box, "key", "Explota en el fotograma actual (" + Mathf.RoundToInt(frame) + ")", () => { it.fxStart = Mathf.RoundToInt(frame); ApplyLook(it); Commit(true); RefreshProps(); }, true, 44f, 15);
             AtlasTheme.TextButton(box, "undo", "Otra variación", () => { it.seed = Random.Range(1, 99999); ApplyLook(it); Commit(true); }, false, 42f, 15);
@@ -468,8 +484,8 @@ namespace Atlas
 
         public static readonly string[] FxShapes = { "", "cone", "sphere", "box", "line" };
         public static readonly string[] FxShapeNames = { "Original", "Cono", "Esfera", "Caja", "Línea" };
-        public static readonly string[] FxTexs = { "", "dot", "puff", "streak", "star", "square", "bubble" };
-        public static readonly string[] FxTexNames = { "Original", "Punto", "Humo", "Chispa", "Estrella", "Cuadrado", "Burbuja" };
+        public static readonly string[] FxTexs = { "", "dot", "puff", "streak", "star", "ring", "square", "bubble" };
+        public static readonly string[] FxTexNames = { "Original", "Punto", "Humo", "Chispa", "Estrella", "Anillo", "Cuadrado", "Burbuja" };
         static readonly Color[] FxColors = { new Color(1, 1, 1, 0), Color.white, new Color(1f, 0.15f, 0.1f), new Color(1f, 0.55f, 0.1f), new Color(1f, 0.9f, 0.2f), new Color(0.3f, 1f, 0.35f), new Color(0.2f, 0.85f, 1f), new Color(0.25f, 0.4f, 1f), new Color(0.7f, 0.35f, 1f), new Color(1f, 0.35f, 0.8f) };
         static readonly string[] FxColorNames = { "Original", "Blanco", "Rojo", "Naranja", "Amarillo", "Verde", "Cian", "Azul", "Violeta", "Rosa" };
 
@@ -569,8 +585,13 @@ namespace Atlas
         {
             var ps = it.GetComponent<ParticleSystem>();
             if (ps == null) return;
-            ConfigureFx(ps, it.preset, it.amount, it.seed, false);
-            if (it.fx != null && it.fx.on) ApplyFxCustom(ps, it.fx);
+            if (it.preset == "pcf" && it.pcf != null && it.pcf.Count > 0) ApplyPcf(it, ps);
+            else
+            {
+                RemovePcfChildren(it, 0);
+                ConfigureFx(ps, it.preset == "pcf" ? "magic" : it.preset, it.amount, it.seed, false);
+                if (it.fx != null && it.fx.on) ApplyFxCustom(ps, it.fx);
+            }
             var mark = it.transform.Find("Marca");
             if (mark != null)
             {
