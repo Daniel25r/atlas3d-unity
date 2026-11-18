@@ -81,6 +81,16 @@ namespace Atlas
         void SetActiveBone(string path)
         {
             activeBone = path ?? "";
+            // A hand or foot with an IK control: moving the bone itself
+            // would stretch the leg; the control moves it the right way.
+            if (!weightMode && selected != null && activeBone != "" && !IkRig.IsControl(activeBone))
+                foreach (var c in selected.ik)
+                    if (c.enabled && c.tip == activeBone && selected.Bone(IkRig.Prefix + c.name) != null)
+                    {
+                        activeBone = IkRig.Prefix + c.name;
+                        Toast((c.name.StartsWith("arm") ? "Esta mano" : c.name.StartsWith("leg") ? "Este pie" : "Este extremo") + " va con IK: se mueve con su control (" + IkRig.Label(c.name) + ") para que no se estire");
+                        break;
+                    }
             if (weightMode && selected != null && activeBone != "" && !IkRig.IsControl(activeBone)) { ShowWeights(selected); BuildWeightPanel(); return; }
             ShowGizmo();
             RefreshMode();

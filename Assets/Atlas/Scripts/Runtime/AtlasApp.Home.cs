@@ -355,6 +355,10 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• Modelar: vuelven las líneas oscuras de la malla, y Extruir funciona también con aristas.\n" +
+            "• Opacidad: en 0 el objeto desaparece del todo, funciona en modelos importados y se anima con claves.\n" +
+            "• Emisión pura: el color sin luz ni sombra, como en Blender.\n" +
+            "• Arreglos: el render con desenfoque de fondo ya no sale todo borroso; los deslizadores de formas (shape keys) van suaves de 0 a 100; IK: el pie o la mano se mueven con su control y la pierna ya no se estira (vuelve a crear el IK en modelos con huesos intermedios).\n" +
             "• Selección múltiple: Ctrl o Shift + clic en PC, o el botón de «varios» en el móvil. Muévelos, gíralos y escálalos juntos; cada uno conserva su animación.\n" +
             "• Grupos: agrupa objetos y al tocar uno se seleccionan todos.\n" +
             "• Pegar a otro objeto o hueso: cualquier objeto o modelo se pega a otro (o a un hueso de otro personaje) desde un fotograma y se suelta en otro.\n" +

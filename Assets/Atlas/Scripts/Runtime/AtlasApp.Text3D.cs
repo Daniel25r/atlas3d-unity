@@ -125,7 +125,7 @@ namespace Atlas
                 AtlasTheme.Chip(g, TextStyleNames[i], () => { it.preset = s; ApplyLook(it); Commit(true); RefreshProps(); }, it.preset == s);
             }
             ColorControls(box, it, Swatches);
-            AtlasTheme.SliderRow(box, "Opacidad", 0.05f, 1f, it.opacity, "0.00", x => { it.opacity = x; ApplyLook(it); }, () => Commit(true));
+            OpacityControls(box, it);
             Hint(box, "Muévelo, gíralo y escálalo como cualquier objeto; anima la opacidad o la escala con claves para títulos que aparecen.");
         }
     }

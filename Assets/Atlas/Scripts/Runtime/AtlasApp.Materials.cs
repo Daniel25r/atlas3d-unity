@@ -21,6 +21,7 @@ namespace Atlas
         public string normalMap = "", emissionMap = "", texture = "";
         public float bump = 1f;
         public bool hidden;
+        public bool pure;    // «Emisión pura»: its colour without light or shadow
 
         public MatOverride Copy() { return (MatOverride)MemberwiseClone(); }
     }
@@ -30,6 +31,39 @@ namespace Atlas
         public Color color, emission;
         public float metallic, smoothness, bump;
         public Texture bumpMap, emissionMap, baseMap;
+        // How the file drew it (solid, cut-out, see-through), for opacity.
+        public int queue;
+        public string[] keywords;
+        public float surface, zwrite, src, dst, srcA, dstA;
+        public string renderType = "";
+        public bool faded;
+
+        public void CaptureState(Material m)
+        {
+            queue = m.renderQueue;
+            keywords = m.shaderKeywords;
+            surface = m.HasProperty("_Surface") ? m.GetFloat("_Surface") : 0f;
+            zwrite = m.HasProperty("_ZWrite") ? m.GetFloat("_ZWrite") : 1f;
+            src = m.HasProperty("_SrcBlend") ? m.GetFloat("_SrcBlend") : 1f;
+            dst = m.HasProperty("_DstBlend") ? m.GetFloat("_DstBlend") : 0f;
+            srcA = m.HasProperty("_SrcBlendAlpha") ? m.GetFloat("_SrcBlendAlpha") : 1f;
+            dstA = m.HasProperty("_DstBlendAlpha") ? m.GetFloat("_DstBlendAlpha") : 0f;
+            renderType = m.GetTag("RenderType", false, "");
+        }
+
+        public void RestoreState(Material m)
+        {
+            if (keywords == null) return;
+            m.shaderKeywords = keywords;
+            if (m.HasProperty("_Surface")) m.SetFloat("_Surface", surface);
+            if (m.HasProperty("_ZWrite")) m.SetFloat("_ZWrite", zwrite);
+            if (m.HasProperty("_SrcBlend")) m.SetFloat("_SrcBlend", src);
+            if (m.HasProperty("_DstBlend")) m.SetFloat("_DstBlend", dst);
+            if (m.HasProperty("_SrcBlendAlpha")) m.SetFloat("_SrcBlendAlpha", srcA);
+            if (m.HasProperty("_DstBlendAlpha")) m.SetFloat("_DstBlendAlpha", dstA);
+            m.SetOverrideTag("RenderType", renderType);
+            m.renderQueue = queue;
+        }
     }
 
     public partial class AtlasApp
@@ -86,6 +120,7 @@ namespace Atlas
                         emissionMap = m.HasProperty("_EmissionMap") ? m.GetTexture("_EmissionMap") : null,
                         baseMap = m.HasProperty("_BaseMap") ? m.GetTexture("_BaseMap") : null,
                     };
+                    o.CaptureState(m);
                     it.matOriginals[m] = o;
                 }
                 if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", o.color);
@@ -121,6 +156,12 @@ namespace Atlas
                     m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
                     m.SetColor("_EmissionColor", new Color(baseCol.r, baseCol.g, baseCol.b) * e);
                 }
+                if (ov.pure)
+                {
+                    var map = emap != null ? emap : (m.HasProperty("_BaseMap") ? m.GetTexture("_BaseMap") : null);
+                    MakePureEmission(m, baseCol, Mathf.Max(1f, ov.emission), map);
+                }
+                else UndoPureEmission(m);
             }
             // Hidden materials: their slots draw nothing.
             foreach (var ov in it.matOverrides)
@@ -282,6 +323,7 @@ namespace Atlas
             AtlasTheme.SliderRow(box, "Metálico", 0f, 1f, metal, "0.00", x => { OverrideFor(it, index, true).metallic = x; ApplyLook(it); }, () => Commit(true));
             AtlasTheme.SliderRow(box, "Rugosidad", 0f, 1f, 1f - smooth, "0.00", x => { OverrideFor(it, index, true).smoothness = 1f - x; ApplyLook(it); }, () => Commit(true));
             AtlasTheme.SliderRow(box, "Emisión", 0f, 8f, emis, "0.0", x => { OverrideFor(it, index, true).emission = x; ApplyLook(it); }, () => Commit(true));
+            AtlasTheme.Switch(box, "Emisión pura (su color, sin luz ni sombra)", ov != null && ov.pure, on => { OverrideFor(it, index, true).pure = on; ApplyLook(it); Commit(true); });
             // Maps
             var mg = AtlasTheme.Grid(box, 2, InnerWidth, 40f);
             bool hasNormal = ov != null && !string.IsNullOrEmpty(ov.normalMap);

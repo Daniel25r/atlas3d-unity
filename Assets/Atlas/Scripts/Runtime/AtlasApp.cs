@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.2.4";
+        public const string Version = "1.2.5";
 
         Camera cam;
         Light sunLight;
@@ -68,6 +68,7 @@ namespace Atlas
             BuildWorld();
             highlighter = new GameObject("Resaltado").AddComponent<Highlighter>();
             highlighter.Init(unlitTemplate);
+            AtlasItem.OpacityChanged = ApplyOpacityNow;
             Ambience.Init(cam);
             ApplyEnv();
             BuildUi();
@@ -347,6 +348,7 @@ namespace Atlas
             it.gobo = d.gobo ?? "";
             it.group = d.group ?? "";
             it.pixelated = d.pixelated;
+            it.pureEmit = d.pureEmit;
             it.flicker = d.flicker;
             it.toon = d.toon;
             it.outline = d.outline;
@@ -466,9 +468,9 @@ namespace Atlas
                     r.shadowCastingMode = it.noShadow || env.shadowsOff ? UnityEngine.Rendering.ShadowCastingMode.Off : UnityEngine.Rendering.ShadowCastingMode.On;
             }
             foreach (var c in it.GetComponentsInChildren<Collider>(true)) c.enabled = it.visible;
-            if (it.kind == "model") { if (it.loaded) { ApplyModelMaterials(it); it.ApplyUv(); it.LookChanged(); ApplyToon(it); ApplyPixelated(it); } return; }
+            if (it.kind == "model") { if (it.loaded) { ApplyModelMaterials(it); it.ApplyUv(); it.LookChanged(); ApplyToon(it); ApplyPixelated(it); ApplyOpacity(it); } return; }
             if (it.kind == "fx") { ApplyFxLook(it); return; }
-            if (it.kind == "text") { ApplyText3D(it); return; }
+            if (it.kind == "text") { ApplyText3D(it); ApplyOpacity(it, false); return; }
             if (it.kind == "flag") { BuildCloth(it); WaveCloth(it, frame / Mathf.Max(1f, fps)); }
             if (it.kind == "water" || it.kind == "terrain") { ApplyWorldLook(it); return; }
             if (it.kind == "video")
@@ -577,6 +579,8 @@ namespace Atlas
                 if (m.HasProperty("_EmissionMap")) m.SetTexture("_EmissionMap", emap);
                 if (emap != null)
                     m.SetColor("_EmissionColor", new Color(it.color.r, it.color.g, it.color.b) * Mathf.Max(1f, it.emission));
+                if (it.pureEmit) MakePureEmission(m, it.color, Mathf.Max(1f, it.emission), emap != null ? emap : btex);
+                else UndoPureEmission(m);
                 MatUtil.SetTransparent(m, it.opacity < 0.995f);
                 // Pictures are seen from both sides.
                 if (m.HasProperty("_Cull")) m.SetFloat("_Cull", it.kind == "image" || it.kind == "flag" ? 0f : 2f);
@@ -587,6 +591,7 @@ namespace Atlas
             it.LookChanged();
             ApplyToon(it);
             ApplyPixelated(it);
+            ApplyOpacity(it);
         }
 
         /// Spotlight lines: a ring where the light reaches (up to 4 m) and

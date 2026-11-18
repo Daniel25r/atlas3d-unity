@@ -23,6 +23,11 @@ namespace Atlas
 
         readonly List<Copy> copies = new List<Copy>();
 
+        /// Another helper drawn only in the editor (the mesh's lines while
+        /// modelling): hidden in renders together with the glow.
+        public GameObject extra;
+        public bool extraWanted;
+
         public void Init(Material unlitTemplate)
         {
             var tmpl = Resources.Load<Material>("AtlasHighlight");
@@ -121,6 +126,7 @@ namespace Atlas
         /// Hides the glow for a moment (renders, thumbnails).
         public void SetVisible(bool on)
         {
+            if (extra != null) extra.SetActive(on && extraWanted);
             foreach (var c in copies)
                 if (c.dst != null) c.dst.gameObject.SetActive(on);
         }

@@ -28,6 +28,75 @@ namespace Atlas
         // ------------------------------------------------------------------
         // Edges
 
+        /// Extrudes edges (Blender's E on edges): each one makes a new face
+        /// out of it, pushed a little outwards; the new edges are returned
+        /// so they can be moved right away.
+        public List<long> ExtrudeEdges(HashSet<long> sel, float dist)
+        {
+            var result = new List<long>();
+            if (sel == null || sel.Count == 0) return result;
+            var ef = EdgeFaces();
+            // Where each new vertex goes: away from the faces of its edges.
+            var push = new Dictionary<int, Vector3>();
+            foreach (long k in sel)
+            {
+                int a = EdgeA(k), b = EdgeB(k);
+                Vector3 dir = Vector3.zero;
+                List<int> fl;
+                if (ef.TryGetValue(k, out fl) && fl.Count == 1)
+                {
+                    // A border: outwards, in the plane of its face.
+                    Vector3 mid = (verts[a] + verts[b]) * 0.5f;
+                    Vector3 edge = verts[b] - verts[a];
+                    Vector3 n = FaceNormal(fl[0]);
+                    dir = Vector3.Cross(edge, n);
+                    if (Vector3.Dot(dir, mid - FaceCenter(fl[0])) < 0f) dir = -dir;
+                }
+                else if (fl != null) foreach (int f in fl) dir += FaceNormal(f);
+                dir = dir.sqrMagnitude > 1e-12f ? dir.normalized : Vector3.up;
+                Vector3 p;
+                push.TryGetValue(a, out p); push[a] = p + dir;
+                push.TryGetValue(b, out p); push[b] = p + dir;
+            }
+            var copy = new Dictionary<int, int>();
+            foreach (var kv in push)
+            {
+                copy[kv.Key] = verts.Count;
+                verts.Add(verts[kv.Key] + kv.Value.normalized * dist);
+            }
+            foreach (long k in sel)
+            {
+                int a = EdgeA(k), b = EdgeB(k);
+                // Same winding as the face it comes out of (edge a→b there).
+                Vector2 ua = Vector2.zero, ub = Vector2.zero;
+                bool forward = true;
+                List<int> fl;
+                if (ef.TryGetValue(k, out fl) && fl.Count > 0)
+                {
+                    var f = faces[fl[0]];
+                    var u = uvs[fl[0]];
+                    for (int i = 0; i < f.Length; i++)
+                    {
+                        int x = f[i], y = f[(i + 1) % f.Length];
+                        if (x == a && y == b) { forward = true; ua = u[i]; ub = u[(i + 1) % f.Length]; }
+                        else if (x == b && y == a) { forward = false; ub = u[i]; ua = u[(i + 1) % f.Length]; }
+                    }
+                }
+                if (forward)
+                {
+                    faces.Add(new[] { b, a, copy[a], copy[b] });
+                    uvs.Add(new[] { ub, ua, ua, ub });
+                }
+                else
+                {
+                    faces.Add(new[] { a, b, copy[b], copy[a] });
+                    uvs.Add(new[] { ua, ub, ub, ua });
+                }
+                result.Add(EdgeKey(copy[a], copy[b]));
+            }
+            return result;
+        }
+
         public static int EdgeA(long k) { return (int)(k >> 32); }
         public static int EdgeB(long k) { return (int)(k & 0xffffffffL); }
 

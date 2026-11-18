@@ -64,6 +64,7 @@ namespace Atlas
         public List<IkChain> ik = new List<IkChain>();   // IK rig: hands / feet controls
         public List<MorphValue> morphs = new List<MorphValue>();   // face / shape sliders set now
         public string group = "";        // objects selected together
+        public bool pureEmit;            // «Emisión pura»
         public bool pixelated;           // textures without smoothing
         public string gobo = "";         // spotlight: shape it projects (window, blinds, leaves…)
         public float flicker;            // lights: 0 steady .. 1 broken lamp
@@ -291,7 +292,10 @@ namespace Atlas
         // `skip`) and any posed bones: they behave like the separate tracks
         // of the Godot timeline.
 
-        public const int ChPos = 1, ChRot = 2, ChScale = 4, ChUv = 8, ChGlow = 16, ChMorph = 32;
+        public const int ChPos = 1, ChRot = 2, ChScale = 4, ChUv = 8, ChGlow = 16, ChMorph = 32, ChOpacity = 64;
+
+        /// Set by the app: shows a new opacity (keys on the timeline).
+        public static System.Action<AtlasItem> OpacityChanged;
 
         // ------------------------------------------------------------------
         // Shape sliders (blend shapes / shape keys / flexes): smile, blink,
@@ -344,7 +348,19 @@ namespace Atlas
             BuildMorphs();
             List<KeyValuePair<SkinnedMeshRenderer, int>> l;
             if (!morphIndex.TryGetValue(name, out l)) return;
-            foreach (var kv in l) if (kv.Key != null) kv.Key.SetBlendShapeWeight(kv.Value, w);
+            foreach (var kv in l) if (kv.Key != null) kv.Key.SetBlendShapeWeight(kv.Value, w * 0.01f * FullWeight(kv.Key, kv.Value));
+        }
+
+        /// The weight at which a shape is complete: 100 in most files, but
+        /// some bring 1 (then 0→1 was all of it and past 1 it overshot).
+        static float FullWeight(SkinnedMeshRenderer r, int index)
+        {
+            var m = r.sharedMesh;
+            if (m == null || index < 0 || index >= m.blendShapeCount) return 100f;
+            int n = m.GetBlendShapeFrameCount(index);
+            if (n <= 0) return 100f;
+            float fw = m.GetBlendShapeFrameWeight(index, n - 1);
+            return fw > 1e-4f ? fw : 100f;
         }
 
         public void ApplyMorphs()
@@ -456,6 +472,7 @@ namespace Atlas
             if ((channels & ChScale) != 0) { k.scale = transform.localScale; k.skip &= ~ChScale; }
             if ((channels & ChUv) != 0) { k.uv = uv; k.uvKey = true; }
             if ((channels & ChGlow) != 0) { k.glow = glow; k.glowKey = true; }
+            if ((channels & ChOpacity) != 0) { k.opacity = opacity; k.opKey = true; }
             if ((channels & ChMorph) != 0)
             {
                 if (k.morphs == null) k.morphs = new List<MorphValue>();
@@ -504,7 +521,7 @@ namespace Atlas
         public List<string> Tracks()
         {
             var l = new List<string>();
-            bool tp = false, tr = false, ts = false, tu = false, tg = false;
+            bool tp = false, tr = false, ts = false, tu = false, tg = false, to = false;
             var morphSeen = new List<string>();
             var bonesSeen = new List<string>();
             foreach (var k in keys)
@@ -514,6 +531,7 @@ namespace Atlas
                 if ((k.skip & ChScale) == 0) ts = true;
                 if (k.uvKey) tu = true;
                 if (k.glowKey) tg = true;
+                if (k.opKey) to = true;
                 if (k.morphs != null) foreach (var m in k.morphs) if (!morphSeen.Contains(m.name)) morphSeen.Add(m.name);
                 if (k.bones != null)
                     foreach (var b in k.bones) if (!bonesSeen.Contains(b.path)) bonesSeen.Add(b.path);
@@ -523,6 +541,7 @@ namespace Atlas
             if (ts) l.Add("S");
             if (tu) l.Add("U");
             if (tg) l.Add("G");
+            if (to) l.Add("O");
             foreach (var mn in morphSeen) l.Add("m:" + mn);
             // Bones in skeleton order.
             foreach (var path in boneOrder) if (bonesSeen.Contains(path)) l.Add("b:" + path);
@@ -639,6 +658,15 @@ namespace Atlas
                     glow = Mathf.Max(0f, Interp.Blend(a.interp, new Vector3(a0.glow, 0f, 0f), new Vector3(a.glow, 0f, 0f), new Vector3(b.glow, 0f, 0f), new Vector3(b1.glow, 0f, 0f), SegT(a, b, frame)).x);
                     ApplyGlow();
                 }
+                if (Segment("O", frame, out a0, out a, out b, out b1))
+                {
+                    float op = Mathf.Clamp01(Interp.Blend(a.interp, new Vector3(a0.opacity, 0f, 0f), new Vector3(a.opacity, 0f, 0f), new Vector3(b.opacity, 0f, 0f), new Vector3(b1.opacity, 0f, 0f), SegT(a, b, frame)).x);
+                    if (Mathf.Abs(op - opacity) > 1e-4f)
+                    {
+                        opacity = op;
+                        if (OpacityChanged != null) OpacityChanged(this);
+                    }
+                }
             }
             if (bones.Count == 0) return;
             // Bones with keys follow them; the other posed bones keep the pose.
@@ -736,6 +764,10 @@ namespace Atlas
         public bool glowKey;
         public float glow;
 
+        /// Opacity key (0 = invisible).
+        public bool opKey;
+        public float opacity = 1f;
+
         /// Shape slider values of this key.
         public List<MorphValue> morphs = new List<MorphValue>();
 
@@ -745,7 +777,7 @@ namespace Atlas
             return 0f;
         }
 
-        public bool Empty { get { return skip == 7 && !uvKey && !glowKey && (bones == null || bones.Count == 0) && (morphs == null || morphs.Count == 0); } }
+        public bool Empty { get { return skip == 7 && !uvKey && !glowKey && !opKey && (bones == null || bones.Count == 0) && (morphs == null || morphs.Count == 0); } }
 
         public BonePose GetBone(string path)
         {
@@ -763,6 +795,7 @@ namespace Atlas
                 case "S": return (skip & 4) == 0;
                 case "U": return uvKey;
                 case "G": return glowKey;
+                case "O": return opKey;
             }
             if (track.StartsWith("m:")) { string n = track.Substring(2); if (morphs != null) foreach (var m in morphs) if (m.name == n) return true; return false; }
             return track.StartsWith("b:") && GetBone(track.Substring(2)) != null;
@@ -777,6 +810,7 @@ namespace Atlas
                 case "S": skip |= 4; return;
                 case "U": uvKey = false; return;
                 case "G": glowKey = false; return;
+                case "O": opKey = false; return;
             }
             if (track.StartsWith("m:")) { if (morphs != null) morphs.RemoveAll(m => m.name == track.Substring(2)); return; }
             if (track.StartsWith("b:") && bones != null) bones.RemoveAll(b => b.path == track.Substring(2));
@@ -791,6 +825,7 @@ namespace Atlas
                 case "S": dst.scale = src.scale; dst.skip &= ~4; return;
                 case "U": dst.uv = src.uv; dst.uvKey = true; return;
                 case "G": dst.glow = src.glow; dst.glowKey = true; return;
+                case "O": dst.opacity = src.opacity; dst.opKey = true; return;
             }
             if (track.StartsWith("m:"))
             {

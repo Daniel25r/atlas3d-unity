@@ -62,7 +62,7 @@ namespace Atlas
         public List<IkChain> ik = new List<IkChain>();
         public List<MorphValue> morphs = new List<MorphValue>();
         public string group = "";
-        public bool pixelated;
+        public bool pixelated, pureEmit;
         public string gobo = "";
         public float flicker;
         public bool toon;
@@ -342,6 +342,7 @@ namespace Atlas
                     gobo = it.gobo ?? "",
                     group = it.group ?? "",
                     pixelated = it.pixelated,
+                    pureEmit = it.pureEmit,
                     flicker = it.flicker,
                     toon = it.toon,
                     outline = it.outline,

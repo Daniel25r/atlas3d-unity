@@ -105,14 +105,44 @@ namespace Atlas
             return Limbs(it);
         }
 
+        /// The joint above: twist / roll / helper bones in between are
+        /// skipped (Source and game rigs have them between knee and ankle).
+        static string Joint(AtlasItem it, string bone)
+        {
+            string p = it.ParentBone(bone);
+            for (int i = 0; i < 4 && p != ""; i++)
+            {
+                string leaf = BoneNames.Leaf(p);
+                var t = Tokens(leaf);
+                bool helper = Has(t, "twist") || Has(t, "roll") || Has(t, "deform") || Has(t, "offset") || Has(t, "helper")
+                    || Has(t, "ik") || Has(t, "pole") || Has(t, "target") || BoneNames.IsHelper(leaf);
+                if (!helper) break;
+                p = it.ParentBone(p);
+            }
+            return p ?? "";
+        }
+
         static IkChain Chain(AtlasItem it, string tip, string name)
         {
-            string mid = it.ParentBone(tip);
+            string mid = Joint(it, tip);
             if (mid == "") return null;
-            string root = it.ParentBone(mid);
+            string root = Joint(it, mid);
             if (root == "") return null;
             Transform r = it.Bone(root), m = it.Bone(mid), t = it.Bone(tip);
             if (r == null || m == null || t == null) return null;
+            // A tiny piece just above the ankle / wrist is not the shin:
+            // one more joint up.
+            float upper = Vector3.Distance(r.position, m.position), lower = Vector3.Distance(m.position, t.position);
+            if (lower < upper * 0.3f)
+            {
+                string up = Joint(it, root);
+                var u = up != "" ? it.Bone(up) : null;
+                if (u != null && Vector3.Distance(u.position, r.position) > 1e-4f)
+                {
+                    mid = root; root = up;
+                    m = r; r = u;
+                }
+            }
             if (Vector3.Distance(r.position, m.position) < 1e-4f || Vector3.Distance(m.position, t.position) < 1e-4f) return null;
             return new IkChain { name = name, root = root, mid = mid, tip = tip };
         }

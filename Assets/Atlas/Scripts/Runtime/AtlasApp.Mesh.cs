@@ -331,9 +331,21 @@ namespace Atlas
         void ExtrudeSelected()
         {
             if (selected == null || selected.edit == null) return;
-            if (selMode != "face" || selFaces.Count == 0) { Toast("Pasa a «Caras», elige las que quieras y pulsa Extruir"); return; }
             Vector3 s = selected.transform.lossyScale;
             float dist = 0.25f / Mathf.Max(0.0001f, (Mathf.Abs(s.x) + Mathf.Abs(s.y) + Mathf.Abs(s.z)) / 3f);
+            if (selMode == "edge" && selEdges.Count > 0)
+            {
+                var ne = selected.edit.ExtrudeEdges(selEdges, dist);
+                selEdges.Clear();
+                foreach (long k in ne) selEdges.Add(k);
+                selected.edit.ToMesh(selected.editMesh);
+                SaveEdit(selected);
+                SetTool(Tool.Move);
+                ShowGizmo();
+                Toast("Aristas extruidas: muévelas con el manipulador");
+                return;
+            }
+            if (selMode != "face" || selFaces.Count == 0) { Toast("Elige caras (en «Caras») o aristas (en «Aristas») y pulsa Extruir"); return; }
             var nf = selected.edit.Extrude(selFaces, dist);
             selFaces.Clear();
             foreach (int f in nf) selFaces.Add(f);
@@ -482,10 +494,73 @@ namespace Atlas
         // ------------------------------------------------------------------
         // Points drawn over the view
 
+        GameObject wireGo;
+        Mesh wireMesh;
+        readonly List<Vector3> wirePts = new List<Vector3>();
+        readonly List<int> wireIdx = new List<int>();
+
+        /// The mesh's edges as dark lines (like Blender), while modelling.
+        void UpdateWire(bool show)
+        {
+            if (!show)
+            {
+                highlighter.extraWanted = false;
+                if (wireGo != null && wireGo.activeSelf) wireGo.SetActive(false);
+                return;
+            }
+            if (wireGo == null)
+            {
+                wireGo = new GameObject("Aristas");
+                wireGo.layer = Gizmo.Layer;
+                wireGo.transform.SetParent(highlighter.transform, false);
+                wireMesh = new Mesh { name = "Aristas" };
+                wireMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                wireMesh.MarkDynamic();
+                wireGo.AddComponent<MeshFilter>().sharedMesh = wireMesh;
+                var mr = wireGo.AddComponent<MeshRenderer>();
+                var m = new Material(unlitTemplate);
+                m.SetColor("_BaseColor", new Color(0.03f, 0.03f, 0.04f, 1f));
+                mr.sharedMaterial = m;
+                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                mr.receiveShadows = false;
+                highlighter.extra = wireGo;
+            }
+            highlighter.extraWanted = true;
+            if (!wireGo.activeSelf) wireGo.SetActive(true);
+            wireGo.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            wireGo.transform.localScale = Vector3.one;
+            var e = selected.edit;
+            var t = selected.transform;
+            wirePts.Clear();
+            wireIdx.Clear();
+            if (e.verts.Count > 60000) { wireMesh.Clear(); return; }
+            // A little towards the camera so the lines are not hidden by the faces.
+            Vector3 cp = cam.transform.position;
+            for (int i = 0; i < e.verts.Count; i++)
+            {
+                Vector3 w = t.TransformPoint(e.verts[i]);
+                wirePts.Add(Vector3.Lerp(w, cp, 0.004f));
+            }
+            var seen = new HashSet<long>();
+            foreach (var f in e.faces)
+                for (int k = 0; k < f.Length; k++)
+                {
+                    int a = f[k], b = f[(k + 1) % f.Length];
+                    if (!seen.Add(EditMesh.EdgeKey(a, b))) continue;
+                    wireIdx.Add(a);
+                    wireIdx.Add(b);
+                }
+            wireMesh.Clear();
+            wireMesh.SetVertices(wirePts);
+            wireMesh.SetIndices(wireIdx, MeshTopology.Lines, 0, false);
+            wireMesh.bounds = new Bounds(Vector3.zero, Vector3.one * 1e6f);
+        }
+
         void UpdateMeshOverlay()
         {
             if (meshLayer == null) return;
             bool show = meshMode == "model" && selected != null && selected.edit != null;
+            UpdateWire(show);
             int n = 0;
             if (show)
             {

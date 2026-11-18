@@ -221,7 +221,14 @@ namespace Atlas
             float shutter = Mathf.Clamp01(env.motionBlur);
             bool dof = env.dof;
             float focus = Mathf.Max(0.1f, env.focus);
-            float lens = Mathf.Lerp(0.004f, 0.09f, Mathf.Clamp01(env.dofBlur)) * Mathf.Max(1f, focus * 0.2f);
+            // The same lens as the view's depth of field (URP Bokeh: focal
+            // length and f-number from «Cuánto desenfoca», 24 mm film), so
+            // the render is as blurred as what you see, not more.
+            float bl = Mathf.Clamp01(env.dofBlur);
+            float fl = Mathf.Lerp(35f, 120f, bl) / 1000f, fNum = Mathf.Lerp(16f, 1.2f, bl);
+            float tanHalf = Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
+            float lens = fl * fl / fNum * tanHalf / 0.024f;
+            lens = Mathf.Min(lens, 0.05f * focus * tanHalf);
             float pixAngle = cam.fieldOfView / h;
             var sum = new int[w * h * 3];
             int done = 0;
@@ -429,7 +436,7 @@ namespace Atlas
                 for (int i = 1; i < it.keys.Count - 1; i++)
                 {
                     var a = it.keys[i - 1]; var k = it.keys[i]; var b = it.keys[i + 1];
-                    if (k.uvKey || k.glowKey || (k.morphs != null && k.morphs.Count > 0) || k.skip != a.skip || k.skip != b.skip) continue;
+                    if (k.uvKey || k.glowKey || k.opKey || (k.morphs != null && k.morphs.Count > 0) || k.skip != a.skip || k.skip != b.skip) continue;
                     float t = (k.frame - a.frame) / (float)Mathf.Max(1, b.frame - a.frame);
                     if ((Vector3.Lerp(a.position, b.position, t) - k.position).magnitude > 0.005f) continue;
                     if (Quaternion.Angle(Quaternion.Slerp(a.rotation, b.rotation, t), k.rotation) > 1f) continue;

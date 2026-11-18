@@ -201,7 +201,7 @@ namespace Atlas
             {
                 var vb = Sec("Vídeo", "video");
                 Hint(vb, "Sigue a la línea de tiempo (empieza en el fotograma 0 y se repite) y sale en el render fotograma a fotograma. El sonido del vídeo no se usa: pon la música con Audio en la línea de tiempo.");
-                AtlasTheme.SliderRow(vb, "Opacidad", 0.05f, 1f, it.opacity, "0.00", x => { it.opacity = x; ApplyLook(it); }, () => Commit(true));
+                OpacityControls(vb, it);
             }
             else
             {
@@ -349,7 +349,8 @@ namespace Atlas
             AtlasTheme.SliderRow(box, "Metálico", 0f, 1f, it.metallic, "0.00", x => { it.metallic = x; ApplyLook(it); }, () => Commit(true));
             AtlasTheme.SliderRow(box, "Rugosidad", 0f, 1f, 1f - it.smoothness, "0.00", x => { it.smoothness = 1f - x; ApplyLook(it); }, () => Commit(true));
             AtlasTheme.SliderRow(box, "Emisión", 0f, 8f, it.emission, "0.0", x => { it.emission = x; ApplyLook(it); }, () => Commit(true));
-            AtlasTheme.SliderRow(box, "Opacidad", 0.05f, 1f, it.opacity, "0.00", x => { it.opacity = x; ApplyLook(it); }, () => Commit(true));
+            AtlasTheme.Switch(box, "Emisión pura (su color, sin luz ni sombra)", it.pureEmit, on => { it.pureEmit = on; ApplyLook(it); Commit(true); });
+            OpacityControls(box, it);
             // More maps: relief (normal / bump) and glow (emission).
             var ml = AtlasTheme.Label(box, "Mapas", 15, AtlasTheme.TextColor, true);
             AtlasTheme.Le(ml.gameObject, 24f);
@@ -493,6 +494,7 @@ namespace Atlas
             AtlasTheme.Chip(gg, "Satinado", () => { it.modelGloss = 0.4f; ApplyLook(it); Commit(true); RefreshProps(); }, Mathf.Abs(it.modelGloss - 0.4f) < 0.01f);
             AtlasTheme.Chip(gg, "Natural", () => { it.modelGloss = -1f; ApplyLook(it); Commit(true); RefreshProps(); }, it.modelGloss < 0f);
             Hint(gbox, "«Natural» es un acabado suave, sin aspecto aceitoso. Sube el brillo para plástico, charol o metal; «Mate» lo deja como tela o goma.");
+            OpacityControls(gbox, it);
             var mbox = Sec("Modelo", "import", false);
             Hint(mbox, "Los modelos importados conservan sus propios materiales y texturas.");
             var tl = AtlasTheme.Label(mbox, "Archivo: " + it.modelFile, 14, AtlasTheme.TextDim);

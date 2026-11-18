@@ -329,7 +329,7 @@ namespace Atlas
             AtlasTheme.SliderRow(c, "Rugosidad", 0f, 1f, 1f - s.smooth, "0.00", v => ChangeMat(st => st.smooth = 1f - v), () => Commit(true));
             AtlasTheme.SliderRow(c, "Emisión (brillo propio)", 0f, 8f, s.emission, "0.0", v => ChangeMat(st => st.emission = v), () => Commit(true));
             if (!EditingModel)
-                AtlasTheme.SliderRow(c, "Opacidad", 0.05f, 1f, s.opacity, "0.00", v => ChangeMat(st => st.opacity = v), () => Commit(true));
+                AtlasTheme.SliderRow(c, "Opacidad", 0f, 1f, s.opacity, "0.00", v => ChangeMat(st => st.opacity = v), () => Commit(true));
             // Textures
             var tl = AtlasTheme.Label(c, "TEXTURAS Y MAPAS", 14, AtlasTheme.TextDim, true);
             AtlasTheme.Le(tl.gameObject, 22f);
