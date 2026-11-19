@@ -65,6 +65,7 @@ namespace Atlas
         public List<MorphValue> morphs = new List<MorphValue>();   // face / shape sliders set now
         public string group = "";        // objects selected together
         public bool pureEmit;            // «Emisión pura»
+        public List<LookAtBone> lookAts = new List<LookAtBone>();   // «Mirar a»
         public bool pixelated;           // textures without smoothing
         public string gobo = "";         // spotlight: shape it projects (window, blinds, leaves…)
         public float flicker;            // lights: 0 steady .. 1 broken lamp
@@ -166,6 +167,32 @@ namespace Atlas
                 foreach (var b in smr.bones)
                     if (b != null && b.IsChildOf(transform)) used.Add(b);
             if (used.Count == 0) return;
+            // Two bones with the same name under the same parent (Prisma3D
+            // calls them all «Hueso») had the same path: the second one could
+            // not be posed. It gets a number, the same on every load.
+            var parents = new HashSet<Transform>();
+            foreach (var b in used) if (b.parent != null) parents.Add(b.parent);
+            foreach (var par in parents)
+            {
+                // Original names first, then numbers in child order.
+                var names = new string[par.childCount];
+                for (int i = 0; i < names.Length; i++) names[i] = par.GetChild(i).name;
+                var taken = new HashSet<string>(names);
+                var seenName = new Dictionary<string, int>();
+                for (int i = 0; i < names.Length; i++)
+                {
+                    int n;
+                    seenName.TryGetValue(names[i], out n);
+                    seenName[names[i]] = ++n;
+                    if (n < 2) continue;
+                    var c = par.GetChild(i);
+                    if (!used.Contains(c)) continue;
+                    string nn = names[i] + " (" + n + ")";
+                    while (taken.Contains(nn)) nn += "'";
+                    taken.Add(nn);
+                    c.name = nn;
+                }
+            }
             // Hierarchy order (parents before children).
             var stack = new Stack<Transform>();
             stack.Push(transform);
@@ -183,6 +210,18 @@ namespace Atlas
                 bones[p] = t;
                 boneOrder.Add(p);
                 rest[p] = BonePose.From(p, t);
+            }
+            // Names shown: bones that would read the same get a number.
+            labels.Clear();
+            var count = new Dictionary<string, int>();
+            foreach (var p in boneOrder) { string d = BoneNames.Display(BoneNames.Leaf(p)); int c; count.TryGetValue(d, out c); count[d] = c + 1; }
+            var seen = new Dictionary<string, int>();
+            foreach (var p in boneOrder)
+            {
+                string d = BoneNames.Display(BoneNames.Leaf(p));
+                if (count[d] < 2) continue;
+                int c; seen.TryGetValue(d, out c); seen[d] = ++c;
+                labels[p] = d + " · " + c;
             }
             IkRig.Sync(this);
             morphsBuilt = false;
@@ -210,6 +249,16 @@ namespace Atlas
         void LateUpdate()
         {
             if (ik.Count > 0) IkRig.Solve(this);
+        }
+
+        readonly Dictionary<string, string> labels = new Dictionary<string, string>();
+
+        /// The bone's name as shown (numbered when several read the same).
+        public string BoneLabel(string path)
+        {
+            string l;
+            if (path != null && labels.TryGetValue(path, out l)) return l;
+            return BoneNames.Display(BoneNames.Leaf(path ?? ""));
         }
 
         public Transform Bone(string path)
@@ -415,6 +464,10 @@ namespace Atlas
         public Vector4 uv = new Vector4(1f, 1f, 0f, 0f);
         public int uvMat = -1;
 
+        // The tiling the file gave each material (texture transform): the
+        // placement keys go on top of it instead of wiping it.
+        readonly Dictionary<Material, Vector4> fileST = new Dictionary<Material, Vector4>();
+
         public void ApplyUv()
         {
             var sc = new Vector2(uv.x, uv.y);
@@ -424,9 +477,19 @@ namespace Atlas
                 for (int i = 0; i < modelMats.Count; i++)
                 {
                     var m = modelMats[i];
-                    if (m == null || (uvMat >= 0 && i != uvMat) || !m.HasProperty("_BaseMap")) continue;
-                    m.SetTextureScale("_BaseMap", sc);
-                    m.SetTextureOffset("_BaseMap", of);
+                    if (m == null || !m.HasProperty("_BaseMap")) continue;
+                    Vector4 st;
+                    if (!fileST.TryGetValue(m, out st))
+                    {
+                        var s0 = m.GetTextureScale("_BaseMap");
+                        var o0 = m.GetTextureOffset("_BaseMap");
+                        st = new Vector4(s0.x, s0.y, o0.x, o0.y);
+                        fileST[m] = st;
+                    }
+                    bool mine = !(uvMat >= 0 && i != uvMat);
+                    Vector2 s1 = mine ? sc : Vector2.one, o1 = mine ? of : Vector2.zero;
+                    m.SetTextureScale("_BaseMap", new Vector2(st.x * s1.x, st.y * s1.y));
+                    m.SetTextureOffset("_BaseMap", new Vector2(st.z * s1.x + o1.x, st.w * s1.y + o1.y));
                 }
             }
             else if (material != null && material.HasProperty("_BaseMap"))

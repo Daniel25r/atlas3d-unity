@@ -63,6 +63,7 @@ namespace Atlas
         public List<MorphValue> morphs = new List<MorphValue>();
         public string group = "";
         public bool pixelated, pureEmit;
+        public List<LookAtBone> lookAts = new List<LookAtBone>();
         public string gobo = "";
         public float flicker;
         public bool toon;
@@ -343,6 +344,7 @@ namespace Atlas
                     group = it.group ?? "",
                     pixelated = it.pixelated,
                     pureEmit = it.pureEmit,
+                    lookAts = LookAtBone.CopyList(it.lookAts),
                     flicker = it.flicker,
                     toon = it.toon,
                     outline = it.outline,

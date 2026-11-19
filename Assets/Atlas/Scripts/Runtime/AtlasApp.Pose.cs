@@ -406,6 +406,8 @@ namespace Atlas
                 AtlasTheme.TextButton(box, "edit", "Pintar pesos de este hueso", EnterWeightMode, false, 42f, 15);
             BuildIkRigSection(it, box);
             BuildLipSyncSection(it, box);
+            BuildSpringSection(it, box);
+            BuildLookAtSection(it, box);
             int hidden = HiddenBoneCount(it);
             if (hidden > 0 || allBones)
                 AtlasTheme.Switch(box, "Mostrar también pelo, falda y ropa (" + hidden + ")", allBones, on =>
@@ -428,7 +430,7 @@ namespace Atlas
                 string path = path0;
                 string leaf = BoneNames.Leaf(path);
                 if (!ShowBone(it, path)) continue;
-                string shown = BoneNames.Display(leaf);
+                string shown = it.BoneLabel(path);
                 bool active = path == activeBone;
                 var row = AtlasTheme.Box(list, "Hueso", active ? AtlasTheme.AccentDim : AtlasTheme.Panel2, 8);
                 AtlasTheme.Le(row.gameObject, 38f);
@@ -447,7 +449,7 @@ namespace Atlas
             for (int i = 0; i < boneTf.Length; i++) boneTf[i] = null;
             if (activeBone != "" && it.Bone(activeBone) != null)
             {
-                var title = AtlasTheme.Label(box, "Hueso: " + BoneNames.Display(BoneNames.Leaf(activeBone)), 16, AtlasTheme.Key, true);
+                var title = AtlasTheme.Label(box, "Hueso: " + it.BoneLabel(activeBone), 16, AtlasTheme.Key, true);
                 AtlasTheme.Le(title.gameObject, 26f);
                 string[] rowNames = { "Rotación", "Mover", "Estirar" };
                 Color[] ac = { AtlasTheme.AxisX, AtlasTheme.AxisY, AtlasTheme.AxisZ };

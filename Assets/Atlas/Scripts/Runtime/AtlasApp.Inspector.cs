@@ -191,6 +191,7 @@ namespace Atlas
                 if (activeMat >= 0 && activeMat < it.modelMats.Count) BuildModelMaterialSection(it, activeMat);
                 BuildModelMaterialsList(it);
                 if (it.HasBones) BuildSkeletonSection(it);
+                if (it.HasBones) BuildRetargetSection(it);
                 BuildMorphSection(it);
                 BuildModelSection(it);
             }

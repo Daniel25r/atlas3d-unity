@@ -71,15 +71,31 @@ namespace Atlas
 
             var pbr = g.PbrMetallicRoughness;
             Color baseColor = pbr != null ? pbr.BaseColor : Color.white;
+            var ext = g.Extensions;
+            // Older files (many from Sketchfab) keep their colour and texture
+            // in «specular-glossiness»: without reading it they came in grey
+            // or dark, with no texture.
+            var sg = ext != null ? ext.KHR_materials_pbrSpecularGlossiness : null;
+            TextureInfoBase baseInfo = pbr != null ? pbr.BaseColorTexture : null;
+            bool fromSg = sg != null && (baseInfo == null || baseInfo.index < 0);
+            if (fromSg)
+            {
+                baseColor = sg.DiffuseColor;
+                baseInfo = sg.diffuseTexture;
+            }
+            bool unlit = ext != null && ext.KHR_materials_unlit != null;
             // glTF colours are linear; SetColor expects sRGB.
             Color c = baseColor.gamma;
             c.a = baseColor.a;
             m.SetColor("_BaseColor", c);
-            Texture2D baseTex = pbr != null ? Tex(gltf, pbr.BaseColorTexture) : null;
+            Texture2D baseTex = Tex(gltf, baseInfo);
             // Pixel art (Minecraft, Blockbench, retro): small textures stay
             // sharp instead of turning into a blur.
             if (baseTex != null && baseTex.width <= 128 && baseTex.height <= 128) baseTex.filterMode = FilterMode.Point;
             m.SetTexture("_BaseMap", baseTex);
+            // Repeated / moved textures (KHR_texture_transform): without it
+            // a tiled texture showed only a stretched corner of itself.
+            SetTransform(m, baseInfo != null && baseInfo.index >= 0 ? baseInfo : g.EmissiveTexture);
             float metal = pbr != null ? pbr.metallicFactor : 0f;
             float rough = pbr != null ? pbr.roughnessFactor : 1f;
             // With a metal/roughness texture the factors are multipliers
@@ -91,6 +107,9 @@ namespace Atlas
                 metal = 0f;
                 rough = Mathf.Max(rough, 0.72f);
             }
+            // Specular-glossiness has no metal: the empty metal/rough block
+            // some exporters add (metal 1 by default) made it look black.
+            if (fromSg) { metal = 0f; rough = Mathf.Max(0.5f, 1f - sg.glossinessFactor); }
             // Painted surfaces never look like polished chrome by accident.
             if (baseTex != null) metal = Mathf.Min(metal, 0.3f);
             // Imported characters looked «oiled»: most exporters write a
@@ -116,6 +135,20 @@ namespace Atlas
                 m.SetFloat("_BumpScale", nt != null ? nt.scale : 1f);
             }
             if (g.doubleSided && m.HasProperty("_Cull")) m.SetFloat("_Cull", 0f);
+            // «Unlit» (flat colour, no light): its colour as it is.
+            if (unlit)
+            {
+                float a = c.a;
+                m.SetColor("_BaseColor", new Color(0f, 0f, 0f, a));
+                m.SetFloat("_Metallic", 0f);
+                m.SetFloat("_Smoothness", 0f);
+                m.EnableKeyword("_SPECULARHIGHLIGHTS_OFF");
+                m.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
+                if (m.HasProperty("_SpecularHighlights")) m.SetFloat("_SpecularHighlights", 0f);
+                if (m.HasProperty("_EnvironmentReflections")) m.SetFloat("_EnvironmentReflections", 0f);
+                m.SetColor("_EmissionColor", new Color(c.r, c.g, c.b));
+                if (m.HasProperty("_EmissionMap")) m.SetTexture("_EmissionMap", baseTex);
+            }
             if (mask) MatUtil.SetCutout(m, Mathf.Clamp(g.alphaCutoff, 0.05f, 0.95f));
             else if (see)
             {
@@ -126,6 +159,24 @@ namespace Atlas
                 if (baseColor.a >= 0.99f) m.SetFloat("_ZWrite", 1f);
             }
             return m;
+        }
+
+        /// glTF's texture transform as Unity's tiling / offset (V flipped,
+        /// as glTFast does; rotation is rare and left out).
+        static void SetTransform(UnityEngine.Material m, TextureInfoBase info)
+        {
+            if (info == null) return;
+            TextureTransform tt = null;
+            try { tt = info.Extensions != null ? info.Extensions.KHR_texture_transform : null; }
+            catch (System.Exception) { tt = null; }
+            if (tt == null) return;
+            float sx = tt.scale != null && tt.scale.Length > 1 ? tt.scale[0] : 1f;
+            float sy = tt.scale != null && tt.scale.Length > 1 ? tt.scale[1] : 1f;
+            float ox = tt.offset != null && tt.offset.Length > 1 ? tt.offset[0] : 0f;
+            float oy = tt.offset != null && tt.offset.Length > 1 ? tt.offset[1] : 0f;
+            var st = new Vector2(sx, sy);
+            var off = new Vector2(ox, 1f - oy - sy);
+            if (m.HasProperty("_BaseMap")) { m.SetTextureScale("_BaseMap", st); m.SetTextureOffset("_BaseMap", off); }
         }
 
         public void SetLogger(ICodeLogger logger)

@@ -355,6 +355,11 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• NUEVO · Rebote: pelo, colas, orejas y cables se balancean solos con el cuerpo (modo pose → elige el primer hueso → Generar rebote).\n" +
+            "• NUEVO · Copiar animación de otro personaje, aunque sus huesos se llamen distinto (Mixamo, Source, Blender, Prisma…).\n" +
+            "• NUEVO · Mirar a: la cabeza o los ojos siguen a otro objeto aunque todo se mueva.\n" +
+            "• Texturas: ya se leen las texturas repetidas o desplazadas, los materiales «specular-glossiness» (salían oscuros o sin textura) y los «sin luz».\n" +
+            "• Huesos: ya no salen todos como «Hueso»; los de Blender conservan el lado (izq./der.) y los repetidos se pueden mover.\n" +
             "• Modelar: vuelven las líneas oscuras de la malla, y Extruir funciona también con aristas.\n" +
             "• Opacidad: en 0 el objeto desaparece del todo, funciona en modelos importados y se anima con claves.\n" +
             "• Emisión pura: el color sin luz ni sombra, como en Blender.\n" +

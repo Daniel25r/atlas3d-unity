@@ -55,7 +55,7 @@ namespace Atlas
             {
                 Lang.Set(badgeText, "POSE");
                 badge.color = AtlasTheme.AccentButton;
-                modeFull = activeBone != "" ? toolName + " · " + BoneNames.Display(BoneNames.Leaf(activeBone)) : "Toca una articulación";
+                modeFull = activeBone != "" ? toolName + " · " + (selected != null ? selected.BoneLabel(activeBone) : BoneNames.Display(BoneNames.Leaf(activeBone))) : "Toca una articulación";
             }
             else
             {

@@ -302,7 +302,7 @@ namespace Atlas
             else foreach (var it in items) if (it != null && it.Animated) ids.Add(it);
             string focus = poseMode && selected != null && activeBone != "" ? "b:" + activeBone : "";
             if (focus != "")
-                rows.Add(new TimelineRow { item = selected, track = focus, label = BoneNames.Display(BoneNames.Leaf(activeBone)), focus = true, frames = selected.TrackFrames(focus) });
+                rows.Add(new TimelineRow { item = selected, track = focus, label = selected.BoneLabel(activeBone), focus = true, frames = selected.TrackFrames(focus) });
             foreach (var it in ids)
             {
                 rows.Add(new TimelineRow { item = it, track = "", label = (focus != "" && it == selected ? "Todo: " : "") + it.gameObject.name, frames = it.TrackFrames("") });
@@ -310,7 +310,7 @@ namespace Atlas
                 foreach (var track in it.Tracks())
                 {
                     if (it == selected && track == focus) continue;
-                    rows.Add(new TimelineRow { item = it, track = track, label = "   " + TrackName(track), frames = it.TrackFrames(track) });
+                    rows.Add(new TimelineRow { item = it, track = track, label = "   " + (track.StartsWith("b:") ? it.BoneLabel(track.Substring(2)) : TrackName(track)), frames = it.TrackFrames(track) });
                 }
             }
             float a0, a1;

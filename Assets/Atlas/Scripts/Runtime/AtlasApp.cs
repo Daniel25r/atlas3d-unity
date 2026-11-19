@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.2.5";
+        public const string Version = "1.3.0";
 
         Camera cam;
         Light sunLight;
@@ -349,6 +349,7 @@ namespace Atlas
             it.group = d.group ?? "";
             it.pixelated = d.pixelated;
             it.pureEmit = d.pureEmit;
+            it.lookAts = LookAtBone.CopyList(d.lookAts);
             it.flicker = d.flicker;
             it.toon = d.toon;
             it.outline = d.outline;
@@ -1238,6 +1239,8 @@ namespace Atlas
                 it.Evaluate(frame, fps);
             }
             ApplyAnchors();
+            lookGoalFrame = -1;   // the animation moved things: measure again
+            ApplyLookAts();
             ApplyCameraRigs();
             SyncVideos();
             UpdateEffects();
@@ -1473,6 +1476,7 @@ namespace Atlas
             }
             if (selected != null && propsPanel != null && propsPanel.activeSelf && tf[0] != null) FillTransformFields();
             if (poseMode && propsPanel != null && propsPanel.activeSelf) FillBoneFields();
+            ApplyLookAts();
             UpdateBoneOverlay();
             UpdateMeshOverlay();
             UpdateDesktop();

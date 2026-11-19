@@ -71,9 +71,23 @@ namespace Atlas
             string s = bone;
             foreach (var p in Prefixes)
                 if (s.ToLowerInvariant().StartsWith(p)) s = s.Substring(p.Length);
-            if (s.Contains(".") && !s.StartsWith(".")) s = s.Substring(0, s.IndexOf('.'));
+            // «Bone.001», «Bone_002»: the number is what tells them apart
+            // (all of them showed as «Hueso»).
+            string suffix = "";
+            int dot = s.LastIndexOf('.');
+            if (dot > 0 && IsInt(s.Substring(dot + 1)))
+            {
+                string after = s.Substring(dot + 1);
+                suffix = after.TrimStart('0') == "" ? "0" : after.TrimStart('0');
+                s = s.Substring(0, dot);
+            }
+            // «hand.L» / «thigh.R» (Blender): the side stays (it was cut off).
             int u = s.LastIndexOf('_');
-            if (u > 0 && IsInt(s.Substring(u + 1)) && s.Length - u - 1 >= 3) s = s.Substring(0, u);
+            if (u > 0 && IsInt(s.Substring(u + 1)) && s.Length - u - 1 >= 3)
+            {
+                if (suffix == "") { string d = s.Substring(u + 1).TrimStart('0'); suffix = d == "" ? "0" : d; }
+                s = s.Substring(0, u);
+            }
             var spaced = new StringBuilder();
             for (int k = 0; k < s.Length; k++)
             {
@@ -99,9 +113,10 @@ namespace Atlas
             }
             if (words.Contains("fore") || (words.Contains("lower") && words.Contains("arm"))) part = "Antebrazo";
             else if (words.Contains("up") && words.Contains("leg")) part = "Muslo";
-            if (part == "") return s;
+            if (part == "") return suffix != "" ? s + " " + suffix : s;
             string outp = part;
             if (num != "") outp += " " + num;
+            if (suffix != "" && suffix != num) outp += (num != "" ? "." : " ") + suffix;
             if (side != "") outp += " " + side;
             return outp;
         }
