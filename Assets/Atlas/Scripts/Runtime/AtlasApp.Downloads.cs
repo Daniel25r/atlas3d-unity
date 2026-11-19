@@ -63,7 +63,7 @@ namespace Atlas
             float w = Mathf.Min(760f, canvasRoot.rect.width - 24f);
             cr.sizeDelta = new Vector2(w, 0f);
             cr.anchoredPosition = Vector2.zero;
-            var title = AtlasTheme.Label(card.transform, "Descargas y biblioteca", 20, AtlasTheme.TextColor, true, TextAnchor.MiddleCenter);
+            var title = AtlasTheme.Label(card.transform, "Descargas", 20, AtlasTheme.TextColor, true, TextAnchor.MiddleCenter);
             AtlasTheme.Pin(title.rectTransform, 0.5f, 1f, new Vector2(0f, -26f), new Vector2(420f, 34f));
             title.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             var x = AtlasTheme.IconButton(card.transform, "close", () => Destroy(dlWindow), 44f, 22f);

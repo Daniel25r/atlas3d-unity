@@ -86,7 +86,13 @@ namespace Atlas
             if (placeOnGround && holder != null)
             {
                 Bounds wb = WorldBounds(renderers);
-                float size = Mathf.Max(wb.size.x, Mathf.Max(wb.size.y, wb.size.z));
+                // The model's own size, without the scale the user gave the
+                // object: measured with it, a model made big or small on
+                // purpose was «corrected» back to 2 m every time the
+                // project opened.
+                Vector3 ls = root.transform.lossyScale;
+                float userScale = Mathf.Max(0.0001f, Mathf.Max(Mathf.Abs(ls.x), Mathf.Max(Mathf.Abs(ls.y), Mathf.Abs(ls.z))));
+                float size = Mathf.Max(wb.size.x, Mathf.Max(wb.size.y, wb.size.z)) / userScale;
                 // Huge exports (centimetres) or tiny ones: about 2 m tall.
                 if (size > 50f || size < 0.05f)
                     holder.localScale *= 2f / Mathf.Max(0.0001f, size);

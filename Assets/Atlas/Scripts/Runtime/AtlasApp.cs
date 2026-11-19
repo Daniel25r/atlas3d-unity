@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.4.0";
+        public const string Version = "1.7.0";
 
         Camera cam;
         Light sunLight;
@@ -350,6 +350,11 @@ namespace Atlas
             it.group = d.group ?? "";
             it.pixelated = d.pixelated;
             it.pureEmit = d.pureEmit;
+            it.loopKeys = d.loopKeys;
+            it.normalFlip = d.normalFlip;
+            bool redo = it.loaded && Mathf.Abs(it.reduce - d.reduce) > 1e-4f;
+            it.reduce = d.reduce;
+            if (redo) ApplyDetail(it, false);
             it.lookAts = LookAtBone.CopyList(d.lookAts);
             it.flicker = d.flicker;
             it.toon = d.toon;
@@ -445,6 +450,7 @@ namespace Atlas
                 it.modelMats = CollectMaterials(it);
                 it.BuildBones();
                 LoadWeights(it);
+                if (it.reduce > 0.001f) ApplyDetail(it, false);
                 it.Evaluate(frame, fps);
                 ApplyLook(it);
                 if (selected == it)
@@ -571,7 +577,7 @@ namespace Atlas
                 if (btex != null)
                     foreach (var rr in it.GetComponentsInChildren<Renderer>(true))
                         if (!(rr is LineRenderer) && rr.gameObject.name != "Volumen") UvFix.Ensure(rr);
-                var nmap = LoadTexture(it.normalMap, true);
+                var nmap = LoadTexture(it.normalMap, true, it.normalFlip);
                 if (m.HasProperty("_BumpMap"))
                 {
                     m.SetTexture("_BumpMap", nmap);
@@ -585,7 +591,9 @@ namespace Atlas
                 else UndoPureEmission(m);
                 MatUtil.SetTransparent(m, it.opacity < 0.995f);
                 // Pictures are seen from both sides.
-                if (m.HasProperty("_Cull")) m.SetFloat("_Cull", it.kind == "image" || it.kind == "flag" ? 0f : 2f);
+                // Modelled shapes too: an extruded edge or a deleted face leaves
+                // open surfaces, which looked invisible from behind.
+                if (m.HasProperty("_Cull")) m.SetFloat("_Cull", it.kind == "image" || it.kind == "flag" || !string.IsNullOrEmpty(it.meshFile) || it.edit != null ? 0f : 2f);
             }
             foreach (var r in it.GetComponentsInChildren<Renderer>(true))
                 if (!(r is LineRenderer) && r.gameObject.name != "Volumen") r.sharedMaterial = m;
@@ -656,11 +664,13 @@ namespace Atlas
         }
 
         /// `linear`: data maps (normal maps) are not colours.
-        Texture2D LoadTexture(string file, bool linear = false)
+        /// `linear`: a normal map (kept linear, alpha made solid: the phone's
+        /// shader reads it). `flipGreen`: DirectX-style normal map (Y down).
+        Texture2D LoadTexture(string file, bool linear = false, bool flipGreen = false)
         {
             if (string.IsNullOrEmpty(file) || store == null) return null;
             Texture2D t;
-            string key = linear ? file + "|lineal" : file;
+            string key = linear ? file + (flipGreen ? "|lineal|g" : "|lineal") : file;
             if (textures.TryGetValue(key, out t) && t != null) return t;
             string path = store.TexturePath(file);
             if (!File.Exists(path)) return null;
@@ -669,6 +679,19 @@ namespace Atlas
             {
                 Destroy(t);
                 return null;
+            }
+            if (linear)
+            {
+                // A normal map with transparency (or height in its alpha)
+                // came out broken: the alpha is part of how it is read.
+                var px = t.GetPixels32();
+                for (int i = 0; i < px.Length; i++)
+                {
+                    px[i].a = 255;
+                    if (flipGreen) px[i].g = (byte)(255 - px[i].g);
+                }
+                t.SetPixels32(px);
+                t.Apply(true);
             }
             t.wrapMode = TextureWrapMode.Repeat;
             t.filterMode = FilterMode.Trilinear;
@@ -794,7 +817,13 @@ namespace Atlas
                 return;
             }
             Toast((System.Array.IndexOf(Import.ModelConverter.Convertible, ext) >= 0 ? "Convirtiendo «" : "Importando «") + Path.GetFileName(main) + "»" + (paths.Length > 1 ? " (+" + (paths.Length - 1) + " archivos)" : "") + "…");
-            ImportWith(st => st.AddModelFiles(paths), Path.GetFileNameWithoutExtension(main), cleanup);
+            // A copy goes to the Biblioteca, to use it again without the file.
+            string lib = Prefs.keepImports ? DownloadsDir : null;
+            ImportWith(st =>
+            {
+                if (lib != null) try { KeepInLibrary(paths, lib); } catch (System.Exception) { }
+                return st.AddModelFiles(paths);
+            }, Path.GetFileNameWithoutExtension(main), cleanup);
         }
 
         async void ImportWith(System.Func<SceneStore, string> work, string shownName, string cleanup = null)
@@ -1079,6 +1108,11 @@ namespace Atlas
             if (audioSrc != null) { audioSrc.Stop(); audioSrc.clip = null; }
             audioFile = "";
             loadedAudio = "";
+            StopExtraSounds();
+            origMesh.Clear();
+            origFilter.Clear();
+            foreach (var m in reducedCache.Values) if (m != null) Destroy(m);
+            reducedCache.Clear();
             foreach (var t in textures.Values) if (t != null) Destroy(t);
             textures.Clear();
             count = 0;
@@ -1100,6 +1134,7 @@ namespace Atlas
             d.audioFile = audioFile;
             d.audioStart = audioStart;
             d.audioVolume = audioVolume;
+            d.sounds = CopySounds(sounds);
             d.showGrid = ground.activeSelf;
             d.env = JsonUtility.FromJson<EnvData>(JsonUtility.ToJson(env));
             return d;
@@ -1172,6 +1207,7 @@ namespace Atlas
             endFrame = Mathf.Max(1, d.endFrame);
             startFrame = Mathf.Clamp(d.startFrame, 0, endFrame - 1);
             RestoreAudio(d);
+            RestoreSounds(d);
             ground.SetActive(d.showGrid);
             AtlasTheme.SetButtonIcon(eyeBtn, ground.activeSelf ? "eye" : "eye_off");
             env = d.env != null ? JsonUtility.FromJson<EnvData>(JsonUtility.ToJson(d.env)) : new EnvData();
@@ -1223,7 +1259,13 @@ namespace Atlas
             if (selected == null || !(autoKey || selected.Animated)) return;
             int f = Mathf.RoundToInt(frame);
             if (poseMode && ikTip != "" && ikBones.Count > 0) selected.SetKey(f, 0, IkKeyBones());
-            else if (poseMode && activeBone != "") selected.SetKey(f, 0, new List<string> { activeBone });
+            else if (poseMode && activeBone != "")
+            {
+                var l = new List<string> { activeBone };
+                string other = poseMirror ? MirrorPath(activeBone) : "";
+                if (other != "" && selected.Bone(other) != null) l.Add(other);
+                selected.SetKey(f, 0, l);
+            }
             else selected.SetKey(f, AtlasItem.ChPos | AtlasItem.ChRot | AtlasItem.ChScale, new List<string>());
             RefreshKeys();
         }
@@ -1307,6 +1349,7 @@ namespace Atlas
                 SetFrame(f);
             }
             SyncAudio();
+            SyncExtraSounds();
             UpdateNav();
             CheckIncoming();
             if (Input.touchCount == 0) pinchOnUi = false;
@@ -1465,7 +1508,7 @@ namespace Atlas
                 distance = ZoomFloor;
                 return;
             }
-            distance = Mathf.Clamp(nd, ZoomFloor, 400f);
+            distance = Mathf.Clamp(nd, ZoomFloor, 2000f);
         }
 
         void LateUpdate()
@@ -1557,6 +1600,7 @@ namespace Atlas
             if (draggingGizmo)
             {
                 gizmo.Drag(pos);
+                if (poseMode && selected != null && activeBone != "" && gizmo.tool == Tool.Rotate) MirrorPose(selected, activeBone);
                 if (meshDragging) MeshDragMove();
                 GroupDragMove();
                 if (poseMode && ikTip != "") IkSolve();

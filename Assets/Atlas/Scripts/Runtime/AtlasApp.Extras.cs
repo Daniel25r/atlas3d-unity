@@ -402,7 +402,7 @@ namespace Atlas
             }, lookThrough != it, 46f, 16);
             AtlasTheme.Switch(box, "Cámara activa (la que usa el render)", it.renderCam, on => SetRenderCamera(it, on));
             BuildCutSection(it, box);
-            AtlasTheme.SliderRow(box, "Campo visual", 10f, 120f, it.fov, "0", x => { it.fov = x; UpdateFrustum(it); }, () => Commit(true));
+            AtlasTheme.SliderRow(box, "Campo visual (zoom)", 2f, 150f, it.fov, "0", x => { it.fov = x; UpdateFrustum(it); }, () => Commit(true));
             var g = AtlasTheme.Grid(box, 3, InnerWidth, 38f);
             float[] lens = { 24f, 35f, 50f, 85f, 135f };
             string[] lensNames = { "Gran angular", "35 mm", "50 mm", "85 mm", "Tele 135" };

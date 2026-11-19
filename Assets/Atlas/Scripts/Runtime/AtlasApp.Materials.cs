@@ -22,6 +22,7 @@ namespace Atlas
         public float bump = 1f;
         public bool hidden;
         public bool pure;    // «Emisión pura»: its colour without light or shadow
+        public bool flipY;   // DirectX normal map (green upside down)
 
         public MatOverride Copy() { return (MatOverride)MemberwiseClone(); }
     }
@@ -97,6 +98,30 @@ namespace Atlas
         static float GetF(Material m, string p, float def) { return m.HasProperty(p) ? m.GetFloat(p) : def; }
 
         /// Originals, then the model's shine, then each material's changes.
+        readonly HashSet<Mesh> tangentsDone = new HashSet<Mesh>();
+
+        /// The meshes that use `m` get tangents if they have none (a normal
+        /// map without them lights the surface wrongly).
+        void EnsureTangents(AtlasItem it, Material m)
+        {
+            foreach (var kv in it.rendererMats)
+            {
+                if (kv.Key == null || System.Array.IndexOf(kv.Value, m) < 0) continue;
+                var smr = kv.Key as SkinnedMeshRenderer;
+                var mf = smr == null ? kv.Key.GetComponent<MeshFilter>() : null;
+                var mesh = smr != null ? smr.sharedMesh : mf != null ? mf.sharedMesh : null;
+                if (mesh == null || tangentsDone.Contains(mesh) || !mesh.isReadable) continue;
+                tangentsDone.Add(mesh);
+                try
+                {
+                    if (mesh.HasVertexAttribute(UnityEngine.Rendering.VertexAttribute.Tangent)) continue;
+                    if (!mesh.HasVertexAttribute(UnityEngine.Rendering.VertexAttribute.TexCoord0) || !mesh.HasVertexAttribute(UnityEngine.Rendering.VertexAttribute.Normal)) continue;
+                    mesh.RecalculateTangents();
+                }
+                catch (System.Exception) { }
+            }
+        }
+
         void ApplyModelMaterials(AtlasItem it)
         {
             if (it.modelMats.Count == 0) it.modelMats = CollectMaterials(it);
@@ -145,8 +170,16 @@ namespace Atlas
                 if (ov.tint && m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", baseCol);
                 if (ov.metallic >= 0f && m.HasProperty("_Metallic")) m.SetFloat("_Metallic", ov.metallic);
                 if (ov.smoothness >= 0f && m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", ov.smoothness);
-                var nmap = LoadTexture(ov.normalMap, true);
-                if (nmap != null && m.HasProperty("_BumpMap")) { m.SetTexture("_BumpMap", nmap); m.SetFloat("_BumpScale", ov.bump); }
+                var nmap = LoadTexture(ov.normalMap, true, ov.flipY);
+                if (nmap != null && m.HasProperty("_BumpMap"))
+                {
+                    m.SetTexture("_BumpMap", nmap);
+                    m.SetFloat("_BumpScale", ov.bump);
+                    // The relief needs the keyword and the mesh's tangents
+                    // (models that came without relief have none).
+                    m.EnableKeyword("_NORMALMAP");
+                    EnsureTangents(it, m);
+                }
                 var emap = LoadTexture(ov.emissionMap);
                 if (emap != null && m.HasProperty("_EmissionMap")) m.SetTexture("_EmissionMap", emap);
                 if ((ov.emission >= 0f || emap != null) && m.HasProperty("_EmissionColor"))
@@ -342,7 +375,10 @@ namespace Atlas
             else
                 AtlasTheme.TextButton(mg, "close", "Quitar emisión", () => { OverrideFor(it, index, true).emissionMap = ""; ApplyLook(it); Commit(true); RefreshProps(); }, false, 40f, 15);
             if (hasNormal)
+            {
                 AtlasTheme.SliderRow(box, "Relieve", 0f, 3f, ov.bump, "0.0", x => { OverrideFor(it, index, true).bump = x; ApplyLook(it); }, () => Commit(true));
+                AtlasTheme.Switch(box, "Relieve al revés (normal map de DirectX)", ov.flipY, on => { OverrideFor(it, index, true).flipY = on; ApplyLook(it); Commit(true); });
+            }
             bool hidden = ov != null && ov.hidden;
             AtlasTheme.Switch(box, "Visible", !hidden, on =>
             {

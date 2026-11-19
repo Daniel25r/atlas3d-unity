@@ -371,7 +371,10 @@ namespace Atlas
             else
                 AtlasTheme.TextButton(mg, "close", "Quitar emisión", () => { it.emissionMap = ""; ApplyLook(it); Commit(true); RefreshProps(); }, false, 40f, 15);
             if (!string.IsNullOrEmpty(it.normalMap))
+            {
                 AtlasTheme.SliderRow(box, "Relieve", 0f, 3f, it.bumpStrength, "0.0", x => { it.bumpStrength = x; ApplyLook(it); }, () => Commit(true));
+                AtlasTheme.Switch(box, "Relieve al revés (normal map de DirectX)", it.normalFlip, on => { it.normalFlip = on; ApplyLook(it); Commit(true); });
+            }
             if (string.IsNullOrEmpty(it.texture))
             {
                 AtlasTheme.TextButton(box, "image", "Poner textura (PNG/JPG)…", () => PickTexture(it), false, 44f, 16);
@@ -495,6 +498,7 @@ namespace Atlas
             AtlasTheme.Chip(gg, "Satinado", () => { it.modelGloss = 0.4f; ApplyLook(it); Commit(true); RefreshProps(); }, Mathf.Abs(it.modelGloss - 0.4f) < 0.01f);
             AtlasTheme.Chip(gg, "Natural", () => { it.modelGloss = -1f; ApplyLook(it); Commit(true); RefreshProps(); }, it.modelGloss < 0f);
             Hint(gbox, "«Natural» es un acabado suave, sin aspecto aceitoso. Sube el brillo para plástico, charol o metal; «Mate» lo deja como tela o goma.");
+            BuildDetailSection(it, gbox);
             OpacityControls(gbox, it);
             var mbox = Sec("Modelo", "import", false);
             Hint(mbox, "Los modelos importados conservan sus propios materiales y texturas.");
@@ -508,6 +512,13 @@ namespace Atlas
             int n = it.keys.Count;
             Hint(box, n == 0 ? "Sin claves. Abre «Animar», elige un fotograma, colócalo y pulsa la clave amarilla."
                              : n + (n == 1 ? " clave" : " claves") + " (fotogramas " + it.keys[0].frame + " a " + it.keys[n - 1].frame + ").");
+            AtlasTheme.Switch(box, "En bucle: al acabar, vuelve a empezar (para caminar, bailar, fnf…)", it.loopKeys, on =>
+            {
+                it.loopKeys = on;
+                SetFrame(frame);
+                Commit(true);
+                Toast(on ? "En bucle: de la primera a la última clave, una y otra vez. Pon la última clave igual que la primera para que no salte" : "Sin bucle");
+            });
             var g = AtlasTheme.Grid(box, 2, InnerWidth, 42f);
             AtlasTheme.TextButton(g, "key_fill", "Clave aquí", InsertKey, false, 42f, 16);
             AtlasTheme.TextButton(g, "delete", "Borrar todas", () =>
@@ -656,7 +667,7 @@ namespace Atlas
                 AtlasTheme.SetButtonIcon(eyeBtn, on ? "eye" : "eye_off");
                 Commit(true);
             });
-            AtlasTheme.SliderRow(view, "Campo visual", 20f, 100f, cam.fieldOfView, "0", x => cam.fieldOfView = x, null);
+            AtlasTheme.SliderRow(view, "Campo visual (zoom)", 5f, 140f, cam.fieldOfView, "0", x => cam.fieldOfView = x, null);
 
             var list = Sec("Objetos de la escena", "select");
             if (items.Count == 0) Hint(list, "La escena está vacía. Añade formas, luces o importa un modelo con el botón +.");

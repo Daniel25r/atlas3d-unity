@@ -180,6 +180,11 @@ public static class AtlasBuild
         MakeMaterial("AtlasSky", "Skybox/Procedural");
         MakeMaterial("AtlasUnlitTransparent", "Universal Render Pipeline/Unlit");
         MakeMaterial("AtlasLitCutout", "Universal Render Pipeline/Lit");
+        // Normal maps on cut-out (hair, lace) and see-through parts: without
+        // a material using those keyword pairs the variant was stripped and
+        // the relief never showed there.
+        MakeMaterial("AtlasLitCutoutNormal", "Universal Render Pipeline/Lit");
+        MakeMaterial("AtlasLitTransparentNormal", "Universal Render Pipeline/Lit");
         try
         {
             MakeMaterial("AtlasHighlight", "Atlas/Highlight");
@@ -221,7 +226,7 @@ public static class AtlasBuild
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "1.4.0";
+        PlayerSettings.bundleVersion = "1.7.0";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;
@@ -400,6 +405,20 @@ public static class AtlasBuild
             m.SetColor("_EmissionColor", Color.black);
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
             Atlas.MatUtil.SetCutout(m, 0.5f);
+        }
+        else if (name == "AtlasLitCutoutNormal" || name == "AtlasLitTransparentNormal")
+        {
+            m.EnableKeyword("_EMISSION");
+            m.EnableKeyword("_NORMALMAP");
+            m.SetColor("_EmissionColor", Color.black);
+            m.SetTexture("_BumpMap", Texture2D.normalTexture);
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            if (name == "AtlasLitCutoutNormal") Atlas.MatUtil.SetCutout(m, 0.5f);
+            else
+            {
+                Atlas.MatUtil.SetTransparent(m, true);
+                m.SetColor("_BaseColor", new Color(1f, 1f, 1f, 0.5f));
+            }
         }
         else if (name == "AtlasUnlitTransparent")
         {

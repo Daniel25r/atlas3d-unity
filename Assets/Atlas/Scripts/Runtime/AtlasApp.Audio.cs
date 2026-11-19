@@ -22,6 +22,8 @@ namespace Atlas
         {
             CloseMenus();
             if (store == null || NativeFilePicker.IsFilePickerBusy()) return;
+            // There is already a sound: this one is added, not swapped.
+            if (!string.IsNullOrEmpty(audioFile)) { PickExtraSound(); return; }
             NativeFilePicker.PickFile(path =>
             {
                 if (string.IsNullOrEmpty(path) || store == null) return;

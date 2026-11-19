@@ -65,6 +65,20 @@ namespace Atlas
         public List<MorphValue> morphs = new List<MorphValue>();   // face / shape sliders set now
         public string group = "";        // objects selected together
         public bool pureEmit;            // «Emisión pura»
+        public bool loopKeys;            // the keys repeat after the last one («En bucle»)
+        public float reduce;             // «Reducir polígonos»: 0 original .. 0.95
+        public bool normalFlip;          // DirectX normal map (green upside down)
+
+        /// With «En bucle», after the last key the animation starts again
+        /// from the first one, forever.
+        public float LoopFrame(float frame)
+        {
+            if (!loopKeys || keys.Count < 2) return frame;
+            float first = keys[0].frame, last = keys[keys.Count - 1].frame;
+            float span = last - first;
+            if (span < 1f || frame <= last) return frame;
+            return first + Mathf.Repeat(frame - first, span);
+        }
         public List<LookAtBone> lookAts = new List<LookAtBone>();   // «Mirar a»
         public bool pixelated;           // textures without smoothing
         public string gobo = "";         // spotlight: shape it projects (window, blinds, leaves…)
@@ -353,6 +367,9 @@ namespace Atlas
         readonly Dictionary<string, List<KeyValuePair<SkinnedMeshRenderer, int>>> morphIndex = new Dictionary<string, List<KeyValuePair<SkinnedMeshRenderer, int>>>();
         readonly List<string> morphNames = new List<string>();
         bool morphsBuilt;
+
+        /// The meshes changed (reduced): the face sliders are found again.
+        public void ResetMorphsBuilt() { morphsBuilt = false; }
 
         public List<string> MorphNames { get { BuildMorphs(); return morphNames; } }
 
@@ -692,6 +709,7 @@ namespace Atlas
         public void Evaluate(float frame, float fps)
         {
             if (!string.IsNullOrEmpty(clip)) SampleClip(frame / Mathf.Max(1f, fps));
+            frame = LoopFrame(frame);
             if (keys.Count > 0)
             {
                 KeyData a0, a, b, b1;

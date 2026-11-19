@@ -199,6 +199,9 @@ namespace Atlas
             nav.mode = Navigation.Mode.None;
             b.navigation = nav;
             if (onClick != null) b.onClick.AddListener(onClick);
+            // Every button answers the finger: it sinks a little when
+            // pressed (and grows a little under the mouse on PC).
+            if (img.GetComponent<PressFeedback>() == null) img.gameObject.AddComponent<PressFeedback>();
             return b;
         }
 
@@ -351,10 +354,20 @@ namespace Atlas
             return f;
         }
 
+        static readonly Dictionary<InputField, KeyValuePair<float, string>> shownNumber = new Dictionary<InputField, KeyValuePair<float, string>>();
+
         public static void SetNumber(InputField f, float v)
         {
-            if (f != null && !f.isFocused)
-                f.text = v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+            if (f == null || f.isFocused) return;
+            // Written only when it changes (it was every frame: garbage for
+            // the memory cleaner and a busy interface); also when the text
+            // is not the one written here (something typed that was not used).
+            KeyValuePair<float, string> last;
+            if (shownNumber.TryGetValue(f, out last) && Mathf.Abs(last.Key - v) < 0.004f && ReferenceEquals(f.text, last.Value)) return;
+            if (shownNumber.Count > 256) shownNumber.Clear();
+            string s = v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+            f.text = s;
+            shownNumber[f] = new KeyValuePair<float, string>(v, f.text);
         }
             // ------------------------------------------------------------------
         // Inspector widgets (phase 3)
@@ -729,6 +742,48 @@ namespace Atlas
     }
 
     /// Calls `onUp` when the finger that pressed this control is lifted.
+    /// Small «I felt that» animation for buttons: pressed → 94 %, hover → 103 %.
+    /// No Update: a short coroutine runs only while it moves (hundreds of
+    /// buttons cost nothing while still).
+    public class PressFeedback : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerEnterHandler, IPointerExitHandler
+    {
+        float want = 1f, now = 1f;
+        bool down, over;
+        Coroutine anim;
+
+        public void OnPointerDown(PointerEventData e) { down = true; Set(); }
+        public void OnPointerUp(PointerEventData e) { down = false; Set(); }
+        public void OnPointerEnter(PointerEventData e) { over = e.pointerId < 0; Set(); }   // mouse only
+        public void OnPointerExit(PointerEventData e) { over = false; down = false; Set(); }
+
+        void Set()
+        {
+            var sel = GetComponent<Selectable>();
+            bool on = sel == null || sel.interactable;
+            want = !on ? 1f : down ? 0.94f : over ? 1.03f : 1f;
+            if (anim == null && isActiveAndEnabled) anim = StartCoroutine(Animate());
+        }
+
+        System.Collections.IEnumerator Animate()
+        {
+            while (Mathf.Abs(now - want) > 1e-4f)
+            {
+                now = Mathf.MoveTowards(now, want, Time.unscaledDeltaTime * 2.5f);
+                transform.localScale = new Vector3(now, now, 1f);
+                yield return null;
+            }
+            anim = null;
+        }
+
+        void OnDisable()
+        {
+            anim = null;
+            now = want = 1f;
+            down = over = false;
+            transform.localScale = Vector3.one;
+        }
+    }
+
     public class PointerUpHook : MonoBehaviour, IPointerUpHandler
     {
         public System.Action onUp;

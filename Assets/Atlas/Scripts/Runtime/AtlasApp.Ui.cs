@@ -240,6 +240,7 @@ namespace Atlas
         {
             var bg = AtlasTheme.Box(viewArea, "Ejes", new Color(AtlasTheme.Panel.r, AtlasTheme.Panel.g, AtlasTheme.Panel.b, 0.6f), 60);
             nav = bg.rectTransform;
+            navRot = new Quaternion(9f, 9f, 9f, 9f);   // placed on the next frame
             AtlasTheme.Pin(nav, 1f, 1f, new Vector2(-24f, -86f), new Vector2(120f, 120f));
             string[] labels = { "X", "Y", "Z", "", "", "" };
             Color[] cols = { AtlasTheme.AxisX, AtlasTheme.AxisY, AtlasTheme.AxisZ, AtlasTheme.AxisX * 0.6f, AtlasTheme.AxisY * 0.6f, AtlasTheme.AxisZ * 0.6f };
@@ -276,9 +277,15 @@ namespace Atlas
 
         readonly List<int> navOrder = new List<int> { 0, 1, 2, 3, 4, 5 };
 
+        Quaternion navRot = new Quaternion(9f, 9f, 9f, 9f);
+
         void UpdateNav()
         {
             if (nav == null) return;
+            // Only when the view turned: moving and re-ordering these every
+            // frame made the whole interface redraw all the time.
+            if (cam.transform.rotation == navRot) return;
+            navRot = cam.transform.rotation;
             Quaternion inv = Quaternion.Inverse(cam.transform.rotation);
             for (int i = 0; i < 6; i++)
             {
@@ -343,8 +350,8 @@ namespace Atlas
             AtlasTheme.TextButton(others, "video", "Vídeo…", AddVideoPlane, false, 46f, 16);
             AtlasTheme.TextButton(others, "music", "Audio…", PickAudio, false, 46f, 16);
             AtlasTheme.TextButton(content, "import", "Importar modelo…", ImportModel, true, 50f);
-            AtlasTheme.TextButton(content, "import", "Descargas y biblioteca…", ShowDownloads, false, 46f, 16);
-            AtlasTheme.TextButton(content, "save", "Mis modelos…", OpenLibrary, false, 46f, 16);
+            AtlasTheme.TextButton(content, "import", "Descargas…", ShowDownloads, false, 46f, 16);
+            AtlasTheme.TextButton(content, "folder", "Biblioteca…", ShowLibrary, false, 46f, 16);
             var formats = AtlasTheme.Label(content, "GLB · glTF · FBX · OBJ · BLEND · PRISMA · MDL (SFM) · GMA · MINECRAFT (BBMODEL, GEO.JSON) · 3DS · STL · PLY · ZIP", 14, AtlasTheme.TextDim, false, TextAnchor.MiddleCenter);
             AtlasTheme.Le(formats.gameObject, 20f);
             addMenu = menu.gameObject;

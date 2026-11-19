@@ -95,6 +95,10 @@ namespace Atlas
         // ------------------------------------------------------------------
         // «Píxeles nítidos»: textures without smoothing (Minecraft style).
 
+        // The filter each texture came with (the file's own sampler: pixel
+        // art stays sharp, the rest smooth).
+        readonly Dictionary<Texture, FilterMode> origFilter = new Dictionary<Texture, FilterMode>();
+
         void ApplyPixelated(AtlasItem it)
         {
             if (it == null) return;
@@ -109,8 +113,11 @@ namespace Atlas
                         if (!m.HasProperty(prop)) continue;
                         var tex = m.GetTexture(prop);
                         if (tex == null || tex is RenderTexture) continue;
-                        bool small = tex.width <= 128 && tex.height <= 128;
-                        tex.filterMode = it.pixelated || small ? FilterMode.Point : FilterMode.Trilinear;
+                        FilterMode o;
+                        if (!origFilter.TryGetValue(tex, out o)) { o = tex.filterMode; origFilter[tex] = o; }
+                        // Off: exactly as the model brought it (forcing a smooth
+                        // filter blurred pixel-art textures bigger than 128 px).
+                        tex.filterMode = it.pixelated ? FilterMode.Point : o;
                     }
                 }
             }

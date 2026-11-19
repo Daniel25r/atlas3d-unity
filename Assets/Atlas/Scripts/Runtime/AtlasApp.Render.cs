@@ -64,6 +64,7 @@ namespace Atlas
                 }, i == renderQuality));
             }
             AtlasTheme.TextButton(content, "image", "Imagen (PNG)", RenderPicture, true, 50f);
+            AtlasTheme.TextButton(content, "sparkle", "Render progresivo (mejora en vivo)", () => StartCoroutine(ProgressiveRender()), false, 46f, 16);
             AtlasTheme.TextButton(content, "video", "Vídeo MP4", () => StartCoroutine(RenderVideo()), true, 50f);
             var more = AtlasTheme.Grid(content, 2, 332f, 46f);
             AtlasTheme.TextButton(more, "film", "GIF animado", () => StartCoroutine(RenderGif()), false, 46f, 16);
@@ -93,7 +94,8 @@ namespace Atlas
             finally { EndCapture(); }
         }
 
-        Texture2D CaptureIn(int w, int h, bool showGround)
+        /// `sample` ≥ 0: just that pass of the «Cine» render (progressive render).
+        Texture2D CaptureIn(int w, int h, bool showGround, int sample = -1)
         {
             bool g = gizmo.gameObject.activeSelf;
             gizmo.gameObject.SetActive(false);
@@ -135,7 +137,12 @@ namespace Atlas
             int ss = renderQuality > 0 && roomy && (long)w * h * 4 <= 9000000L && w * 2 <= SystemInfo.maxTextureSize && h * 2 <= SystemInfo.maxTextureSize ? 2 : 1;
             int aa = ss > 1 ? (renderQuality == 2 ? 2 : 1) : (renderQuality == 2 ? 8 : 4);
             Texture2D tex = null;
-            if (renderQuality >= 3)
+            if (sample >= 0)
+            {
+                try { tex = CinemaShot(w, h, rc, 1, sample); }
+                catch (System.Exception e) { Debug.LogWarning("ATLAS: progresivo: " + e.Message); }
+            }
+            else if (renderQuality >= 3)
             {
                 // Like SFM's progressive refinement: 16 passes for a picture,
                 // 8 per frame of an animation.
@@ -147,7 +154,7 @@ namespace Atlas
             catch (System.Exception e) { Debug.LogWarning("ATLAS: render: " + e.Message); }
             // A black picture means the phone could not draw it that way:
             // again, the simplest way (no supersampling, no MSAA, no HDR).
-            if (tex == null || LooksBlack(tex))
+            if (tex == null || (sample < 0 && LooksBlack(tex)))
             {
                 if (tex != null) Destroy(tex);
                 bool hdr = cam.allowHDR;
@@ -328,16 +335,25 @@ namespace Atlas
                 yield return null;
             }
             // The animation's sound goes in the ZIP too.
-            if (ok && zip != null && !string.IsNullOrEmpty(audioFile))
+            if (ok && zip != null && (!string.IsNullOrEmpty(audioFile) || sounds.Count > 0))
             {
                 try
                 {
-                    string ap = Path.Combine(AudioDir, audioFile);
-                    if (File.Exists(ap))
+                    string ap = Path.Combine(AudioDir, audioFile ?? "");
+                    if (!string.IsNullOrEmpty(audioFile) && File.Exists(ap))
                     {
                         var entry = zip.CreateEntry("audio" + Path.GetExtension(ap), System.IO.Compression.CompressionLevel.NoCompression);
                         using (var dst = entry.Open())
                         using (var src = File.OpenRead(ap)) src.CopyTo(dst);
+                    }
+                    // The other sounds, named with the frame where each starts.
+                    for (int si = 0; si < sounds.Count; si++)
+                    {
+                        string sp = Path.Combine(AudioDir, sounds[si].file);
+                        if (!File.Exists(sp)) continue;
+                        var se = zip.CreateEntry("sonido_" + (si + 2) + "_fotograma_" + sounds[si].start + Path.GetExtension(sp), System.IO.Compression.CompressionLevel.NoCompression);
+                        using (var dst = se.Open())
+                        using (var src = File.OpenRead(sp)) src.CopyTo(dst);
                     }
                 }
                 catch (System.Exception) { }

@@ -287,6 +287,7 @@ namespace Atlas
                 BarButton("subdivide", "Subdivisión suave", () => MeshOp("Subdivisión suave", m => m.SubdivideSmooth(), true));
                 BarButton("smooth", "Suavizar", () => MeshOp("Suavizar", m => m.Smooth(0.5f, SelectedVertsOrNull()), false));
                 BarButton("sphere", "Sombreado y liso", () => ShadingMenu(BarPoint()));
+                BarButton("image", "Editor UV", ToggleUvEditor, UvOpen);
                 BarButton("image", "UV automáticas", () => UvMenu(BarPoint()));
                 BarButton("flip", "Invertir", () => MeshOp("Invertir caras", m => m.Flip(selMode == "face" ? selFaces : null), false));
                 BarButton("delete", "Borrar caras", DeleteSelectedFaces);
@@ -494,8 +495,27 @@ namespace Atlas
         // ------------------------------------------------------------------
         // Points drawn over the view
 
-        GameObject wireGo;
-        Mesh wireMesh;
+        GameObject wireGo, selGo, fillGo;
+        Mesh wireMesh, selMesh, fillMesh;
+        readonly List<Vector3> selPts = new List<Vector3>();
+        readonly List<int> selIdx = new List<int>(), fillIdx = new List<int>();
+        int wireSig;
+
+        static GameObject OverlayMesh(string name, Transform parent, Material m, out Mesh mesh)
+        {
+            var go = new GameObject(name);
+            go.layer = Gizmo.Layer;
+            go.transform.SetParent(parent, false);
+            mesh = new Mesh { name = name };
+            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            mesh.MarkDynamic();
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var mr = go.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = m;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            return go;
+        }
         readonly List<Vector3> wirePts = new List<Vector3>();
         readonly List<int> wireIdx = new List<int>();
 
@@ -524,6 +544,16 @@ namespace Atlas
                 mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 mr.receiveShadows = false;
                 highlighter.extra = wireGo;
+                // What is selected: bright lines (and a tint on chosen faces).
+                var sm = new Material(unlitTemplate);
+                sm.SetColor("_BaseColor", AtlasTheme.Key);
+                sm.renderQueue = 3100;
+                selGo = OverlayMesh("Seleccion", wireGo.transform, sm, out selMesh);
+                var fm = new Material(unlitTemplate);
+                MatUtil.SetTransparent(fm, true);
+                fm.SetColor("_BaseColor", new Color(AtlasTheme.Key.r, AtlasTheme.Key.g, AtlasTheme.Key.b, 0.28f));
+                if (fm.HasProperty("_Cull")) fm.SetFloat("_Cull", 0f);
+                fillGo = OverlayMesh("CarasElegidas", wireGo.transform, fm, out fillMesh);
             }
             highlighter.extraWanted = true;
             if (!wireGo.activeSelf) wireGo.SetActive(true);
@@ -531,9 +561,14 @@ namespace Atlas
             wireGo.transform.localScale = Vector3.one;
             var e = selected.edit;
             var t = selected.transform;
+            // Rebuilt only when something changed (not every frame).
+            int sig = Sig(e, t);
+            if (sig == wireSig) return;
+            wireSig = sig;
+            if (UvOpen) DrawUv();   // the 3D choice and shape show in the UV editor too
             wirePts.Clear();
             wireIdx.Clear();
-            if (e.verts.Count > 60000) { wireMesh.Clear(); return; }
+            if (e.verts.Count > 60000) { wireMesh.Clear(); selMesh.Clear(); fillMesh.Clear(); return; }
             // A little towards the camera so the lines are not hidden by the faces.
             Vector3 cp = cam.transform.position;
             for (int i = 0; i < e.verts.Count; i++)
@@ -554,12 +589,69 @@ namespace Atlas
             wireMesh.SetVertices(wirePts);
             wireMesh.SetIndices(wireIdx, MeshTopology.Lines, 0, false);
             wireMesh.bounds = new Bounds(Vector3.zero, Vector3.one * 1e6f);
+
+            // Selected edges, edges of selected faces, or edges between
+            // selected vertices: lines in the selection colour.
+            selPts.Clear(); selIdx.Clear(); fillIdx.Clear();
+            for (int i = 0; i < e.verts.Count; i++) selPts.Add(Vector3.Lerp(t.TransformPoint(e.verts[i]), cp, 0.007f));
+            var done = new HashSet<long>();
+            System.Action<int, int> addEdge = (a, b) =>
+            {
+                if (!done.Add(EditMesh.EdgeKey(a, b))) return;
+                selIdx.Add(a); selIdx.Add(b);
+            };
+            if (selMode == "edge")
+                foreach (long k in selEdges) { int a = EditMesh.EdgeA(k), b = EditMesh.EdgeB(k); if (a < e.verts.Count && b < e.verts.Count) addEdge(a, b); }
+            else if (selMode == "face")
+            {
+                foreach (int fi in selFaces)
+                {
+                    if (fi < 0 || fi >= e.faces.Count) continue;
+                    var f = e.faces[fi];
+                    for (int k = 0; k < f.Length; k++) addEdge(f[k], f[(k + 1) % f.Length]);
+                    for (int k = 1; k + 1 < f.Length; k++) { fillIdx.Add(f[0]); fillIdx.Add(f[k]); fillIdx.Add(f[k + 1]); }
+                }
+            }
+            else
+                foreach (var f in e.faces)
+                    for (int k = 0; k < f.Length; k++)
+                    {
+                        int a = f[k], b = f[(k + 1) % f.Length];
+                        if (selVerts.Contains(a) && selVerts.Contains(b)) addEdge(a, b);
+                    }
+            selMesh.Clear();
+            selMesh.SetVertices(selPts);
+            selMesh.SetIndices(selIdx, MeshTopology.Lines, 0, false);
+            selMesh.bounds = wireMesh.bounds;
+            fillMesh.Clear();
+            fillMesh.SetVertices(selPts);
+            fillMesh.SetTriangles(fillIdx, 0, false);
+            fillMesh.bounds = wireMesh.bounds;
+        }
+
+        /// Cheap fingerprint of what the lines show: shape, selection,
+        /// object pose and camera.
+        int Sig(EditMesh e, Transform t)
+        {
+            unchecked
+            {
+                int h = e.verts.Count * 31 + e.faces.Count;
+                for (int i = 0; i < e.verts.Count; i++) h = h * 31 + e.verts[i].GetHashCode();
+                h = h * 31 + selVerts.Count * 7 + selFaces.Count * 13 + selEdges.Count * 17 + selMode.GetHashCode();
+                foreach (int v in selVerts) h += v * 92821;
+                foreach (int f in selFaces) h += f * 68917;
+                foreach (long k in selEdges) h += k.GetHashCode() * 3613;
+                h = h * 31 + t.localToWorldMatrix.GetHashCode();
+                h = h * 31 + cam.transform.position.GetHashCode();
+                return h;
+            }
         }
 
         void UpdateMeshOverlay()
         {
             if (meshLayer == null) return;
             bool show = meshMode == "model" && selected != null && selected.edit != null;
+            if (!show && UvOpen) CloseUvEditor();
             UpdateWire(show);
             int n = 0;
             if (show)
@@ -590,7 +682,10 @@ namespace Atlas
                         bool sel = edges ? selEdges.Contains(edgeList[i]) : faces ? selFaces.Contains(i) : selVerts.Contains(i);
                         d.color = sel ? AtlasTheme.Key : (faces ? new Color(0.85f, 0.7f, 1f, 0.8f) : new Color(1f, 1f, 1f, 0.85f));
                         d.rectTransform.anchoredPosition = local;
-                        d.rectTransform.sizeDelta = sel ? new Vector2(14f, 14f) : (faces ? new Vector2(10f, 10f) : new Vector2(8f, 8f));
+                        // Edges and faces show as coloured lines: their dots are
+                        // just small handles to tap.
+                        d.rectTransform.sizeDelta = edges || faces ? (sel ? new Vector2(8f, 8f) : new Vector2(6f, 6f)) : (sel ? new Vector2(14f, 14f) : new Vector2(8f, 8f));
+                        if (edges || faces) d.color = sel ? AtlasTheme.Key : new Color(1f, 1f, 1f, 0.45f);
                     }
             }
             for (int i = n; i < meshDots.Count; i++) meshDots[i].enabled = false;

@@ -213,7 +213,7 @@ namespace Atlas
         /// Renders `samples` times with the lens moved over its opening
         /// (depth of field), the time moved inside the shutter (motion blur)
         /// and a sub-pixel shift (smooth edges), and averages them.
-        Texture2D CinemaShot(int w, int h, AtlasItem rc, int samples)
+        Texture2D CinemaShot(int w, int h, AtlasItem rc, int samples, int first = 0)
         {
             float baseFrame = frame;
             Vector3 basePos = cam.transform.position;
@@ -238,8 +238,8 @@ namespace Atlas
                 for (int s = 0; s < samples; s++)
                 {
                     // Halton points: evenly spread, the same each render.
-                    float hx = Halton(s + 1, 2), hy = Halton(s + 1, 3), ht = Halton(s + 1, 5);
-                    if (shutter > 0.001f && samples > 1)
+                    float hx = Halton(s + first + 1, 2), hy = Halton(s + first + 1, 3), ht = Halton(s + first + 1, 5);
+                    if (shutter > 0.001f && (samples > 1 || first > 0))
                     {
                         SetFrame(Mathf.Clamp(baseFrame + (ht - 0.5f) * shutter, 0f, endFrame));
                         if (rc != null)

@@ -102,6 +102,8 @@ namespace Atlas
         {
             if (!poseMode || selected == null || activeBone == "") return;
             selected.RecordBone(activeBone);
+            string other = MirrorPose(selected, activeBone);
+            if (other != "") selected.RecordBone(other);
         }
 
         // ------------------------------------------------------------------
@@ -402,6 +404,13 @@ namespace Atlas
                     AtlasTheme.Chip(ig, n + " huesos" + (n == 2 ? " (bípedo)" : n == 3 ? " (cuadrúpedo)" : ""), () => { ikChain = n; RefreshProps(); }, ikChain == n);
                 }
             }
+            AtlasTheme.Switch(box, "Modo espejo: lo que giras en un lado se hace igual en el otro", poseMirror, on =>
+            {
+                poseMirror = on;
+                mirrorBind = null;
+                if (on && activeBone != "" && MirrorPath(activeBone) == "") Toast("Este hueso no tiene pareja izquierda / derecha por su nombre");
+                RefreshProps();
+            });
             if (activeBone != "" && !IkRig.IsControl(activeBone))
                 AtlasTheme.TextButton(box, "edit", "Pintar pesos de este hueso", EnterWeightMode, false, 42f, 15);
             BuildIkRigSection(it, box);

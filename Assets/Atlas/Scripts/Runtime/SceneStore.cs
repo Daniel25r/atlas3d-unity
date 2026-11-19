@@ -62,7 +62,9 @@ namespace Atlas
         public List<IkChain> ik = new List<IkChain>();
         public List<MorphValue> morphs = new List<MorphValue>();
         public string group = "";
-        public bool pixelated, pureEmit;
+        public bool pixelated, pureEmit, loopKeys;
+        public float reduce;
+        public bool normalFlip;
         public List<LookAtBone> lookAts = new List<LookAtBone>();
         public string gobo = "";
         public float flicker;
@@ -147,6 +149,7 @@ namespace Atlas
         public string audioFile = "";
         public int audioStart;
         public float audioVolume = 1f;
+        public List<SoundData> sounds = new List<SoundData>();   // more sounds besides the main one
         public bool showGrid = true;
         public EnvData env = new EnvData();
     }
@@ -344,6 +347,9 @@ namespace Atlas
                     group = it.group ?? "",
                     pixelated = it.pixelated,
                     pureEmit = it.pureEmit,
+                    loopKeys = it.loopKeys,
+                    reduce = it.reduce,
+                    normalFlip = it.normalFlip,
                     lookAts = LookAtBone.CopyList(it.lookAts),
                     flicker = it.flicker,
                     toon = it.toon,

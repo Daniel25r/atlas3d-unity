@@ -138,7 +138,7 @@ namespace Atlas
             AtlasTheme.Le(acts, 54f);
             AtlasTheme.TextButton(acts.transform, "add", "Nuevo proyecto", () => NewProject(false), true, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "import", "Importar modelo", () => NewProject(true), false, 54f, 18);
-            AtlasTheme.TextButton(acts.transform, "import", "Descargas", ShowDownloads, false, 54f, 18);
+            AtlasTheme.TextButton(acts.transform, "folder", "Biblioteca", ShowLibrary, false, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "edit", "Animación 2D", Open2D, false, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "settings", "Preferencias", () => ShowPrefs(0), false, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "info", "Acerca de", ShowAbout, false, 54f, 18);
@@ -356,6 +356,17 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• NUEVO · Editor UV (Modelar → Editor UV), como en Blender: la malla desplegada sobre su textura; toca una pieza y muévela, gírala o escálala; «Desplegar» por islas; «Plantilla PNG» para pintarla en cualquier app y ponerla de textura.\n" +
+            "• Arreglos: los modelos ya no vuelven a su tamaño original al abrir el proyecto; las texturas mantienen el filtro que trae el modelo (el pixel-art grande ya no sale borroso); el manipulador vuelve a moverse con los ejes del mundo (el modo Prisma3D está en Preferencias).\n" +
+            "• Normal maps arreglados: ahora se ven en pelo, encajes y partes transparentes, en modelos que no traían relieve, y con PNG con transparencia. Nuevo «Relieve al revés» para los normal maps de DirectX.\n" +
+            "• NUEVO · Render progresivo: la imagen mejora en vivo pasada a pasada; guárdala cuando te guste (Render → Render progresivo).\n" +
+            "• NUEVO · Varios sonidos a la vez en la línea de tiempo, cada uno con su inicio y volumen.\n" +
+            "• NUEVO · Reducir polígonos: aligera los modelos pesados para que el móvil vaya fluido (Aspecto del modelo).\n" +
+            "• NUEVO · Animación en bucle (Claves de animación → En bucle) y modo espejo al posar (izquierda ↔ derecha).\n" +
+            "• El manipulador se mueve con los ejes del objeto girado, como Prisma3D (se puede cambiar en Preferencias). Más zoom en las cámaras.\n" +
+            "• Modelar: aristas y caras elegidas se ven como líneas de color, y lo extruido se ve por los dos lados. Los botones responden al tocarlos.\n" +
+            "• Optimización: menos trabajo en cada fotograma y calidad inicial según la memoria del móvil.\n" +
+            "• NUEVO · Biblioteca (pantalla de inicio): los modelos que importas o descargas se quedan guardados en ATLAS para usarlos otra vez sin volver a descargarlos, junto con Mis modelos. Buscar, usar y borrar.\n" +
             "• NUEVO · Animación 2D: botón en la pantalla de inicio que abre Artlas 2D (dibujo y animación cuadro a cuadro). En el móvil se abre dentro de ATLAS y «Atrás» vuelve; en PC se abre en el navegador.\n" +
             "• NUEVO · Rebote: pelo, colas, orejas y cables se balancean solos con el cuerpo (modo pose → elige el primer hueso → Generar rebote).\n" +
             "• NUEVO · Copiar animación de otro personaje, aunque sus huesos se llamen distinto (Mixamo, Source, Blender, Prisma…).\n" +

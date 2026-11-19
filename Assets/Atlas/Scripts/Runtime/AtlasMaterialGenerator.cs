@@ -14,7 +14,7 @@ namespace Atlas
 {
     public class AtlasMaterialGenerator : IMaterialGenerator
     {
-        readonly UnityEngine.Material lit, transparent, litNormal, cutout;
+        readonly UnityEngine.Material lit, transparent, litNormal, cutout, cutoutNormal, transparentNormal;
 
         public AtlasMaterialGenerator()
         {
@@ -22,6 +22,8 @@ namespace Atlas
             transparent = Resources.Load<UnityEngine.Material>("AtlasLitTransparent");
             litNormal = Resources.Load<UnityEngine.Material>("AtlasLitNormal");
             cutout = Resources.Load<UnityEngine.Material>("AtlasLitCutout");
+            cutoutNormal = Resources.Load<UnityEngine.Material>("AtlasLitCutoutNormal");
+            transparentNormal = Resources.Load<UnityEngine.Material>("AtlasLitTransparentNormal");
             if (transparent == null) transparent = lit;
             if (litNormal == null) litNormal = lit;
         }
@@ -65,7 +67,11 @@ namespace Atlas
             bool see = mode == MaterialBase.AlphaMode.Blend;
             Texture2D normal = Tex(gltf, g.NormalTexture);
             // Opaque: the normal-map variant always, so relief can be added later.
-            var tmpl = see ? transparent : mask && cutout != null ? cutout : litNormal;
+            // Cut-out and see-through parts keep their relief too (their own
+            // templates, so the shader variant is in the build).
+            var tmpl = see ? (normal != null && transparentNormal != null ? transparentNormal : transparent)
+                     : mask && cutout != null ? (normal != null && cutoutNormal != null ? cutoutNormal : cutout)
+                     : litNormal;
             var m = new UnityEngine.Material(tmpl);
             m.name = string.IsNullOrEmpty(g.name) ? "Material" : g.name;
 
@@ -128,8 +134,9 @@ namespace Atlas
             m.SetColor("_EmissionColor", e);
             if (emisTex != null && m.HasProperty("_EmissionMap")) m.SetTexture("_EmissionMap", emisTex);
 
-            if (normal != null && !see && m.HasProperty("_BumpMap"))
+            if (normal != null && m.HasProperty("_BumpMap") && (!see || transparentNormal != null))
             {
+                m.EnableKeyword("_NORMALMAP");
                 m.SetTexture("_BumpMap", normal);
                 var nt = g.NormalTexture as NormalTextureInfoBase;
                 m.SetFloat("_BumpScale", nt != null ? nt.scale : 1f);

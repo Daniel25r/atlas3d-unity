@@ -378,7 +378,7 @@ namespace Atlas
                     l.Add(new AtlasTheme.MenuItem("info", "Información del proyecto", ShowProjectInfo));
                     l.Add(AtlasTheme.MenuItem.Header("Importar y exportar"));
                     l.Add(new AtlasTheme.MenuItem("import", "Importar modelo…       Ctrl+I", ImportModel));
-                    l.Add(new AtlasTheme.MenuItem("import", "Descargas y biblioteca (Workshop)…", ShowDownloads));
+                    l.Add(new AtlasTheme.MenuItem("import", "Descargas (Workshop)…", ShowDownloads));
                     foreach (var f0 in Exporter.Formats)
                     {
                         string f = f0;
@@ -430,7 +430,7 @@ namespace Atlas
                     l.Add(new AtlasTheme.MenuItem("video", "Vídeo…", AddVideoPlane));
                     l.Add(new AtlasTheme.MenuItem("music", "Audio…", PickAudio));
                     l.Add(new AtlasTheme.MenuItem("import", "Importar modelo…", ImportModel));
-                    l.Add(new AtlasTheme.MenuItem("save", "Mis modelos…", OpenLibrary));
+                    l.Add(new AtlasTheme.MenuItem("folder", "Biblioteca…", ShowLibrary));
                     break;
                 case "Objeto":
                     l.Add(new AtlasTheme.MenuItem("select", "Seleccionar             Q", () => SetTool(Tool.Select)));

@@ -15,7 +15,7 @@ namespace Atlas
     public static class Prefs
     {
         public static float uiScale = 1f, orbitSens = 1f, gizmoSize = 1f, snapMove = 0.25f, snapAngle = 15f, viewRes = 1f;
-        public static bool invertY, showFps, viewShadows = true, viewEffects = true, catchDownloads;
+        public static bool invertY, showFps, viewShadows = true, viewEffects = true, catchDownloads, keepImports = true, localGizmo;
         public static int accent;
         public static int profile = 2, maxFps = 60, msaa = 4;
         public static string lang = "";
@@ -48,6 +48,8 @@ namespace Atlas
             showFps = I("fps", 0) == 1;
             viewShadows = I("viewShadows", 1) == 1;
             catchDownloads = I("catchDownloads", 0) == 1;
+            keepImports = I("keepImports", 1) == 1;
+            localGizmo = I("localGizmo2", 0) == 1;
             accent = I("accent", 0);
             viewEffects = I("viewEffects", 1) == 1;
             profile = Mathf.Clamp(I("profile", 2), 0, 3);
@@ -55,6 +57,11 @@ namespace Atlas
             try { lang = PlayerPrefs.GetString("atlas.lang", ""); } catch (System.Exception) { lang = ""; }
             if (string.IsNullOrEmpty(lang)) lang = DefaultLang();
             msaa = I("msaa", 4);
+            // First time on this device: a profile that suits it (phones
+            // with little memory start lighter instead of freezing).
+            bool known = false;
+            try { known = PlayerPrefs.HasKey("atlas.profile"); } catch (System.Exception) { }
+            if (!known) SetProfile(AutoProfile());
         }
 
         public static void Save()
@@ -71,6 +78,8 @@ namespace Atlas
                 PlayerPrefs.SetInt("atlas.fps", showFps ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.viewShadows", viewShadows ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.catchDownloads", catchDownloads ? 1 : 0);
+                PlayerPrefs.SetInt("atlas.keepImports", keepImports ? 1 : 0);
+                PlayerPrefs.SetInt("atlas.localGizmo2", localGizmo ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.accent", accent);
                 PlayerPrefs.SetInt("atlas.viewEffects", viewEffects ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.profile", profile);
@@ -80,6 +89,15 @@ namespace Atlas
                 PlayerPrefs.Save();
             }
             catch (System.Exception) { }
+        }
+
+        static int AutoProfile()
+        {
+            if (!Application.isMobilePlatform) return 2;
+            int mem = SystemInfo.systemMemorySize;
+            if (mem > 0 && mem < 3200) return 0;
+            if (mem > 0 && mem < 5500) return 1;
+            return 2;
         }
 
         /// A quality profile sets the performance options together.
@@ -125,6 +143,7 @@ namespace Atlas
             if (gizmo != null)
             {
                 gizmo.sizeMul = Prefs.gizmoSize;
+                gizmo.localMove = Prefs.localGizmo;
                 gizmo.snapMove = Prefs.snapMove;
                 gizmo.snapAngle = Prefs.snapAngle;
             }
@@ -316,6 +335,7 @@ namespace Atlas
             AtlasTheme.Switch(c, "Invertir órbita vertical", Prefs.invertY, on => { Prefs.invertY = on; });
             AtlasTheme.SliderRow(c, "Sensibilidad de órbita", 0.2f, 3f, Prefs.orbitSens, "0.0", v => Prefs.orbitSens = v, Prefs.Save);
             AtlasTheme.SliderRow(c, "Tamaño del manipulador", 0.5f, 2f, Prefs.gizmoSize, "0.0", v => { Prefs.gizmoSize = v; ApplyPrefs(); }, Prefs.Save);
+            AtlasTheme.Switch(c, "Mover con los ejes del objeto (girados con él, como Prisma3D)", Prefs.localGizmo, on => { Prefs.localGizmo = on; Prefs.Save(); ApplyPrefs(); });
             AtlasTheme.SliderRow(c, "Imán: mover (m)", 0.05f, 2f, Prefs.snapMove, "0.00", v => { Prefs.snapMove = v; ApplyPrefs(); }, Prefs.Save);
             AtlasTheme.SliderRow(c, "Imán: girar (°)", 5f, 90f, Prefs.snapAngle, "0", v => { Prefs.snapAngle = Mathf.Round(v); ApplyPrefs(); }, Prefs.Save);
             PrefHint(c, "Las sombras y los efectos del visor sólo cambian lo que ves al editar: el render siempre sale completo.");

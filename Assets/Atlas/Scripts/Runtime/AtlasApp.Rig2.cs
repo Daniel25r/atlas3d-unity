@@ -414,3 +414,90 @@ namespace Atlas
         }
     }
 }
+
+namespace Atlas
+{
+    public partial class AtlasApp
+    {
+        // ------------------------------------------------------------------
+        // Simetría al posar (modo espejo): what is turned on one side is
+        // turned the same way on the other (left ↔ right), like Blender's
+        // X-Axis Mirror.
+
+        bool poseMirror;
+        AtlasItem mirrorItem;
+        Dictionary<Transform, Matrix4x4> mirrorBind;
+
+        static readonly string[][] SidePairs =
+        {
+            new[] { "Left", "Right" }, new[] { "left", "right" }, new[] { "LEFT", "RIGHT" },
+            new[] { "_L", "_R" }, new[] { ".L", ".R" }, new[] { "-L", "-R" }, new[] { " L ", " R " },
+            new[] { "_l", "_r" }, new[] { ".l", ".r" }, new[] { "L_", "R_" }, new[] { "l_", "r_" },
+            new[] { "Izq", "Der" }, new[] { "izq", "der" }, new[] { "Izquierda", "Derecha" },
+        };
+
+        /// The same path with left and right swapped (one swap per part).
+        static string MirrorPath(string path)
+        {
+            var parts = path.Split('/');
+            bool any = false;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                string s = parts[i], o = SwapSide(s);
+                if (o != s) { parts[i] = o; any = true; }
+            }
+            return any ? string.Join("/", parts) : "";
+        }
+
+        static string SwapSide(string s)
+        {
+            foreach (var p in SidePairs)
+            {
+                for (int k = 0; k < 2; k++)
+                {
+                    string a = p[k], b = p[1 - k];
+                    int i = s.IndexOf(a, System.StringComparison.Ordinal);
+                    if (i < 0) continue;
+                    // «_L» only at the end or before a separator (not «_Leg»).
+                    if (a.Length == 2 && (a[0] == '_' || a[0] == '.' || a[0] == '-'))
+                    {
+                        int end = i + 2;
+                        if (end < s.Length && char.IsLetterOrDigit(s[end])) continue;
+                    }
+                    if (a.Length == 2 && (a[1] == '_') && i > 0 && char.IsLetterOrDigit(s[i - 1])) continue;
+                    return s.Substring(0, i) + b + s.Substring(i + a.Length);
+                }
+            }
+            // Bare «L» / «R» as a whole word: «Bip01 L Thigh».
+            var w = s.Split(' ');
+            for (int i = 0; i < w.Length; i++)
+                if (w[i] == "L" || w[i] == "R") { w[i] = w[i] == "L" ? "R" : "L"; return string.Join(" ", w); }
+            return s;
+        }
+
+        /// Turns the other side's bone like `path` (mirrored across the
+        /// character's middle). Returns the other bone's path, or "".
+        string MirrorPose(AtlasItem it, string path)
+        {
+            if (!poseMirror || it == null || string.IsNullOrEmpty(path) || IkRig.IsControl(path)) return "";
+            string other = MirrorPath(path);
+            if (other == "" || other == path) return "";
+            Transform a = it.Bone(path), b = it.Bone(other);
+            if (a == null || b == null) return "";
+            if (mirrorItem != it || mirrorBind == null) { mirrorItem = it; mirrorBind = BindPoses(it); }
+            Matrix4x4 ra, rb;
+            if (!mirrorBind.TryGetValue(a, out ra) || !mirrorBind.TryGetValue(b, out rb))
+            {
+                // The model was loaded again (new bones): measure once more.
+                mirrorBind = BindPoses(it);
+                if (!mirrorBind.TryGetValue(a, out ra) || !mirrorBind.TryGetValue(b, out rb)) return "";
+            }
+            Quaternion now = Quaternion.Inverse(it.transform.rotation) * a.rotation;
+            Quaternion delta = now * Quaternion.Inverse(RotOf(ra));
+            // Mirror across the YZ plane (x ↔ -x) of the character.
+            var md = new Quaternion(delta.x, -delta.y, -delta.z, delta.w);
+            b.rotation = it.transform.rotation * (md * RotOf(rb));
+            return other;
+        }
+    }
+}

@@ -133,7 +133,7 @@ namespace Atlas
             // Characters (with bones) first.
             models.Sort((x, y) => (y.HasBones ? 1 : 0).CompareTo(x.HasBones ? 1 : 0));
             if (models.Count == 0 && it.anchors.Count == 0) return;
-            var box = Sec("Pegar a otro objeto o hueso", "bone", it.anchors.Count == 0);
+            var box = Sec("Unir / pegar a otro objeto o hueso", "bone", true);
             var held = ActiveAnchor(it, frame);
             if (held != null)
             {
