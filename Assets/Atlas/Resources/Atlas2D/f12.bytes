@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Artlas 2D</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- ============ INTRO ============ -->
+<div id="splash" aria-hidden="true">
+  <img class="splogo" src="logo.svg" alt="">
+</div>
+
+<!-- ============ PROYECTOS ============ -->
+<section id="projects" class="screen" hidden>
+  <header class="phead">
+    <div class="brand"><img src="logo.svg" alt="" class="brandlogo"><div><div class="logo">Artlas 2D</div><div class="logosub">Estudio de animación 2D</div></div></div>
+    <div class="drow"><button class="btn" id="btnImportProject">Importar copia</button><button class="btn primary" id="btnNew">+ Nuevo proyecto</button></div>
+  </header>
+  <div id="plist" class="plist"></div>
+  <p id="pempty" class="pempty" hidden>Aún no tienes proyectos. Crea uno para empezar a animar.</p>
+</section>
+
+<!-- ============ EDITOR ============ -->
+<section id="editor" hidden>
+  <div class="stagewrap" id="stagewrap">
+    <canvas id="stage"></canvas>
+  </div>
+
+  <!-- barra superior -->
+  <header class="top">
+    <button class="ib" id="btnBack" title="Volver a proyectos" aria-label="Volver a proyectos"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <div class="pname" id="pname">Proyecto</div>
+    <span class="saved" id="saved" title="Todo guardado"></span>
+    <div class="spring"></div>
+    <button class="fpill" id="fcount" title="Abrir línea de tiempo">1 / 1</button>
+    <button class="zoom" id="hud" title="Ajustar a la pantalla">100%</button>
+    <div class="spring"></div>
+    <button class="ib tog" id="btnGuides" title="Simetría y guías" aria-label="Simetría y guías"><svg viewBox="0 0 24 24"><path d="M12 3v18" stroke-dasharray="2 2.4"/><path d="M9 7 4 12l5 5M15 7l5 5-5 5"/></svg></button>
+    <button class="ib tog" id="btnOnion" title="Papel cebolla" aria-label="Papel cebolla"><svg viewBox="0 0 24 24"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6" stroke-dasharray="2 2.5"/></svg></button>
+    <button class="ib tog" id="btnAnim" title="Animar: fotogramas clave y cámara" aria-label="Animar"><svg viewBox="0 0 24 24"><path d="m7 5 4 4-4 4-4-4z"/><path d="m17 11 4 4-4 4-4-4z"/><path d="M11 9h2a4 4 0 0 1 4 4"/></svg></button>
+    <button class="ib" id="btnLayers" title="Capas" aria-label="Capas"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg><span class="badge" id="layerBadge">1</span></button>
+    <button class="ib" id="btnPresent" title="Ver a pantalla completa" aria-label="Ver a pantalla completa"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><path d="m10 9 5 3-5 3z"/></svg></button>
+    <button class="ib accent" id="btnExport" title="Exportar video" aria-label="Exportar video"><svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button>
+    <button class="ib" id="btnMenu" title="Menú" aria-label="Menú"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></button>
+  </header>
+
+  <!-- herramientas flotantes -->
+  <nav class="dock" id="dock" aria-label="Herramientas">
+    <button class="tool on" data-tool="brush" title="Pincel (B) · toca otra vez para ajustes" aria-label="Pincel"><svg viewBox="0 0 24 24"><path d="M4 20c2.5 0 4-1.5 4-3.5S6.5 13 5 14.5 4 18 4 20z"/><path d="M8 15 19 4l1 1L9 16"/></svg></button>
+    <button class="tool" data-tool="pencil" title="Lápiz (P)" aria-label="Lápiz"><svg viewBox="0 0 24 24"><path d="m4 20 1-4L16 5l3 3L8 19z"/><path d="m14 7 3 3"/></svg></button>
+    <button class="tool" data-tool="eraser" title="Borrador (E)" aria-label="Borrador"><svg viewBox="0 0 24 24"><path d="m4 15 9-9 6 6-9 9H7z"/><path d="M10 21h10M9 10l6 6"/></svg></button>
+    <button class="tool" data-tool="fill" title="Bote de pintura (F) · toca otra vez para ajustes" aria-label="Rellenar"><svg viewBox="0 0 24 24"><path d="m5 11 7-7 7 7-7 7z"/><path d="M5 11h14M20 15s1.5 2 1.5 3a1.5 1.5 0 0 1-3 0c0-1 1.5-3 1.5-3z"/></svg></button>
+    <button class="tool" data-tool="shape" title="Formas: línea, rectángulo, elipse (S)" aria-label="Formas"><svg viewBox="0 0 24 24"><rect x="3.5" y="10.5" width="9" height="9" rx="1"/><circle cx="15.5" cy="8.5" r="5"/></svg></button>
+    <button class="tool" data-tool="lasso" title="Selección: lazo, varita mágica o por color (L) · toca otra vez para elegir el modo" aria-label="Lazo"><svg viewBox="0 0 24 24"><path d="M5 12c0-3.9 3.1-7 7-7s7 2.2 7 5-3.1 5-7 5c-1.6 0-3-.3-4.2-.9"/><circle cx="6.5" cy="16.5" r="2"/><path d="M6.5 18.5c0 1.5-1 2.5-2.5 2.5"/></svg></button>
+    <div class="dsep"></div>
+    <button class="colorbtn" id="btnColor" title="Color" aria-label="Elegir color"><span id="colorChip"></span></button>
+  </nav>
+
+  <!-- tamaño y opacidad -->
+  <div class="sliders" id="sliders">
+    <div class="vs" id="sizeSlider" title="Tamaño"></div>
+    <div class="vs" id="opSlider" title="Opacidad"></div>
+  </div>
+
+  <!-- barra de selección -->
+  <div class="selbar" id="selBar" hidden>
+    <button class="sb" id="selFlip">Voltear</button>
+    <button class="sb" id="selCopy">Copiar</button>
+    <button class="sb danger" id="selDelete">Borrar</button>
+    <button class="sb ok" id="selDone">Listo</button>
+  </div>
+
+
+  <!-- línea de tiempo completa (panel) -->
+  <section class="tl" id="tl" hidden>
+    <div class="tlbar">
+      <button class="tb" id="btnAddFrame" title="Insertar cuadro vacío después del actual">+ Cuadro</button>
+      <button class="tb" id="btnDupFrame" title="Duplicar cuadro">Duplicar</button>
+      <button class="tb" id="btnExtend" title="Mantener este dibujo un cuadro más">Extender →</button>
+      <button class="tb" id="btnSplit" title="Convertir en dibujo independiente">Separar</button>
+      <button class="tb danger" id="btnDelFrame" title="Eliminar cuadro">Eliminar</button>
+      <div class="spring"></div>
+      <button class="ib sm tog" id="btnLoop" title="Repetir en bucle" aria-label="Repetir en bucle"><svg viewBox="0 0 24 24"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg></button>
+      <button class="ib sm" id="btnTlClose" title="Cerrar línea de tiempo" aria-label="Cerrar línea de tiempo"><svg viewBox="0 0 24 24"><path d="m6 10 6 6 6-6"/></svg></button>
+    </div>
+    <div class="tlbody" id="tlbody">
+      <div class="lheads" id="lheads"></div>
+      <div class="tlcwrap" id="tlcwrap"><canvas id="tlc"></canvas></div>
+    </div>
+  </section>
+
+  <!-- barra inferior -->
+  <footer class="bottom">
+    <button class="bb" id="btnAudio" title="Audio"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span>Audio</span></button>
+    <button class="bb" id="btnUndo" title="Deshacer (Ctrl+Z · toque con 2 dedos) · mantén pulsado para ver el historial"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span>Deshacer</span></button>
+    <button class="bb" id="btnRedo" title="Rehacer (Ctrl+Y)"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg><span>Rehacer</span></button>
+    <button class="bb" id="btnCopy" title="Copiar dibujo (Ctrl+C)"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg><span>Copiar</span></button>
+    <button class="bb" id="btnPaste" title="Pegar (Ctrl+V)"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h4"/></svg><span>Pegar</span></button>
+    <div class="bsep"></div>
+    <div class="strip" id="strip"></div>
+    <div class="bsep"></div>
+    <button class="bb" id="btnTimeline" title="Línea de tiempo completa"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M9 5v14M15 5v14"/></svg><span>Tiempo</span></button>
+    <button class="ib" id="btnPrev" title="Cuadro anterior (,)" aria-label="Cuadro anterior"><svg viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg></button>
+    <button class="play" id="btnPlay" title="Reproducir (Espacio)" aria-label="Reproducir"><svg viewBox="0 0 24 24" id="playIco"><path d="M8 5v14l11-7z"/></svg></button>
+    <button class="ib" id="btnNext" title="Cuadro siguiente (.)" aria-label="Cuadro siguiente"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></button>
+  </footer>
+
+  <!-- panel de capas -->
+  <aside class="drawer" id="layersPanel" hidden>
+    <div class="dhead">
+      <b>Capas</b>
+      <div class="spring"></div>
+      <button class="ib sm" id="btnAddLayer" title="Nueva capa" aria-label="Nueva capa"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button class="ib sm" id="btnCloseLayers" title="Cerrar" aria-label="Cerrar capas"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="llist" id="layerList"></div>
+    <div class="dfoot">
+      <label class="lop">Opacidad <input type="range" id="lpOpacity" min="0" max="100" value="100"><output id="lpOpacityV">100%</output></label>
+      <div class="drow">
+        <button class="tb tg" id="btnClipLayer" title="Mostrar esta capa solo dentro del dibujo de la capa de abajo">Máscara de recorte</button>
+        <button class="tb tg" id="btnAlphaLock" title="Pintar solo sobre lo que ya está dibujado en esta capa">Bloqueo α</button>
+      </div>
+      <div class="drow">
+        <button class="ib sm" id="btnLayerUp" title="Subir capa" aria-label="Subir capa"><svg viewBox="0 0 24 24"><path d="m6 14 6-6 6 6"/></svg></button>
+        <button class="ib sm" id="btnLayerDown" title="Bajar capa" aria-label="Bajar capa"><svg viewBox="0 0 24 24"><path d="m6 10 6 6 6-6"/></svg></button>
+        <button class="tb" id="btnRenameLayer">Ajustes</button>
+      </div>
+      <div class="drow">
+        <button class="tb" id="btnNewFolder" title="Crear una carpeta con la capa actual dentro">+ Carpeta</button>
+        <button class="tb" id="btnFolderIn" title="Mover la capa a otra carpeta">Mover a carpeta</button>
+        <button class="tb" id="btnFolderOut" title="Sacar la capa de su carpeta">Sacar</button>
+      </div>
+      <div class="drow">
+        <button class="tb" id="btnDupLayer">Duplicar</button>
+        <button class="tb" id="btnMergeLayer">Combinar ↓</button>
+        <button class="tb danger" id="btnDelLayer">Eliminar</button>
+      </div>
+    </div>
+  </aside>
+
+  <aside class="drawer" id="animPanel" hidden>
+    <div class="dhead">
+      <b>Animar</b>
+      <div class="spring"></div>
+      <button class="ib sm" id="btnCloseAnim" title="Cerrar" aria-label="Cerrar animar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="llist">
+      <div class="segs" id="animTabs"></div>
+      <div class="lbl" id="animWho"></div>
+      <div id="animRows" class="arows"></div>
+      <label class="sl"><span>Suavizado</span><select id="animEase"></select></label>
+      <div class="drow">
+        <button class="tb" id="animPrev">◀ Clave anterior</button>
+        <button class="tb" id="animNext">Clave siguiente ▶</button>
+      </div>
+      <button class="tb danger" id="animClear">Quitar toda la animación</button>
+      <p class="note" id="animHint"></p>
+    </div>
+  </aside>
+
+  <div class="busy" id="busy" hidden><div class="busybox"><div id="busyTxt">Preparando…</div><div class="bar"><i id="busyBar"></i></div><button class="btn" id="busyCancel">Cancelar</button></div></div>
+</section>
+
+<!-- ============ PANELES FLOTANTES ============ -->
+<div class="pop" id="colorPop" hidden>
+  <canvas id="svPick" width="240" height="140"></canvas>
+  <canvas id="huePick" width="240" height="18"></canvas>
+  <div class="crow">
+    <span class="cprev" id="cprev"></span>
+    <input id="hexIn" maxlength="7" spellcheck="false" aria-label="Color en hexadecimal">
+    <button class="ib sm" id="btnPicker" title="Cuentagotas: toma un color del dibujo (I)" aria-label="Cuentagotas"><svg viewBox="0 0 24 24"><path d="m14 4 6 6-2 2-6-6z"/><path d="m13 7-8 8v4h4l8-8"/></svg></button>
+    <button class="btn sm" id="btnAddSwatch" title="Guardar en la paleta">+ Paleta</button>
+  </div>
+  <div class="swatches" id="swatches"></div>
+  <div class="lbl">Recientes</div>
+  <div class="swatches" id="recents"></div>
+</div>
+
+<div class="pop tpop" id="toolPop" hidden>
+  <div id="optBrush" class="form">
+    <div class="lbl" id="brushLbl">Pinceles</div>
+    <div class="bgrid" id="brushGrid"></div>
+    <div class="drow" id="brushPackRow"><button class="btn sm" id="brushImport">Importar pinceles</button><button class="btn sm" id="brushExport">Exportar mis pinceles</button></div>
+    <label class="sl"><span>Estabilizador</span><input type="range" id="smooth" min="0" max="90" value="35"><output id="smoothV">35</output></label>
+    <p class="note">Suaviza el temblor de la mano. Más alto = líneas más limpias pero con algo de retraso.</p>
+  </div>
+  <div id="optFill" class="form" hidden>
+    <label class="sl"><span>Cerrar huecos</span><input type="range" id="gap" min="0" max="6" value="2"><output id="gapV">2</output></label>
+    <label class="sl"><span>Tolerancia</span><input type="range" id="tol" min="0" max="100" value="30"><output id="tolV">30</output></label>
+    <label class="chk"><input type="checkbox" id="fillAll" checked> Usar todas las capas como guía</label>
+  </div>
+  <div id="optShape" class="form" hidden>
+    <div class="lbl">Forma</div>
+    <div class="segs" id="shapeSeg"></div>
+    <label class="chk"><input type="checkbox" id="shapeFill"> Rellenar la forma</label>
+    <p class="note">Arrastra para dibujarla. Las líneas se enderezan solas cada 15°.</p>
+  </div>
+  <div id="optLasso" class="form" hidden>
+    <div class="lbl">Modo de selección</div>
+    <div class="segs" id="selModeSeg"></div>
+    <label class="sl" id="wandRow"><span>Tolerancia</span><input type="range" id="wandTol" min="0" max="100" value="32"><output id="wandTolV">32</output></label>
+    <p class="note" id="selHint"></p>
+  </div>
+</div>
+
+<div class="pop gpop" id="guidePop" hidden>
+  <div class="lbl">Simetría</div>
+  <div class="segs" id="symSeg"></div>
+  <div class="lbl">Guías</div>
+  <div class="segs" id="guideSeg"></div>
+  <p class="note">Las guías no salen en el video ni en el GIF.</p>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <h3 id="dlgTitle"></h3>
+    <div id="dlgBody"></div>
+    <div class="dlgBtns" id="dlgBtns"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div id="rotateNote"><img src="logo.svg" alt=""><p>Gira tu dispositivo a horizontal para usar Artlas 2D</p></div>
+<input type="file" id="audioFile" accept="audio/*" hidden>
+<input type="file" id="imageFile" accept="image/*" hidden>
+<input type="file" id="projectFile" accept=".artlas,.trazo,application/zip" hidden>
+<input type="file" id="brushFile" accept=".artlasbrush,.trazobrush,application/json" hidden>
+
+<script>
+  // Teléfonos con un «Android System WebView» muy antiguo: avisar en lugar de mostrar una pantalla rota
+  (function () {
+    var ok = 'ResizeObserver' in window && 'DOMMatrix' in window && 'PointerEvent' in window && 'IntersectionObserver' in window && 'indexedDB' in window;
+    try { eval('(async () => { const a = { ...{ b: 1 } }; })'); } catch (e) { ok = false; }
+    if (!ok) {
+      document.body.innerHTML = '<div style="position:fixed;top:0;right:0;bottom:0;left:0;background:#000;color:#eee;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-family:sans-serif;font-size:16px;line-height:1.5">' +
+        '<div><b style="font-size:20px">Actualiza tu navegador del sistema</b><br><br>Artlas 2D necesita una versión más reciente de «Android System WebView».<br>Ábrelo en Google Play, pulsa «Actualizar» y vuelve a abrir la app.</div></div>';
+      window.__artlasOld = true;
+    }
+  })();
+</script>
+<script src="mp4-muxer.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.3.0";
+        public const string Version = "1.4.0";
 
         Camera cam;
         Light sunLight;
@@ -88,6 +88,7 @@ namespace Atlas
         void OnApplicationQuit()
         {
             SaveNow(false);
+            OnDisable2D();
         }
 
         // ------------------------------------------------------------------

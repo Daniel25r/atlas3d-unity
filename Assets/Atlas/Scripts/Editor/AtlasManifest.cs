@@ -38,6 +38,18 @@ public class AtlasManifest : IPostGenerateGradleAndroidProject
         </activity>
 ";
 
+    // «Animación 2D» (Artlas 2D in a WebView), landscape like the app.
+    const string Activity2D = @"
+        <activity android:name=""org.atlas3d.Atlas2DActivity""
+            android:exported=""false""
+            android:label=""ATLAS 2D""
+            android:theme=""@android:style/Theme.Black.NoTitleBar.Fullscreen""
+            android:hardwareAccelerated=""true""
+            android:screenOrientation=""sensorLandscape""
+            android:windowSoftInputMode=""adjustResize""
+            android:configChanges=""orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode|density"" />
+";
+
     public void OnPostGenerateGradleAndroidProject(string path)
     {
         string manifest = Path.Combine(path, "src", "main", "AndroidManifest.xml");
@@ -47,6 +59,16 @@ public class AtlasManifest : IPostGenerateGradleAndroidProject
             return;
         }
         string xml = File.ReadAllText(manifest);
+        if (!xml.Contains("org.atlas3d.Atlas2DActivity"))
+        {
+            int at2 = xml.LastIndexOf("</application>");
+            if (at2 >= 0)
+            {
+                xml = xml.Insert(at2, Activity2D);
+                File.WriteAllText(manifest, xml);
+                Debug.Log("ATLAS: modo 2D añadido al manifiesto");
+            }
+        }
         if (xml.Contains("org.atlas3d.AtlasOpenFile")) return;
         int at = xml.LastIndexOf("</application>");
         if (at < 0)

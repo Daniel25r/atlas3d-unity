@@ -139,6 +139,7 @@ namespace Atlas
             AtlasTheme.TextButton(acts.transform, "add", "Nuevo proyecto", () => NewProject(false), true, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "import", "Importar modelo", () => NewProject(true), false, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "import", "Descargas", ShowDownloads, false, 54f, 18);
+            AtlasTheme.TextButton(acts.transform, "edit", "Animación 2D", Open2D, false, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "settings", "Preferencias", () => ShowPrefs(0), false, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "info", "Acerca de", ShowAbout, false, 54f, 18);
 
@@ -355,6 +356,7 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• NUEVO · Animación 2D: botón en la pantalla de inicio que abre Artlas 2D (dibujo y animación cuadro a cuadro). En el móvil se abre dentro de ATLAS y «Atrás» vuelve; en PC se abre en el navegador.\n" +
             "• NUEVO · Rebote: pelo, colas, orejas y cables se balancean solos con el cuerpo (modo pose → elige el primer hueso → Generar rebote).\n" +
             "• NUEVO · Copiar animación de otro personaje, aunque sus huesos se llamen distinto (Mixamo, Source, Blender, Prisma…).\n" +
             "• NUEVO · Mirar a: la cabeza o los ojos siguen a otro objeto aunque todo se mueva.\n" +

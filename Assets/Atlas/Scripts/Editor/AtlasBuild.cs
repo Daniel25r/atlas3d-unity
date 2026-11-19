@@ -221,11 +221,13 @@ public static class AtlasBuild
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "1.3.0";
+        PlayerSettings.bundleVersion = "1.4.0";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;
         PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
+        // Downloads and the 2D mode's WebView need it (the WebView fails without it).
+        PlayerSettings.Android.forceInternetPermission = true;
         // 64-bit and 32-bit phones («no es compatible con tu teléfono»).
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64 | AndroidArchitecture.ARMv7;
         PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
@@ -434,6 +436,17 @@ public static class AtlasBuild
             imp.SaveAndReimport();
             Debug.Log("ATLAS: plugin nativo para Android: " + p);
         }
+        // «Animación 2D»: the Android screen of Artlas 2D (Java source).
+        var j2d = AssetImporter.GetAtPath("Assets/Atlas/Plugins/Android/Atlas2DActivity.java") as PluginImporter;
+        if (j2d != null)
+        {
+            j2d.SetCompatibleWithAnyPlatform(false);
+            j2d.SetCompatibleWithEditor(false);
+            j2d.SetCompatibleWithPlatform(BuildTarget.Android, true);
+            j2d.SetCompatibleWithPlatform(BuildTarget.StandaloneWindows64, false);
+            j2d.SaveAndReimport();
+        }
+        else Debug.LogWarning("ATLAS: no se encontró Atlas2DActivity.java");
         // The same FBX reader built for Windows (64 bits).
         var dll = AssetImporter.GetAtPath("Assets/Plugins/Atlas/x86_64/atlas_ufbx.dll") as PluginImporter;
         if (dll != null)

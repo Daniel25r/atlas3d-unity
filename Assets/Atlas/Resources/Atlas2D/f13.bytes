@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="tzBg" cx="0.3" cy="0.22" r="0.95">
+      <stop offset="0" stop-color="#2b1257"/>
+      <stop offset="0.55" stop-color="#140827"/>
+      <stop offset="1" stop-color="#08040f"/>
+    </radialGradient>
+    <linearGradient id="tzStroke" x1="0.05" y1="0.95" x2="0.95" y2="0.1">
+      <stop offset="0" stop-color="#5a2dff"/>
+      <stop offset="0.5" stop-color="#b93dff"/>
+      <stop offset="1" stop-color="#ff3d9a"/>
+    </linearGradient>
+    <linearGradient id="tzPlay" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e4d4ff"/>
+    </linearGradient>
+    <filter id="tzGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="11" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <mask id="tzMoon">
+      <rect width="512" height="512" fill="#000"/>
+      <circle cx="252" cy="266" r="170" fill="#fff"/>
+      <circle cx="276" cy="244" r="140" fill="#000"/>
+      <path d="M252 266 L470 60 L512 150 Z" fill="#000"/>
+    </mask>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="116" fill="url(#tzBg)"/>
+  <rect x="17.5" y="17.5" width="477" height="477" rx="114.5" fill="none" stroke="#8a5cff" stroke-opacity="0.4" stroke-width="3"/>
+  <g filter="url(#tzGlow)">
+    <rect width="512" height="512" fill="url(#tzStroke)" mask="url(#tzMoon)"/>
+    <circle cx="412" cy="190" r="13" fill="#ff3d9a"/>
+  </g>
+  <path d="M232 186 L338 254 L232 322 Z" fill="url(#tzPlay)" stroke="url(#tzPlay)" stroke-width="30" stroke-linejoin="round" filter="url(#tzGlow)"/>
+  <path d="M120 112 l7 17 17 7 -17 7 -7 17 -7 -17 -17 -7 17 -7 z" fill="#ffffff" opacity="0.85"/>
+</svg>
