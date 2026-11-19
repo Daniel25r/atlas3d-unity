@@ -129,6 +129,26 @@ namespace Atlas
 
         string VideosDir { get { return store != null ? Path.Combine(store.projectDir, "videos") : ""; } }
 
+        static readonly string[] VideoExts = { ".mp4", ".m4v", ".mov", ".webm", ".3gp", ".mkv", ".avi", ".wmv", ".mpg", ".mpeg", ".ogv" };
+
+        public static bool IsVideoFile(string path)
+        {
+            return System.Array.IndexOf(VideoExts, Path.GetExtension(path ?? "").ToLowerInvariant()) >= 0;
+        }
+
+        /// A file name the video player always reads: letters, digits, «_»
+        /// (spaces, accents and emojis made it fail on Android).
+        static string SafeVideoName(string name, string ext)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (char ch in name ?? "")
+                sb.Append((ch < 128 && char.IsLetterOrDigit(ch)) || ch == '-' ? ch : '_');
+            string s = sb.ToString().Trim('_');
+            if (s.Length > 40) s = s.Substring(0, 40);
+            if (s == "") s = "video";
+            return s + "_" + SceneStore.NewId().Substring(0, 6) + ext;
+        }
+
         void AddVideoPlane()
         {
             CloseMenus();
@@ -136,13 +156,22 @@ namespace Atlas
             NativeFilePicker.PickFile(path =>
             {
                 if (string.IsNullOrEmpty(path) || store == null) return;
+                AddVideoFromPath(path);
+            }, new string[] { "video/*" });
+        }
+
+        /// Puts the video file in the project and on a plane in the scene.
+        void AddVideoFromPath(string path)
+        {
+            if (store == null || string.IsNullOrEmpty(path)) return;
+            {
                 string file;
                 try
                 {
                     Directory.CreateDirectory(VideosDir);
                     string ext = Path.GetExtension(path).ToLowerInvariant();
-                    if (ext == "") ext = ".mp4";
-                    file = Path.GetFileNameWithoutExtension(path) + "_" + SceneStore.NewId().Substring(0, 6) + ext;
+                    if (ext == "" || ext.Length > 5) ext = ".mp4";
+                    file = SafeVideoName(Path.GetFileNameWithoutExtension(path), ext);
                     File.Copy(path, Path.Combine(VideosDir, file), true);
                 }
                 catch (System.Exception e) { Toast("No se pudo usar el vídeo: " + e.Message, true); return; }
@@ -161,7 +190,7 @@ namespace Atlas
                 Select(Create(d));
                 Commit(true);
                 Toast("Vídeo colocado: sigue a la línea de tiempo y sale en el render");
-            }, new string[] { "video/*" });
+            }
         }
 
         void SetupVideo(AtlasItem it)
@@ -169,7 +198,24 @@ namespace Atlas
             if (string.IsNullOrEmpty(it.videoFile) || store == null) return;
             string full = Path.Combine(VideosDir, it.videoFile);
             if (!File.Exists(full)) { Toast("Falta el vídeo «" + it.videoFile + "»", true); return; }
+            // Older projects: a name with spaces / accents is renamed once.
+            string ext0 = Path.GetExtension(it.videoFile);
+            string bare = Path.GetFileNameWithoutExtension(it.videoFile);
+            bool unsafeName = false;
+            foreach (char ch in bare) if (!((ch < 128 && char.IsLetterOrDigit(ch)) || ch == '_' || ch == '-')) unsafeName = true;
+            if (unsafeName)
+            {
+                try
+                {
+                    string nn = SafeVideoName(bare, ext0 == "" ? ".mp4" : ext0.ToLowerInvariant());
+                    File.Copy(full, Path.Combine(VideosDir, nn), true);
+                    it.videoFile = nn;
+                    full = Path.Combine(VideosDir, nn);
+                }
+                catch (System.Exception) { }
+            }
             var vp = it.gameObject.GetComponent<VideoPlayer>();
+            bool fresh = vp == null;
             if (vp == null) vp = it.gameObject.AddComponent<VideoPlayer>();
             vp.playOnAwake = false;
             vp.isLooping = true;
@@ -177,10 +223,21 @@ namespace Atlas
             vp.waitForFirstFrame = true;
             vp.audioOutputMode = VideoAudioOutputMode.None;
             vp.source = VideoSource.Url;
-            vp.url = new System.Uri(full).AbsoluteUri;
+            // The plain path: an escaped «file://» address failed on some phones.
+            vp.url = full;
+            if (fresh)
+            {
+                string shown = it.gameObject.name;
+                vp.errorReceived += (p, msg) =>
+                {
+                    Debug.LogWarning("ATLAS: vídeo: " + msg);
+                    Toast("El vídeo «" + shown + "» no se puede reproducir en este dispositivo (formato o códec no compatible, p. ej. HEVC/H.265). Conviértelo a MP4 (H.264) con CapCut, InShot o cualquier editor y vuelve a ponerlo", true);
+                };
+            }
             if (it.videoRT == null) it.videoRT = new RenderTexture(1280, 720, 0, RenderTextureFormat.ARGB32);
             vp.renderMode = VideoRenderMode.RenderTexture;
             vp.targetTexture = it.videoRT;
+            if (!fresh) { vp.Prepare(); return; }
             vp.prepareCompleted += p =>
             {
                 // The plane takes the video's shape (keeping its height).

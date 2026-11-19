@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.7.0";
+        public const string Version = "1.7.1";
 
         Camera cam;
         Light sunLight;
@@ -810,6 +810,13 @@ namespace Atlas
                 if (e != ".pobject" && e != ".png" && e != ".jpg" && e != ".jpeg" && e != ".mtl" && e != ".bin" && e != ".tga") { main = p; break; }
             }
             string ext = Path.GetExtension(main).ToLowerInvariant();
+            // Videos picked with «Importar» go on a video plane.
+            if (IsVideoFile(main))
+            {
+                foreach (var p in paths) if (IsVideoFile(p)) AddVideoFromPath(p);
+                if (!string.IsNullOrEmpty(cleanup)) try { Directory.Delete(cleanup, true); } catch (System.Exception) { }
+                return;
+            }
             if (ext == ".pcf")
             {
                 foreach (var p in paths) if (Import.PcfImport.IsPcf(p)) ImportPcf(p);

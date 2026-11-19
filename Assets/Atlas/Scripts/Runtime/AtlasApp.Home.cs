@@ -356,6 +356,7 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• Vídeos arreglados: se pueden poner también con «Importar», funcionan aunque el nombre tenga espacios, tildes o emojis, aceptan más formatos (MP4, MOV, WEBM, 3GP, MKV…) y, si el móvil no puede leer uno, ATLAS te dice por qué y cómo convertirlo.\n" +
             "• NUEVO · Editor UV (Modelar → Editor UV), como en Blender: la malla desplegada sobre su textura; toca una pieza y muévela, gírala o escálala; «Desplegar» por islas; «Plantilla PNG» para pintarla en cualquier app y ponerla de textura.\n" +
             "• Arreglos: los modelos ya no vuelven a su tamaño original al abrir el proyecto; las texturas mantienen el filtro que trae el modelo (el pixel-art grande ya no sale borroso); el manipulador vuelve a moverse con los ejes del mundo (el modo Prisma3D está en Preferencias).\n" +
             "• Normal maps arreglados: ahora se ven en pelo, encajes y partes transparentes, en modelos que no traían relieve, y con PNG con transparencia. Nuevo «Relieve al revés» para los normal maps de DirectX.\n" +
