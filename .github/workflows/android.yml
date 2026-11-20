@@ -20,9 +20,11 @@ jobs:
           android: true
           dotnet: true
           haskell: true
-          large-packages: false
-          docker-images: false
-          swap-storage: false
+          # More room: a build ran out of disk («No space left on device»).
+          large-packages: true
+          docker-images: true
+          tool-cache: true
+          swap-storage: true
 
       - uses: actions/checkout@v4
         with:
