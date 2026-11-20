@@ -13,6 +13,7 @@ namespace Atlas
     public partial class AtlasApp
     {
         float autoScale = 1f, perfTimer, lastActive, appliedScale = -1f;
+        int appliedMsaa = -1;
         int perfFrames;
         Vector3 lastMouse;
 
@@ -22,6 +23,7 @@ namespace Atlas
             {
                 OnDemandRendering.renderFrameInterval = 1;
                 appliedScale = -1f;
+                appliedMsaa = -1;
                 return;
             }
             // Something happening? (finger, mouse, keys, playback, work)
@@ -53,6 +55,20 @@ namespace Atlas
                 var urp = Urp;
                 if (urp != null) urp.renderScale = want;
                 appliedScale = want;
+            }
+            // A phone that struggles also smooths edges less (4x MSAA costs
+            // as much as a quarter more of the screen); back when it recovers.
+            int wantMsaa = Prefs.msaa;
+            if (Application.isMobilePlatform && Prefs.autoRes)
+            {
+                if (autoScale < 0.66f) wantMsaa = 1;
+                else if (autoScale < 0.86f) wantMsaa = Mathf.Min(wantMsaa, 2);
+            }
+            if (wantMsaa != appliedMsaa)
+            {
+                var urp = Urp;
+                if (urp != null) urp.msaaSampleCount = wantMsaa;
+                appliedMsaa = wantMsaa;
             }
         }
     }

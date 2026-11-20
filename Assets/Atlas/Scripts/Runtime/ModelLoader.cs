@@ -33,12 +33,14 @@ namespace Atlas
                 var holderObj = new GameObject("Modelo");
                 holderObj.transform.SetParent(root.transform, false);
                 made.transform.SetParent(holderObj.transform, false);
+                TextureTune.Model(made);
                 Fit(root, placeOnGround);
                 await Task.Yield();
                 return "";
             }
             var gltf = new GLTFast.GltfImport(null, null, new AtlasMaterialGenerator(), null);
             bool ok;
+            GameObject loaded = null;
             try
             {
                 var uri = new Uri(path);
@@ -50,6 +52,7 @@ namespace Atlas
                 {
                     var holder = new GameObject("Modelo");
                     holder.transform.SetParent(root.transform, false);
+                    loaded = holder;
                     ok = await gltf.InstantiateMainSceneAsync(holder.transform);
                 }
             }
@@ -64,6 +67,8 @@ namespace Atlas
                 return "No se pudo abrir el modelo (¿es un GLB / glTF válido?).";
             }
             root.importer = gltf;
+            try { TextureTune.Model(loaded); }
+            catch (Exception e) { Debug.LogWarning("ATLAS: texturas: " + e.Message); }
             FixMaterials(root.gameObject, litTemplate);
             // The model's own animations are played by the timeline.
             var anim = root.GetComponentInChildren<Animation>();

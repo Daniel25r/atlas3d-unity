@@ -486,12 +486,16 @@ namespace Atlas.Import
                     if (vmt != null) break;
                 }
                 if (vmt == null) vmt = Find(name + ".vmt");
-                string baseTex = null;
+                string baseTex = null, bumpTex = null;
                 if (vmt != null)
                 {
                     var kv = ReadVmt(vmt);
                     string v;
                     if (kv.TryGetValue("$basetexture", out v)) baseTex = v;
+                    // Relief: $bumpmap / $normalmap (not «self-shadowed» ssbump,
+                    // which is a different kind of picture).
+                    bool ssbump = kv.TryGetValue("$ssbump", out v) && v != "0";
+                    if (!ssbump && (kv.TryGetValue("$bumpmap", out v) || kv.TryGetValue("$normalmap", out v))) bumpTex = v;
                     if (kv.ContainsKey("$alphatest") && kv["$alphatest"] != "0") mat.alphaMask = true;
                     if (kv.ContainsKey("$translucent") && kv["$translucent"] != "0") mat.alphaMask = true;
                     if (kv.ContainsKey("$nocull") && kv["$nocull"] != "0") mat.doubleSided = true;
@@ -512,6 +516,25 @@ namespace Atlas.Import
                         }
                     }
                     catch (Exception e) { UnityEngine.Debug.LogWarning("ATLAS: textura de Source: " + e.Message); }
+                }
+                string bvtf = bumpTex != null ? Find(bumpTex + ".vtf") : null;
+                if (bvtf != null && mat.texture >= 0)
+                {
+                    try
+                    {
+                        int bw, bh;
+                        var rgba = Vtf.ToRgba(File.ReadAllBytes(bvtf), out bw, out bh);
+                        if (rgba != null)
+                        {
+                            // Source draws relief «DirectX style» (green down)
+                            // and keeps a shine mask in the alpha: glTF wants
+                            // green up and nothing in the alpha.
+                            for (int i = 0; i < bw * bh; i++) { rgba[i * 4 + 1] = (byte)(255 - rgba[i * 4 + 1]); rgba[i * 4 + 3] = 255; }
+                            model.textures.Add(new MTexture { data = ImageConv.Png(rgba, bw, bh), mime = "image/png" });
+                            mat.normalTexture = model.textures.Count - 1;
+                        }
+                    }
+                    catch (Exception e) { UnityEngine.Debug.LogWarning("ATLAS: relieve de Source: " + e.Message); }
                 }
                 model.materials.Add(mat);
                 mi = model.materials.Count - 1;
@@ -635,10 +658,19 @@ namespace Atlas.Import
     {
         public static byte[] ToPng(byte[] b)
         {
+            int w, h;
+            var rgba = ToRgba(b, out w, out h);
+            return rgba != null ? ImageConv.Png(rgba, w, h) : null;
+        }
+
+        /// The largest picture as RGBA bytes (null if it cannot be read).
+        public static byte[] ToRgba(byte[] b, out int w, out int h)
+        {
+            w = h = 0;
             if (b.Length < 64 || b[0] != 'V' || b[1] != 'T' || b[2] != 'F') return null;
             int major = BitConverter.ToInt32(b, 4), minor = BitConverter.ToInt32(b, 8);
             int headerSize = BitConverter.ToInt32(b, 12);
-            int w = BitConverter.ToUInt16(b, 16), h = BitConverter.ToUInt16(b, 18);
+            w = BitConverter.ToUInt16(b, 16); h = BitConverter.ToUInt16(b, 18);
             uint flags = BitConverter.ToUInt32(b, 20);
             int frames = Math.Max(1, (int)BitConverter.ToUInt16(b, 24));
             int fmt = BitConverter.ToInt32(b, 52);
@@ -668,8 +700,7 @@ namespace Atlas.Import
             }
             int size = Size(fmt, w, h);
             if (size <= 0 || off + size > b.Length) return null;
-            var rgba = Decode(b, (int)off, fmt, w, h);
-            return rgba != null ? ImageConv.Png(rgba, w, h) : null;
+            return Decode(b, (int)off, fmt, w, h);
         }
 
         static int Size(int fmt, int w, int h)

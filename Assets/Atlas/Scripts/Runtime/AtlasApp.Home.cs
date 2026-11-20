@@ -357,6 +357,9 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• Normal maps arreglados de verdad: en PC el relieve salía torcido (rayas, lados oscuros, luz al revés) cuando la imagen tenía transparencia o máscara de brillo; también se torcía un poco la luz de modelos sin relieve. En Android se leen siempre bien.\n" +
+            "• Relieve que antes no se cargaba: modelos de Source ($bumpmap) y OBJ (map_Bump / bump, también mapas en blanco y negro).\n" +
+            "• Gran optimización: en el móvil las texturas gigantes (4K, 8K) se reducen al tamaño que aguanta el teléfono (mucha menos memoria, menos cierres), el suavizado de bordes baja solo cuando el móvil va lento, y el modo aristas y el modo pose gastan mucho menos.\n" +
             "• NUEVO · Artlas 2D: importar vídeo para rotoscopia (☰ → Importar vídeo). Cada fotograma del vídeo entra en una capa de referencia semitransparente para dibujar encima.\n" +
             "• Vuelve el cielo propio (como en la versión Godot): pon cualquier imagen como cielo, mejor una 360°. Ilumina la escena, se gira y se ajusta su brillo (Escena → Cielo y hora del día).\n" +
             "• NUEVO · Inicio a tu gusto: tu propia imagen de fondo (Preferencias → Interfaz), el logo del color de la interfaz y botones 3D | 2D junto al logo.\n" +

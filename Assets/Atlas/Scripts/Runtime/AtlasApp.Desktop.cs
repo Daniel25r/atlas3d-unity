@@ -324,6 +324,8 @@ namespace Atlas
         }
 
         /// Every frame on desktops: window size, outliner and status bar.
+        long statusSig = -1;
+
         void UpdateDesktop()
         {
             if (!Desktop || canvasRoot == null) return;
@@ -358,7 +360,15 @@ namespace Atlas
                 CountScene(out statTris, out statVerts);
             }
             if (statusRight != null)
-                Lang.Set(statusRight, "Tris " + Short(statTris) + " · Verts " + Short(statVerts) + "  ·  Objetos: " + items.Count + "  ·  Fotograma " + Mathf.RoundToInt(frame) + " / " + endFrame);
+            {
+                // Written only when something in it changes (not 60 new texts a second).
+                long ssig = ((((long)statTris * 31 + statVerts) * 31 + items.Count) * 31 + Mathf.RoundToInt(frame)) * 31 + endFrame;
+                if (ssig != statusSig)
+                {
+                    statusSig = ssig;
+                    Lang.Set(statusRight, "Tris " + Short(statTris) + " · Verts " + Short(statVerts) + "  ·  Objetos: " + items.Count + "  ·  Fotograma " + Mathf.RoundToInt(frame) + " / " + endFrame);
+                }
+            }
         }
 
         // ------------------------------------------------------------------

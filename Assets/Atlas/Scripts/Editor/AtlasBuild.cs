@@ -228,11 +228,14 @@ public static class AtlasBuild
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "1.8.2";
+        PlayerSettings.bundleVersion = "1.8.3";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;
         PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
+        // Relief (normal maps) made by the app are plain RGB pictures: the
+        // «DXT5nm-style» encoding read them from the alpha and twisted them.
+        SetNormalMapsXYZ();
         // Downloads and the 2D mode's WebView need it (the WebView fails without it).
         PlayerSettings.Android.forceInternetPermission = true;
         // 64-bit and 32-bit phones («no es compatible con tu teléfono»).
@@ -365,6 +368,30 @@ public static class AtlasBuild
         if (f != null) { f.SetValue(o, value); return; }
         var p = t.GetProperty(name, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         if (p != null && p.CanWrite) p.SetValue(o, value);
+    }
+
+    /// PlayerSettings.SetNormalMapEncoding(Android, XYZ), called by name so
+    /// the build still works if a Unity version names it differently.
+    static void SetNormalMapsXYZ()
+    {
+        try
+        {
+            foreach (var m in typeof(PlayerSettings).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static))
+            {
+                if (m.Name != "SetNormalMapEncoding") continue;
+                var ps = m.GetParameters();
+                if (ps.Length != 2 || !ps[1].ParameterType.IsEnum) continue;
+                object target;
+                if (ps[0].ParameterType == typeof(NamedBuildTarget)) target = NamedBuildTarget.Android;
+                else if (ps[0].ParameterType == typeof(BuildTargetGroup)) target = BuildTargetGroup.Android;
+                else continue;
+                m.Invoke(null, new[] { target, System.Enum.Parse(ps[1].ParameterType, "XYZ") });
+                Debug.Log("ATLAS: normal maps XYZ en Android");
+                return;
+            }
+            Debug.LogWarning("ATLAS: SetNormalMapEncoding no encontrado");
+        }
+        catch (Exception e) { Debug.LogWarning("ATLAS: SetNormalMapEncoding: " + e.Message); }
     }
 
     static void MakeMaterial(string name, string shaderName)

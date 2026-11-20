@@ -147,6 +147,7 @@ namespace Atlas
                 urp.renderScale = Prefs.viewRes;
                 appliedScale = -1f;   // the automatic resolution measures again
                 urp.msaaSampleCount = Prefs.msaa;
+                appliedMsaa = Prefs.msaa;
             }
             if (gizmo != null)
             {

@@ -277,6 +277,27 @@ namespace Atlas
                     Color c = cur.GetColor("_BaseColor");
                     cur.SetColor("_BaseColor", new Color(F(p[1]), F(p[2]), F(p[3]), c.a));
                 }
+                else if ((p[0] == "map_Bump" || p[0] == "map_bump" || p[0] == "bump" || p[0] == "norm" || p[0] == "map_Kn") && p.Length >= 2)
+                {
+                    // Relief: a normal map, or a black and white height map
+                    // (turned into one). «-bm 2» is how strong it is.
+                    string rel = p[p.Length - 1];
+                    float bm = 1f;
+                    for (int i = 1; i + 1 < p.Length; i++) if (p[i] == "-bm") bm = F(p[i + 1]);
+                    string full = File.Exists(Path.Combine(dir, rel)) ? Path.Combine(dir, rel) : Path.Combine(dir, Path.GetFileName(rel.Replace('\\', '/')));
+                    if (File.Exists(full))
+                    {
+                        Texture2D nt = null;
+                        try { nt = TextureTune.NormalFromImage(File.ReadAllBytes(full), false); }
+                        catch (Exception) { }
+                        if (nt != null && cur.HasProperty("_BumpMap"))
+                        {
+                            cur.EnableKeyword("_NORMALMAP");
+                            cur.SetTexture("_BumpMap", nt);
+                            cur.SetFloat("_BumpScale", bm > 0f ? bm : 1f);
+                        }
+                    }
+                }
                 else if (p[0] == "map_Kd" && p.Length >= 2)
                 {
                     var t = LoadTexture(dir, p[p.Length - 1]);

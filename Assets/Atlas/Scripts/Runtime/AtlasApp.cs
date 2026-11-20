@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.8.2";
+        public const string Version = "1.8.3";
 
         Camera cam;
         Light sunLight;

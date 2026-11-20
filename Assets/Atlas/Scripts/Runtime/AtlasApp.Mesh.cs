@@ -656,6 +656,31 @@ namespace Atlas
             }
         }
 
+        // The edges of the mesh being modelled: worked out again only when
+        // the faces change (it was every frame: a big list and thousands of
+        // small ones each time, the phone slowed down in edge mode).
+        readonly List<long> edgeCache = new List<long>();
+        EditMesh edgeCacheMesh;
+        long edgeCacheSig = -1;
+
+        List<long> CachedEdges(EditMesh e)
+        {
+            long sig = e.faces.Count * 1000003L + e.verts.Count;
+            for (int i = 0; i < e.faces.Count; i++)
+            {
+                var f = e.faces[i];
+                for (int k = 0; k < f.Length; k++) sig = sig * 31 + f[k] + 1;
+            }
+            if (e != edgeCacheMesh || sig != edgeCacheSig)
+            {
+                edgeCacheMesh = e;
+                edgeCacheSig = sig;
+                edgeCache.Clear();
+                edgeCache.AddRange(e.EdgeFaces().Keys);
+            }
+            return edgeCache;
+        }
+
         void UpdateMeshOverlay()
         {
             if (meshLayer == null) return;
@@ -669,7 +694,7 @@ namespace Atlas
                 var t = selected.transform;
                 bool faces = selMode == "face";
                 bool edges = selMode == "edge";
-                List<long> edgeList = edges ? new List<long>(e.EdgeFaces().Keys) : null;
+                List<long> edgeList = edges ? CachedEdges(e) : null;
                 int count = edges ? edgeList.Count : faces ? e.faces.Count : e.verts.Count;
                 if (count <= 4000)
                     for (int i = 0; i < count; i++)

@@ -208,6 +208,10 @@ namespace Atlas
             return RectTransformUtility.ScreenPointToLocalPointInRectangle(boneLayer, sp, null, out local);
         }
 
+        Vector2[] ovPos = new Vector2[0];
+        bool[] ovOk = new bool[0];
+        readonly Dictionary<string, int> ovIndex = new Dictionary<string, int>();
+
         void UpdateBoneOverlay()
         {
             if (boneLayer == null) return;
@@ -217,9 +221,12 @@ namespace Atlas
                 return;
             }
             if (overlayItem != selected) RebuildBoneOverlay(selected);
-            var pos = new Vector2[overlayBones.Count];
-            var ok = new bool[overlayBones.Count];
-            var index = new Dictionary<string, int>();
+            // Reused every frame (they were made new 60 times a second).
+            if (ovPos.Length < overlayBones.Count) { ovPos = new Vector2[overlayBones.Count]; ovOk = new bool[overlayBones.Count]; }
+            var pos = ovPos;
+            var ok = ovOk;
+            var index = ovIndex;
+            index.Clear();
             for (int i = 0; i < overlayBones.Count; i++)
             {
                 index[overlayBones[i]] = i;
