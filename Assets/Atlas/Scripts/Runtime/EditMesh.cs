@@ -350,6 +350,7 @@ namespace Atlas
             {
                 var f = faces[fi];
                 var u = uvs[fi];
+                Vector3 c = FaceCenter(fi);
                 for (int k = 0; k < f.Length; k++)
                 {
                     int a = f[k], b = f[(k + 1) % f.Length];
@@ -357,6 +358,16 @@ namespace Atlas
                     // Wall: a, b on the old surface, b', a' on the new one.
                     faces.Add(new[] { a, b, copy[b], copy[a] });
                     uvs.Add(new[] { u[k], u[(k + 1) % f.Length], u[(k + 1) % f.Length], u[k] });
+                    // Its front must face out of the shape (inside out it
+                    // looked see-through or black from outside).
+                    int wi = faces.Count - 1;
+                    Vector3 o = (verts[a] + verts[b]) * 0.5f - c;
+                    o -= normal * Vector3.Dot(o, normal);
+                    if (o.sqrMagnitude > 1e-12f && Vector3.Dot(FaceNormal(wi), o) < 0f)
+                    {
+                        System.Array.Reverse(faces[wi]);
+                        System.Array.Reverse(uvs[wi]);
+                    }
                 }
                 var nfc = new int[f.Length];
                 for (int k = 0; k < f.Length; k++) nfc[k] = copy[f[k]];

@@ -15,8 +15,9 @@ namespace Atlas
     public static class Prefs
     {
         public static float uiScale = 1f, orbitSens = 1f, gizmoSize = 1f, snapMove = 0.25f, snapAngle = 15f, viewRes = 1f;
-        public static bool invertY, showFps, viewShadows = true, viewEffects = true, catchDownloads, keepImports = true, localGizmo;
+        public static bool invertY, showFps, viewShadows = true, viewEffects = true, catchDownloads, keepImports = true, localGizmo, autoRes = true, saveBattery = true;
         public static int accent;
+        public static float homeDim = 0.45f;   // darkening over the start screen's picture
         public static int profile = 2, maxFps = 60, msaa = 4;
         public static string lang = "";
 
@@ -49,6 +50,9 @@ namespace Atlas
             viewShadows = I("viewShadows", 1) == 1;
             catchDownloads = I("catchDownloads", 0) == 1;
             keepImports = I("keepImports", 1) == 1;
+            homeDim = Mathf.Clamp01(F("homeDim", 0.45f));
+            autoRes = I("autoRes", 1) == 1;
+            saveBattery = I("saveBattery", 1) == 1;
             localGizmo = I("localGizmo2", 0) == 1;
             accent = I("accent", 0);
             viewEffects = I("viewEffects", 1) == 1;
@@ -79,6 +83,9 @@ namespace Atlas
                 PlayerPrefs.SetInt("atlas.viewShadows", viewShadows ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.catchDownloads", catchDownloads ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.keepImports", keepImports ? 1 : 0);
+                PlayerPrefs.SetFloat("atlas.homeDim", homeDim);
+                PlayerPrefs.SetInt("atlas.autoRes", autoRes ? 1 : 0);
+                PlayerPrefs.SetInt("atlas.saveBattery", saveBattery ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.localGizmo2", localGizmo ? 1 : 0);
                 PlayerPrefs.SetInt("atlas.accent", accent);
                 PlayerPrefs.SetInt("atlas.viewEffects", viewEffects ? 1 : 0);
@@ -138,6 +145,7 @@ namespace Atlas
             if (urp != null && !capturing)
             {
                 urp.renderScale = Prefs.viewRes;
+                appliedScale = -1f;   // the automatic resolution measures again
                 urp.msaaSampleCount = Prefs.msaa;
             }
             if (gizmo != null)
@@ -321,6 +329,12 @@ namespace Atlas
                 var ct = chip.GetComponentInChildren<Text>();
                 if (ct != null) ct.color = AtlasTheme.AccentPreview(k);
             }
+            var bl = AtlasTheme.Label(c, "Fondo de la pantalla de inicio", 16, AtlasTheme.TextColor, true);
+            AtlasTheme.Le(bl.gameObject, 26f);
+            var bgg = AtlasTheme.Grid(c, 2, PrefsInner, 40f);
+            AtlasTheme.TextButton(bgg, "image", "Elegir imagen…", PickHomeBackground, false, 40f, 15);
+            AtlasTheme.TextButton(bgg, "close", "Quitar fondo", RemoveHomeBackground, false, 40f, 15);
+            AtlasTheme.SliderRow(c, "Oscurecer el fondo", 0f, 0.9f, Prefs.homeDim, "0.00", v => { Prefs.homeDim = v; ApplyHomeBackground(); }, Prefs.Save);
             AtlasTheme.SliderRow(c, "Escala de la interfaz", 0.7f, 1.5f, Prefs.uiScale, "0.00", v => { Prefs.uiScale = v; }, () => { ApplyPrefs(); Prefs.Save(); ShowPrefs(0); });
             PrefHint(c, "Más grande si los botones se ven pequeños; más pequeña para ver más escena. Se aplica al soltar.");
             AtlasTheme.TextButton(c, "help", "Ver la guía de inicio", () => { ClosePrefs(); ShowGuide(); }, false, 44f, 16);
@@ -353,6 +367,8 @@ namespace Atlas
             }
             PrefHint(c, "Tostadora: móviles muy sencillos (sin sombras ni efectos, 30 FPS). Ligero: sin sombras. Equilibrado: todo, 60 FPS. Avanzado: hasta 120 FPS. El render final sale siempre con toda la calidad.");
             AtlasTheme.SliderRow(c, "Resolución del visor", 0.5f, 1f, Prefs.viewRes, "0%", v => { Prefs.viewRes = v; ApplyPrefs(); }, Prefs.Save);
+            AtlasTheme.Switch(c, "Resolución automática (baja un poco si el móvil va lento)", Prefs.autoRes, on => { Prefs.autoRes = on; autoScale = 1f; Prefs.Save(); ApplyPrefs(); });
+            AtlasTheme.Switch(c, "Ahorro en reposo (menos calor y batería)", Prefs.saveBattery, on => { Prefs.saveBattery = on; Prefs.Save(); });
             var fl = AtlasTheme.Label(c, "FPS máximos", 16, AtlasTheme.TextColor, true);
             AtlasTheme.Le(fl.gameObject, 26f);
             var fg = AtlasTheme.Grid(c, 3, PrefsInner, 40f);

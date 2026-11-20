@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.7.1";
+        public const string Version = "1.8.0";
 
         Camera cam;
         Light sunLight;
@@ -1340,6 +1340,7 @@ namespace Atlas
             if (Screen.safeArea != lastSafe) ApplySafeArea();
             if (Input.GetKeyDown(KeyCode.Escape)) Back();
             Shortcuts();
+            AdaptPerformance();
             UpdateFps();
             UpdateMatPreview();
             if (store == null || home.activeSelf) { if (!rendering) CheckIncoming(); }

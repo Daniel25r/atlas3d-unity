@@ -282,6 +282,15 @@ namespace Atlas
                     if (vs == null || vs.Count < 2) { Toast("Elige dos o más vértices para unirlos"); return; }
                     MeshOp("Unir vértices", m => m.Merge(vs), true);
                 });
+                BarButton("extrude", "Dar grosor", () =>
+                {
+                    float sz = Mathf.Max(0.0001f, EditBoundsSize());
+                    var l = new List<AtlasTheme.MenuItem> { AtlasTheme.MenuItem.Header("Dar grosor (toda la forma)") };
+                    l.Add(new AtlasTheme.MenuItem(null, "Fino", () => MeshOp("Grosor fino", m => m.Solidify(sz * 0.02f), true)));
+                    l.Add(new AtlasTheme.MenuItem(null, "Medio", () => MeshOp("Grosor medio", m => m.Solidify(sz * 0.05f), true)));
+                    l.Add(new AtlasTheme.MenuItem(null, "Grueso", () => MeshOp("Grosor grueso", m => m.Solidify(sz * 0.12f), true)));
+                    AtlasTheme.Popup(canvasRoot, BarPoint(), l);
+                });
                 BarButton("mirror", "Espejo X", () => MeshOp("Espejo X (lado +X copiado)", m => m.MirrorX(), true));
                 BarButton("subdivide", "Subdividir", () => MeshOp("Subdividir", m => m.Subdivide(), true));
                 BarButton("subdivide", "Subdivisión suave", () => MeshOp("Subdivisión suave", m => m.SubdivideSmooth(), true));

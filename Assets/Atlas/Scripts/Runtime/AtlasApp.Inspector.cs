@@ -193,6 +193,7 @@ namespace Atlas
                 if (it.HasBones) BuildSkeletonSection(it);
                 if (it.HasBones) BuildRetargetSection(it);
                 BuildMorphSection(it);
+                if (it.HasBones || it.MorphNames.Count > 0) BuildExpressionsSection(it);
                 BuildModelSection(it);
             }
             else if (it.kind == "fx") BuildFxSection(it);

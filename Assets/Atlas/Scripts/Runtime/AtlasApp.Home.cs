@@ -21,6 +21,7 @@ namespace Atlas
             AtlasTheme.Fill(bg.rectTransform);
             home = bg.gameObject;
             homeSafe = AtlasTheme.Rect(bg.transform, "AreaSegura");
+            ApplyHomeBackground();
             ApplySafeArea();
             ScrollRect sr;
             homeContent = AtlasTheme.ScrollArea(homeSafe, out sr, 18f, new RectOffset(32, 32, 28, 32));
@@ -119,18 +120,19 @@ namespace Atlas
             // Header: logo, name and version.
             var head = AtlasTheme.Rect(homeContent, "Cabecera").gameObject;
             AtlasTheme.Row(head, 16f, new RectOffset(0, 0, 0, 0));
-            AtlasTheme.Le(head, 84f);
+            AtlasTheme.Le(head, 112f);
             var logo = AtlasTheme.Rect(head.transform, "Logo").gameObject.AddComponent<RawImage>();
-            logo.texture = Resources.Load<Texture2D>("AtlasLogo");
+            logo.texture = LogoTexture(logo);
             logo.raycastTarget = false;
             AtlasTheme.Le(logo.gameObject, 80f, 80f);
             var titles = AtlasTheme.Rect(head.transform, "Titulos").gameObject;
             AtlasTheme.Column(titles, 2f, new RectOffset(0, 0, 10, 0), TextAnchor.UpperLeft);
-            AtlasTheme.Le(titles, 84f, -1f, 1f);
+            AtlasTheme.Le(titles, 112f, -1f, 1f);
             var t1 = AtlasTheme.Label(titles.transform, "ATLAS 3D", 32, AtlasTheme.TextColor, true);
             AtlasTheme.Le(t1.gameObject, 40f);
             var t2 = AtlasTheme.Label(titles.transform, "Estudio de creación 3D · versión " + Version, 16, AtlasTheme.TextDim);
             AtlasTheme.Le(t2.gameObject, 24f);
+            Build3D2DSwitch(titles.transform);
 
             // Actions
             var acts = AtlasTheme.Rect(homeContent, "Acciones").gameObject;
@@ -139,7 +141,6 @@ namespace Atlas
             AtlasTheme.TextButton(acts.transform, "add", "Nuevo proyecto", () => NewProject(false), true, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "import", "Importar modelo", () => NewProject(true), false, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "folder", "Biblioteca", ShowLibrary, false, 54f, 18);
-            AtlasTheme.TextButton(acts.transform, "edit", "Animación 2D", Open2D, false, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "settings", "Preferencias", () => ShowPrefs(0), false, 54f, 18);
             AtlasTheme.TextButton(acts.transform, "info", "Acerca de", ShowAbout, false, 54f, 18);
 
@@ -356,6 +357,11 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• NUEVO · Inicio a tu gusto: tu propia imagen de fondo (Preferencias → Interfaz), el logo del color de la interfaz y botones 3D | 2D junto al logo.\n" +
+            "• NUEVO · Expresiones guardadas: guarda caras (formas y huesos de la cara) con un nombre y ponlas con un toque, también en otros proyectos.\n" +
+            "• NUEVO · Render: elige desde qué fotograma hasta cuál se hace el vídeo, el GIF o el ZIP.\n" +
+            "• NUEVO · Modelar → Dar grosor, y las extrusiones ya no se ven transparentes ni negras por un lado.\n" +
+            "• Optimización: resolución automática si el móvil va lento y ahorro en reposo (menos calor y batería), en Preferencias.\n" +
             "• Vídeos arreglados: se pueden poner también con «Importar», funcionan aunque el nombre tenga espacios, tildes o emojis, aceptan más formatos (MP4, MOV, WEBM, 3GP, MKV…) y, si el móvil no puede leer uno, ATLAS te dice por qué y cómo convertirlo.\n" +
             "• NUEVO · Editor UV (Modelar → Editor UV), como en Blender: la malla desplegada sobre su textura; toca una pieza y muévela, gírala o escálala; «Desplegar» por islas; «Plantilla PNG» para pintarla en cualquier app y ponerla de textura.\n" +
             "• Arreglos: los modelos ya no vuelven a su tamaño original al abrir el proyecto; las texturas mantienen el filtro que trae el modelo (el pixel-art grande ya no sale borroso); el manipulador vuelve a moverse con los ejes del mundo (el modo Prisma3D está en Preferencias).\n" +

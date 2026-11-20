@@ -153,3 +153,46 @@ namespace Atlas
         }
     }
 }
+
+namespace Atlas
+{
+    public partial class EditMesh
+    {
+        /// «Dar grosor» (Blender's Solidify): a second skin inside, facing
+        /// in, joined to the first one along the open borders: a plane or
+        /// an extruded sheet becomes a solid with thickness.
+        public void Solidify(float thickness)
+        {
+            if (faces.Count == 0 || thickness <= 0f) return;
+            var vn = VertexNormals();
+            int n0 = verts.Count, f0 = faces.Count;
+            var ef = EdgeFaces();
+            for (int i = 0; i < n0; i++) verts.Add(verts[i] - vn[i] * thickness);
+            for (int fi = 0; fi < f0; fi++)
+            {
+                var f = faces[fi];
+                var u = uvs[fi];
+                var nf = new int[f.Length];
+                var nu = new Vector2[f.Length];
+                for (int k = 0; k < f.Length; k++) { nf[k] = f[f.Length - 1 - k] + n0; nu[k] = u[f.Length - 1 - k]; }
+                faces.Add(nf);
+                uvs.Add(nu);
+            }
+            // The rim: open edges (used by one face) get a band.
+            for (int fi = 0; fi < f0; fi++)
+            {
+                var f = faces[fi];
+                var u = uvs[fi];
+                for (int k = 0; k < f.Length; k++)
+                {
+                    int a = f[k], b = f[(k + 1) % f.Length];
+                    List<int> l;
+                    if (!ef.TryGetValue(EdgeKey(a, b), out l) || l.Count != 1) continue;
+                    faces.Add(new[] { b, a, a + n0, b + n0 });
+                    Vector2 ua = u[k], ub = u[(k + 1) % f.Length];
+                    uvs.Add(new[] { ub, ua, ua, ub });
+                }
+            }
+        }
+    }
+}

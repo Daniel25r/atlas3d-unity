@@ -16,7 +16,17 @@ namespace Atlas
         bool rendering;
         int renderW = 1920, renderH = 1080;
         bool renderGround = true;
-        int renderQuality = 1;   // 0 normal, 1 alta (2× supersampling), 2 máxima (2× + 8× MSAA), 3 cine (many passes)
+        int renderQuality = 1;
+        int renderFrom = -1, renderTo = -1;   // -1: the timeline's own start / end
+
+        /// The frames the animation renders use (chosen in the Render panel,
+        /// or the whole timeline).
+        void RenderRange(out int a, out int b)
+        {
+            a = renderFrom >= 0 ? Mathf.Clamp(renderFrom, 0, endFrame) : startFrame;
+            b = renderTo >= 0 ? Mathf.Clamp(renderTo, 0, endFrame) : endFrame;
+            if (b < a) { int t = a; a = b; b = t; }
+        }   // 0 normal, 1 alta (2× supersampling), 2 máxima (2× + 8× MSAA), 3 cine (many passes)
         readonly List<Button> sizeChips = new List<Button>();
 
         static readonly int[,] RenderSizes = { { 1280, 720 }, { 1920, 1080 }, { 2560, 1440 }, { 3840, 2160 }, { 1080, 1080 }, { 1080, 1920 } };
@@ -63,6 +73,31 @@ namespace Atlas
                     }
                 }, i == renderQuality));
             }
+            // Which frames (like the Godot version).
+            var tf2 = AtlasTheme.Label(content, "FOTOGRAMAS DEL VÍDEO / GIF / ZIP", 15, AtlasTheme.TextDim, true);
+            AtlasTheme.Le(tf2.gameObject, 22f);
+            var fr = AtlasTheme.Rect(content, "Rango").gameObject;
+            AtlasTheme.Row(fr, 8f, new RectOffset(0, 0, 0, 0), TextAnchor.MiddleLeft);
+            AtlasTheme.Le(fr, 40f);
+            var l1 = AtlasTheme.Label(fr.transform, "Desde", 15, AtlasTheme.TextColor);
+            AtlasTheme.Le(l1.gameObject, 40f, 54f);
+            InputField fromF = null, toF = null;
+            fromF = AtlasTheme.NumberField(fr.transform, renderFrom >= 0 ? renderFrom : startFrame, v => { renderFrom = Mathf.Max(0, Mathf.RoundToInt(v)); }, 70f);
+            var l2 = AtlasTheme.Label(fr.transform, "hasta", 15, AtlasTheme.TextColor);
+            AtlasTheme.Le(l2.gameObject, 40f, 50f);
+            toF = AtlasTheme.NumberField(fr.transform, renderTo >= 0 ? renderTo : endFrame, v => { renderTo = Mathf.Max(0, Mathf.RoundToInt(v)); }, 70f);
+            var rg = AtlasTheme.Grid(content, 2, 332f, 36f);
+            AtlasTheme.TextButton(rg, "timeline", "Toda la animación", () =>
+            {
+                renderFrom = renderTo = -1;
+                AtlasTheme.SetNumber(fromF, startFrame);
+                AtlasTheme.SetNumber(toF, endFrame);
+            }, false, 36f, 13);
+            AtlasTheme.TextButton(rg, "key", "Desde el fotograma actual", () =>
+            {
+                renderFrom = Mathf.RoundToInt(frame);
+                AtlasTheme.SetNumber(fromF, renderFrom);
+            }, false, 36f, 13);
             AtlasTheme.TextButton(content, "image", "Imagen (PNG)", RenderPicture, true, 50f);
             AtlasTheme.TextButton(content, "sparkle", "Render progresivo (mejora en vivo)", () => StartCoroutine(ProgressiveRender()), false, 46f, 16);
             AtlasTheme.TextButton(content, "video", "Vídeo MP4", () => StartCoroutine(RenderVideo()), true, 50f);
@@ -237,7 +272,9 @@ namespace Atlas
             float k = Mathf.Min(1f, 480f / big);
             int w = Mathf.Max(16, Mathf.RoundToInt(renderW * k)), h = Mathf.Max(16, Mathf.RoundToInt(renderH * k));
             string path = Path.Combine(Exporter.ExportDir, (store.name.Replace(' ', '_')) + "_" + Stamp() + ".gif");
-            int total = endFrame - startFrame + 1;
+            int rA, rB;
+            RenderRange(out rA, out rB);
+            int total = rB - rA + 1;
             Toast("GIF: " + total + " fotogramas…");
             bool ok = true;
             string err = "";
@@ -245,7 +282,7 @@ namespace Atlas
             GifWriter gif = null;
             try { fs = File.Create(path); gif = new GifWriter(fs, w, h, fps); }
             catch (System.Exception e) { ok = false; err = e.Message; }
-            for (int f = startFrame; ok && f <= endFrame; f++)
+            for (int f = rA; ok && f <= rB; f++)
             {
                 SetFrame(f);
                 yield return WaitVideos();
@@ -256,7 +293,7 @@ namespace Atlas
                     Destroy(tex);
                 }
                 catch (System.Exception e) { ok = false; err = e.Message; }
-                if ((f - startFrame) % 24 == 23) Toast("GIF: " + (f - startFrame + 1) + " / " + total);
+                if ((f - rA) % 24 == 23) Toast("GIF: " + (f - rA + 1) + " / " + total);
                 yield return null;
             }
             try { if (gif != null) gif.Dispose(); if (fs != null) fs.Dispose(); }
@@ -298,7 +335,9 @@ namespace Atlas
             if (playing) TogglePlay();
             float keep = frame;
             string path = Path.Combine(Exporter.ExportDir, "animacion_" + Stamp() + ".zip");
-            int total = endFrame + 1;
+            int rA, rB;
+            RenderRange(out rA, out rB);
+            int total = rB - rA + 1;
             Toast("Render de la animación: " + total + " fotogramas…");
             bool ok = true;
             string error = "";
@@ -314,7 +353,7 @@ namespace Atlas
                 ok = false;
                 error = e.Message;
             }
-            for (int f = 0; ok && f <= endFrame; f++)
+            for (int f = rA; ok && f <= rB; f++)
             {
                 SetFrame(f);
                 yield return WaitVideos();
@@ -392,7 +431,9 @@ namespace Atlas
             w &= ~1;
             h &= ~1;
             string path = Path.Combine(Exporter.ExportDir, (store.name.Replace(' ', '_')) + "_" + Stamp() + ".mp4");
-            int total = endFrame - startFrame + 1;
+            int rA, rB;
+            RenderRange(out rA, out rB);
+            int total = rB - rA + 1;
             Toast("Vídeo MP4: " + total + " fotogramas…");
             string err = "";
             bool ok = false;
@@ -407,12 +448,12 @@ namespace Atlas
                 if (side != longSides[0]) Toast("Probando el vídeo a " + w + "×" + h + "…");
                 AndroidJavaObject enc = null;
                 ok = StartEncoder(path, w, h, ref enc, ref err);
-                for (int f = startFrame; ok && f <= endFrame; f++)
+                for (int f = rA; ok && f <= rB; f++)
                 {
                     SetFrame(f);
                     yield return WaitVideos();
                     ok = EncodeFrame(enc, f, w, h, ref err);
-                    if ((f - startFrame) % 24 == 23) Toast("Vídeo: " + (f - startFrame + 1) + " / " + total);
+                    if ((f - rA) % 24 == 23) Toast("Vídeo: " + (f - rA + 1) + " / " + total);
                     yield return null;
                 }
                 if (enc != null)
