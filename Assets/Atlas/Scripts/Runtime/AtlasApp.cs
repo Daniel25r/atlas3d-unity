@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.8.0";
+        public const string Version = "1.8.2";
 
         Camera cam;
         Light sunLight;
@@ -174,6 +174,7 @@ namespace Atlas
         void ApplyEnv()
         {
             Ambience.Apply(env, cam, sunLight);
+            ApplyCustomSky();
             SetAO(AOWanted);
             if (sunLight != null) sunBase = sunLight.intensity;
             if (!Prefs.viewShadows && !capturing && sunLight != null) sunLight.shadows = LightShadows.None;

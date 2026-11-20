@@ -357,6 +357,8 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• NUEVO · Artlas 2D: importar vídeo para rotoscopia (☰ → Importar vídeo). Cada fotograma del vídeo entra en una capa de referencia semitransparente para dibujar encima.\n" +
+            "• Vuelve el cielo propio (como en la versión Godot): pon cualquier imagen como cielo, mejor una 360°. Ilumina la escena, se gira y se ajusta su brillo (Escena → Cielo y hora del día).\n" +
             "• NUEVO · Inicio a tu gusto: tu propia imagen de fondo (Preferencias → Interfaz), el logo del color de la interfaz y botones 3D | 2D junto al logo.\n" +
             "• NUEVO · Expresiones guardadas: guarda caras (formas y huesos de la cara) con un nombre y ponlas con un toque, también en otros proyectos.\n" +
             "• NUEVO · Render: elige desde qué fotograma hasta cuál se hace el vídeo, el GIF o el ZIP.\n" +

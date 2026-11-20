@@ -605,7 +605,7 @@ namespace Atlas
             AtlasTheme.TextButton(tg2, "edit", "Estilo dibujo en todo", () => ToonAll(true), true, 40f, 14);
             AtlasTheme.TextButton(tg2, "undo", "Quitarlo de todo", () => ToonAll(false), false, 40f, 14);
 
-            var sky = Sec("Cielo y hora del día", "sun", false);
+            var sky = Sec("Cielo y hora del día", "sun", !string.IsNullOrEmpty(env.skyImage));
             AtlasTheme.Switch(sky, "Usar la hora del día", env.timeOfDay >= 0f, on => { env.timeOfDay = on ? 12f : -1f; ApplyEnv(); Commit(true); RefreshProps(); });
             if (env.timeOfDay >= 0f)
             {
@@ -621,6 +621,7 @@ namespace Atlas
             }
             AtlasTheme.SliderRow(sky, "Nubes", 0f, 1f, env.cloudCover >= 0f ? env.cloudCover : 0.45f, "0.00", x => { env.cloudCover = x; ApplyEnv(); }, () => Commit(true));
             Hint(sky, "La hora mueve el sol (o la luna), el color del cielo y la luz de la escena.");
+            BuildCustomSkyControls(sky);
 
             var fx = Sec("Efectos de imagen", "image");
             AtlasTheme.SliderRow(fx, "Exposición", -2f, 2f, env.exposure, "0.00", x => { env.exposure = x; ApplyEnv(); }, () => Commit(true));

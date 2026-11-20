@@ -178,6 +178,8 @@ public static class AtlasBuild
         MakeMaterial("AtlasLitTransparent", "Universal Render Pipeline/Lit");
         MakeMaterial("AtlasLitNormal", "Universal Render Pipeline/Lit");
         MakeMaterial("AtlasSky", "Skybox/Procedural");
+        // «Cielo propio» (a picture as the sky): keeps the shader in the build.
+        MakeMaterial("AtlasSkyPanoramic", "Skybox/Panoramic");
         MakeMaterial("AtlasUnlitTransparent", "Universal Render Pipeline/Unlit");
         MakeMaterial("AtlasLitCutout", "Universal Render Pipeline/Lit");
         // Normal maps on cut-out (hair, lace) and see-through parts: without
@@ -226,7 +228,7 @@ public static class AtlasBuild
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "1.8.0";
+        PlayerSettings.bundleVersion = "1.8.2";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;

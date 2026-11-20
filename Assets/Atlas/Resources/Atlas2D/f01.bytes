@@ -2486,6 +2486,7 @@ $('btnMenu').onclick = async () => {
     mk('video', 'Exportar video MP4', 'Con audio, listo para compartir'),
     mk('png', 'Exportar cuadro como PNG', 'Imagen del cuadro actual'),
     mk('image', 'Importar imagen', 'Fondo o referencia en una capa nueva'),
+    mk('videoref', 'Importar vídeo (rotoscopia)', 'Un fotograma por cuadro en una capa de referencia'),
     mk('audio', P.audio ? 'Audio: ' + P.audio.name : 'Añadir audio', 'Música, voces o efectos (MP3, WAV, M4A, OGG)'),
     mk('settings', 'Ajustes del proyecto', 'Nombre, fps, duración, papel cebolla'),
     mk('pen', (penOnly ? '✓ ' : '') + 'Dibujar solo con lápiz', 'Los dedos solo mueven y hacen zoom (evita marcas con la palma)'),
@@ -2498,6 +2499,7 @@ $('btnMenu').onclick = async () => {
   if (r === 'video') exportVideoDialog();
   else if (r === 'png') exportPng();
   else if (r === 'image') $('imageFile').click();
+  else if (r === 'videoref') $('videoFile').click();
   else if (r === 'audio') audioMenu();
   else if (r === 'settings') projectSettings();
   else if (r === 'pen') { penOnly = !penOnly; savePrefs(); toast(penOnly ? 'Ahora los dedos solo mueven la hoja' : 'Los dedos vuelven a dibujar'); }
@@ -2931,6 +2933,120 @@ function syncSelOpts() {
       : 'Toca un color: se seleccionan todos los píxeles de ese color en esta capa, aunque estén separados.';
 }
 $('wandTol').oninput = e => { wandTol = +e.target.value; $('wandTolV').textContent = wandTol; savePrefs(); };
+/* ---------- 86c-video.js ---------- */
+/* =========================================================
+   Importar vídeo (rotoscopia): el vídeo entra en una capa de
+   referencia, un fotograma por cuadro, para dibujar encima.
+   ========================================================= */
+const videoSeek = (v, t) => new Promise(res => {
+  let done = false;
+  const fin = () => { if (done) return; done = true; v.removeEventListener('seeked', fin); res(); };
+  v.addEventListener('seeked', fin);
+  v.currentTime = t;
+  setTimeout(fin, 4000);
+});
+const sleepMs = ms => new Promise(r => setTimeout(r, ms));
+async function saveAndTrim() {
+  while (saving) await sleepMs(40);
+  await flushSave();
+  trimCache();
+}
+async function importVideo(file) {
+  if (!P || !file) return;
+  stopPlayback(); commitSel();
+  const url = URL.createObjectURL(file);
+  const v = document.createElement('video');
+  v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
+  try {
+    await new Promise((res, rej) => {
+      v.onloadeddata = res;
+      v.onerror = () => rej(new Error('formato no compatible'));
+      setTimeout(() => rej(new Error('tardó demasiado en abrir')), 20000);
+    });
+  } catch (e) {
+    URL.revokeObjectURL(url);
+    await dialog({ title: 'No se pudo abrir el vídeo', body: 'Este dispositivo no puede leer ese vídeo (' + e.message + '). Conviértelo a MP4 (H.264) con CapCut, InShot o cualquier editor y vuelve a probar.' });
+    return;
+  }
+  const dur = isFinite(v.duration) ? v.duration : 0;
+  if (!(dur > 0) || !v.videoWidth) { URL.revokeObjectURL(url); toast('Ese vídeo no tiene imagen que importar', 4000); return; }
+
+  // Opciones
+  const startIn = el('input', { type: 'number', min: '0', max: String(Math.floor(dur)), step: '0.1', value: '0' });
+  const lenIn = el('input', { type: 'number', min: '0.1', max: String(dur.toFixed(1)), step: '0.1', value: String(Math.min(dur, 20).toFixed(1)) });
+  const stepSel = el('select', {}, [
+    el('option', { value: '1', text: 'Un fotograma por cuadro (más detalle)' }),
+    el('option', { value: '2', text: 'Cada 2 cuadros («en dos», como el anime)' }),
+    el('option', { value: '3', text: 'Cada 3 cuadros (más ligero)' }),
+    el('option', { value: '4', text: 'Cada 4 cuadros (muy ligero)' }),
+  ]);
+  stepSel.value = P.fps >= 20 ? '2' : '1';
+  const opIn = el('input', { type: 'range', min: '10', max: '100', value: '45' });
+  const extend = el('input', { type: 'checkbox', checked: true });
+  const lab = (t, input) => el('label', { class: 'field' }, [el('span', { text: t }), input]);
+  const body = el('div', { class: 'form' }, [
+    el('p', { class: 'note', text: 'El vídeo dura ' + dur.toFixed(1) + ' s. Entrará desde el cuadro actual (' + (cur.frame + 1) + ') en una capa nueva, bloqueada y semitransparente, para dibujar encima en otra capa.' }),
+    lab('Empezar en el segundo', startIn),
+    lab('Cuántos segundos', lenIn),
+    lab('Fotogramas', stepSel),
+    lab('Transparencia de la referencia', opIn),
+    el('label', { class: 'chk' }, [extend, el('span', { text: ' Alargar la animación si el vídeo no cabe' })]),
+  ]);
+  const ok = await dialog({ title: 'Importar vídeo (rotoscopia)', body, buttons: [{ label: 'Cancelar', value: false }, { label: 'Importar', value: true, primary: true }] });
+  if (!ok) { URL.revokeObjectURL(url); return; }
+  const start = clamp(parseFloat(startIn.value) || 0, 0, Math.max(0, dur - 0.05));
+  const len = clamp(parseFloat(lenIn.value) || dur, 0.05, dur - start);
+  const step = clamp(parseInt(stepSel.value, 10) || 1, 1, 8);
+  const first = cur.frame;
+  let count = Math.max(1, Math.round(len * P.fps));
+  if (extend.checked && first + count > P.frames) {
+    const need = first + count;
+    for (const L of P.layers) while (L.cells.length < need) L.cells.push(null);
+    P.frames = need;
+  }
+  count = Math.min(count, P.frames - first);
+
+  // Capa de referencia
+  addLayer();
+  const L = P.layers[cur.layer];
+  L.name = 'Vídeo (referencia)';
+  L.opacity = clamp((parseInt(opIn.value, 10) || 45) / 100, 0.05, 1);
+  const sc = Math.min(P.w / v.videoWidth, P.h / v.videoHeight);
+  const w = Math.round(v.videoWidth * sc), h = Math.round(v.videoHeight * sc);
+  const x = Math.round((P.w - w) / 2), y = Math.round((P.h - h) / 2);
+  busyCancel = false;
+  busy(true, 'Importando vídeo…', 0);
+  let made = 0;
+  try {
+    for (let i = 0; i < count && !busyCancel; i += step) {
+      await videoSeek(v, Math.min(start + i / P.fps, dur - 0.01));
+      const id = createCell();
+      ctx2d(getCellSync(id)).drawImage(v, x, y, w, h);
+      markCellDirty(id);
+      // Un mismo dibujo dura los cuadros del paso (exposición).
+      for (let k = 0; k < step && i + k < count; k++) L.cells[first + i + k] = id;
+      made++;
+      busy(true, 'Importando vídeo… ' + Math.min(count, i + step) + ' / ' + count, (i + step) / count);
+      // Guarda a menudo para no llenar la memoria del móvil.
+      if (made % 8 === 0) await saveAndTrim();
+    }
+  } catch (e) {
+    console.error(e);
+    toast('Se paró la importación: ' + (e && e.message || e), 4000);
+  } finally {
+    busy(false);
+    URL.revokeObjectURL(url);
+  }
+  L.locked = true;
+  structural('Importar vídeo');
+  await saveAndTrim();
+  toast(made + ' fotogramas del vídeo en la capa «' + L.name + '». Dibuja en otra capa; oculta esta antes de exportar.', 6000);
+}
+$('videoFile').onchange = async e => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (file) await importVideo(file);
+};
 /* ---------- 87-paneles.js ---------- */
 /* =========================================================
    Panel de capas y línea de tiempo

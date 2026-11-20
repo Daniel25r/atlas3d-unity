@@ -225,6 +225,7 @@
 <div id="rotateNote"><img src="logo.svg" alt=""><p>Gira tu dispositivo a horizontal para usar Artlas 2D</p></div>
 <input type="file" id="audioFile" accept="audio/*" hidden>
 <input type="file" id="imageFile" accept="image/*" hidden>
+<input type="file" id="videoFile" accept="video/*" hidden>
 <input type="file" id="projectFile" accept=".artlas,.trazo,application/zip" hidden>
 <input type="file" id="brushFile" accept=".artlasbrush,.trazobrush,application/json" hidden>
 

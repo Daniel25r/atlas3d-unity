@@ -132,6 +132,8 @@ namespace Atlas
         public List<CamCut> cuts = new List<CamCut>();
         // Sky with the hour of the day (-1: the ambience's own) and clouds.
         public float timeOfDay = -1f, cloudCover = -1f;
+        public string skyImage = "";              // «Cielo propio»: a picture (project texture)
+        public float skyRotation, skyExposure = 1f;
     }
 
     [Serializable]
