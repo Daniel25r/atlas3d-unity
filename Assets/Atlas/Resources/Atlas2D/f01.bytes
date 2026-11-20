@@ -462,11 +462,70 @@ function drawLiveCell(t, L) {
     t.drawImage(SEL.cv, -SEL.w / 2, -SEL.h / 2); t.restore();
   }
 }
+// Efectos de capa (como en Harmony): sombra, resplandor, desenfoque, color.
+// L.fx = {blur, bright, contrast, sat, hue, tint, tintA, shadow, shX, shY, shBlur, shColor, shA, glow, glowColor}
+function fxActive(L) {
+  const x = L && L.fx;
+  return !!x && !!(x.blur || x.shadow || x.glow || (x.tint && x.tintA) || (x.bright && x.bright !== 100) || (x.contrast && x.contrast !== 100) || (x.sat != null && x.sat !== 100) || x.hue);
+}
+const anyFx = () => !!P && P.layers.some(L => L.visible && fxActive(L));
+function rgba(hex, a) {
+  const n = parseInt((hex || '#000000').slice(1), 16);
+  return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+// Aplica los efectos de L a `src` (w×h) y deja el resultado en otro lienzo temporal
+function applyFx(L, src, w, h) {
+  const x = L.fx, k = w / P.w;
+  const a = tmpCanvas('fxa', w, h), at = resetCtx(ctx2d(a));
+  at.clearRect(0, 0, w, h);
+  const parts = [];
+  if (x.blur) parts.push('blur(' + (x.blur * k).toFixed(2) + 'px)');
+  if (x.bright && x.bright !== 100) parts.push('brightness(' + x.bright + '%)');
+  if (x.contrast && x.contrast !== 100) parts.push('contrast(' + x.contrast + '%)');
+  if (x.sat != null && x.sat !== 100) parts.push('saturate(' + x.sat + '%)');
+  if (x.hue) parts.push('hue-rotate(' + x.hue + 'deg)');
+  if (parts.length) at.filter = parts.join(' ');
+  at.drawImage(src, 0, 0);
+  at.filter = 'none';
+  if (x.tint && x.tintA) {
+    at.globalCompositeOperation = 'source-atop'; at.globalAlpha = x.tintA / 100;
+    at.fillStyle = x.tint; at.fillRect(0, 0, w, h);
+    at.globalCompositeOperation = 'source-over'; at.globalAlpha = 1;
+  }
+  if (!x.shadow && !x.glow) return a;
+  const o = tmpCanvas('fxo', w, h), ot = resetCtx(ctx2d(o));
+  ot.clearRect(0, 0, w, h);
+  const OFF = w * 3 + 100;
+  // Solo la sombra: el dibujo va fuera del lienzo y su sombra cae dentro.
+  const shadowOnly = (color, blur, dx, dy) => {
+    ot.save(); ot.shadowColor = color; ot.shadowBlur = blur; ot.shadowOffsetX = OFF + dx; ot.shadowOffsetY = dy;
+    ot.drawImage(a, -OFF, 0); ot.restore();
+  };
+  if (x.shadow) shadowOnly(rgba(x.shColor || '#000000', (x.shA != null ? x.shA : 50) / 100), (x.shBlur || 0) * k, (x.shX || 0) * k, (x.shY || 0) * k);
+  if (x.glow) { const c = rgba(x.glowColor || '#ffe680', 1); shadowOnly(c, x.glow * k, 0, 0); shadowOnly(c, x.glow * k * 0.5, 0, 0); }
+  ot.drawImage(a, 0, 0);
+  return o;
+}
 function drawLayerContent(t, L, f, w, h, getCv, live) {
+  if (fxActive(L)) {
+    // Primero el dibujo tal cual en un lienzo aparte; luego los efectos y al final se pega.
+    const g = tmpCanvas('fxg', w, h), gt = resetCtx(ctx2d(g));
+    gt.clearRect(0, 0, w, h);
+    drawLayerPlain(gt, L, f, w, h, getCv, live);
+    const xf = layerXform(L, f);
+    const a = t.globalAlpha;
+    if (xf) t.globalAlpha = a * xf.o;
+    t.drawImage(applyFx(L, g, w, h), 0, 0);
+    t.globalAlpha = a;
+    return;
+  }
+  drawLayerPlain(t, L, f, w, h, getCv, live, true);
+}
+function drawLayerPlain(t, L, f, w, h, getCv, live, withAlpha) {
   const xf = layerXform(L, f);
   t.save();
   if (w !== P.w || h !== P.h) t.scale(w / P.w, h / P.h);
-  if (xf) { const m = layerMatrix(L, f); if (m) t.transform(m.a, m.b, m.c, m.d, m.e, m.f); t.globalAlpha *= xf.o; }
+  if (xf) { const m = layerMatrix(L, f); if (m) t.transform(m.a, m.b, m.c, m.d, m.e, m.f); if (withAlpha) t.globalAlpha *= xf.o; }
   if (live) drawLiveCell(t, L);
   else { const id = L.cells[f], cv = id && getCv(id); if (cv) t.drawImage(cv, 0, 0); }
   t.restore();
@@ -552,6 +611,8 @@ const LAYER_CH = [
   { k: 'x', label: 'Posición X', def: 0, unit: 'px', step: 1, toUI: v => Math.round(v), fromUI: v => v },
   { k: 'y', label: 'Posición Y', def: 0, unit: 'px', step: 1, toUI: v => Math.round(v), fromUI: v => v },
   { k: 's', label: 'Escala', def: 1, unit: '%', step: 1, toUI: v => Math.round(v * 100), fromUI: v => clamp(v / 100, 0.02, 20) },
+  { k: 'sx', label: 'Estirar ancho', def: 1, unit: '%', step: 1, toUI: v => Math.round(v * 100), fromUI: v => clamp(v / 100, -20, 20) },
+  { k: 'sy', label: 'Estirar alto', def: 1, unit: '%', step: 1, toUI: v => Math.round(v * 100), fromUI: v => clamp(v / 100, -20, 20) },
   { k: 'r', label: 'Rotación', def: 0, unit: '°', step: 1, toUI: v => Math.round(v * 10) / 10, fromUI: v => v },
   { k: 'o', label: 'Opacidad', def: 1, unit: '%', step: 1, toUI: v => Math.round(v * 100), fromUI: v => clamp(v / 100, 0, 1) },
 ];
@@ -598,17 +659,40 @@ function swapKeyFrames(a, b) {
 }
 
 /* ----- transformación de capas ----- */
-const layerHasMotion = L => !!L && isAnimated(L.keys);
+// «Pegada a» (como los pegs de Harmony): la capa sigue el movimiento de otra capa o carpeta
+// (brazo → antebrazo → mano). `pivot`: punto de giro propio, en coordenadas del dibujo.
+const pegOf = L => (L && L.peg && P.layers.find(x => x.id === L.peg && x !== L)) || null;
+const layerHasMotion = L => !!L && (isAnimated(L.keys) || !!pegOf(L));
 const anyMotion = () => !!P && P.layers.some(layerHasMotion);
+const layerPivot = L => (L && L.pivot) || { x: P.w / 2, y: P.h / 2 };
 function layerXform(L, f) {
   if (!layerHasMotion(L)) return null;
   const k = L.keys;
-  return { x: chanValue(k, 'x', f, 0), y: chanValue(k, 'y', f, 0), s: chanValue(k, 's', f, 1), r: chanValue(k, 'r', f, 0), o: chanValue(k, 'o', f, 1) };
+  return { x: chanValue(k, 'x', f, 0), y: chanValue(k, 'y', f, 0), s: chanValue(k, 's', f, 1), sx: chanValue(k, 'sx', f, 1), sy: chanValue(k, 'sy', f, 1), r: chanValue(k, 'r', f, 0), o: chanValue(k, 'o', f, 1) };
+}
+// Solo la transformación de la propia capa (alrededor de su punto de giro)
+function ownMatrix(L, f) {
+  if (!L || !isAnimated(L.keys)) return null;
+  const t = layerXform(L, f);
+  if (!t || (!t.x && !t.y && t.s === 1 && t.sx === 1 && t.sy === 1 && !t.r)) return null;
+  const pv = layerPivot(L);
+  return new DOMMatrix().translate(pv.x + t.x, pv.y + t.y).rotate(t.r).scale(t.s * t.sx, t.s * t.sy).translate(-pv.x, -pv.y);
+}
+// La cadena de capas a las que está pegada (de la más alta a la más cercana)
+function pegMatrix(L, f, depth = 0) {
+  const G = pegOf(L);
+  if (!G || depth > 12) return null;
+  const up = pegMatrix(G, f, depth + 1), own = ownMatrix(G, f);
+  return up && own ? up.multiply(own) : (up || own);
 }
 function layerMatrix(L, f) {
-  const t = layerXform(L, f);
-  if (!t || (!t.x && !t.y && t.s === 1 && !t.r)) return null;
-  return new DOMMatrix().translate(P.w / 2 + t.x, P.h / 2 + t.y).rotate(t.r).scale(t.s).translate(-P.w / 2, -P.h / 2);
+  const pm = pegMatrix(L, f), om = ownMatrix(L, f);
+  return pm && om ? pm.multiply(om) : (pm || om);
+}
+// ¿Pegar L a G crearía un círculo (G ya sigue a L)?
+function pegLoops(L, G) {
+  for (let x = G, n = 0; x && n < 50; x = pegOf(x), n++) if (x === L) return true;
+  return false;
 }
 // Punto de pantalla → coordenadas propias del dibujo de la capa actual (deshace su transformación)
 function screenToCell(sx, sy) {
@@ -840,7 +924,7 @@ function doRender() {
   } else {
     const ready = !sceneDirty || rebuildScene();
     if (ready) sceneDirty = false;
-    if (hasClipping() || anyMotion() || hasGroups()) {
+    if (hasClipping() || anyMotion() || hasGroups() || anyFx()) {
       // con máscaras de recorte se compone el cuadro completo
       const cc = tmpCanvas('comp', P.w, P.h), t = resetCtx(ctx2d(cc));
       t.clearRect(0, 0, P.w, P.h);
@@ -858,6 +942,7 @@ function doRender() {
     }
     drawGuides(c);
     drawCameraFrame(c);
+    drawRigOverlay(c);
     drawSelOverlay(c);
   }
   c.globalAlpha = 1;
@@ -2474,6 +2559,9 @@ async function showHelp() {
     ['Lazo', 'Rodea parte del dibujo. Arrástrala para moverla, usa una esquina para escalar y el punto rosa para girar. «Listo» la fija.'],
     ['Cuadros', 'Toca una miniatura para ir a ese cuadro. Tócala otra vez para duplicar, extender, copiar, pegar o eliminar.'],
     ['Herramientas', 'Toca dos veces el pincel o el bote para ver sus ajustes. Los deslizadores de la derecha cambian tamaño y opacidad.'],
+    ['Personajes por piezas', 'Panel Animar → «Punto de giro» en cada articulación y «Pegada a» la pieza de arriba (mano → antebrazo → brazo → cuerpo). Al girar el brazo, la mano va con él. «Estirar ancho / alto» sirve para aplastar y estirar.'],
+    ['Sustitución y labios', 'Menú → «Cambiar dibujo» pone cualquier dibujo de la capa en el cuadro actual. «Labios automáticos» elige la boca de cada cuadro según la voz del audio.'],
+    ['Efectos', 'Menú → «Efectos de la capa»: sombra proyectada, resplandor, desenfoque, brillo, contraste, saturación, tono y teñido.'],
     ['Teclado', 'B pincel · P lápiz · E borrador · F relleno · S formas · L lazo · I cuentagotas · Espacio reproducir · , y . cuadros · Ctrl+Z/Y/C/V'],
   ];
   const body = el('div', { class: 'form' }, items.map(([a, b]) => el('p', { class: 'note', html: '<b style="color:var(--text)">' + escapeHtml(a) + ':</b> ' + escapeHtml(b) })));
@@ -2485,6 +2573,10 @@ $('btnMenu').onclick = async () => {
   const body = el('div', { class: 'menu' }, [
     mk('video', 'Exportar video MP4', 'Con audio, listo para compartir'),
     mk('png', 'Exportar cuadro como PNG', 'Imagen del cuadro actual'),
+    mk('pngseq', 'Exportar secuencia PNG', 'Todos los cuadros en un ZIP, con fondo transparente'),
+    mk('swap', 'Cambiar dibujo de este cuadro', 'Sustitución: elige cualquier dibujo de la capa (bocas, manos, ojos…)'),
+    mk('lips', 'Labios automáticos', 'La boca se mueve sola siguiendo la voz del audio'),
+    mk('fx', 'Efectos de la capa', 'Sombra, resplandor, desenfoque, brillo, color'),
     mk('image', 'Importar imagen', 'Fondo o referencia en una capa nueva'),
     mk('videoref', 'Importar vídeo (rotoscopia)', 'Un fotograma por cuadro en una capa de referencia'),
     mk('audio', P.audio ? 'Audio: ' + P.audio.name : 'Añadir audio', 'Música, voces o efectos (MP3, WAV, M4A, OGG)'),
@@ -2498,6 +2590,10 @@ $('btnMenu').onclick = async () => {
   const r = await dialog({ title: P.name, body, buttons: [{ label: 'Cerrar', value: null }] });
   if (r === 'video') exportVideoDialog();
   else if (r === 'png') exportPng();
+  else if (r === 'pngseq') exportPngSequence();
+  else if (r === 'swap') swapDrawingDialog();
+  else if (r === 'lips') lipSyncDialog();
+  else if (r === 'fx') layerFxDialog();
   else if (r === 'image') $('imageFile').click();
   else if (r === 'videoref') $('videoFile').click();
   else if (r === 'audio') audioMenu();
@@ -3277,7 +3373,7 @@ async function duplicateLayer() {
     if (!map.has(id)) { const src = await loadCell(id); const nid = createCell(); ctx2d(getCellSync(nid)).drawImage(src, 0, 0); map.set(id, nid); }
     cells.push(map.get(id));
   }
-  P.layers.splice(cur.layer + 1, 0, { id: uid(), name: (L.name + ' copia').slice(0, 40), visible: L.visible, locked: false, opacity: L.opacity, blend: L.blend || 'source-over', clip: !!L.clip, alphaLock: !!L.alphaLock, keys: clone(L.keys), parent: L.parent || null, cells });
+  P.layers.splice(cur.layer + 1, 0, { id: uid(), name: (L.name + ' copia').slice(0, 40), visible: L.visible, locked: false, opacity: L.opacity, blend: L.blend || 'source-over', clip: !!L.clip, alphaLock: !!L.alphaLock, keys: clone(L.keys), parent: L.parent || null, pivot: clone(L.pivot), peg: L.peg || null, fx: clone(L.fx), cells });
   cur.layer++; structural('Duplicar capa'); toast('Capa duplicada');
 }
 // Duplica una carpeta con todo su contenido (dibujos compartidos se siguen compartiendo entre sí)
@@ -3474,7 +3570,8 @@ function renderAnimPanel() {
   $('animClear').disabled = !kf.length;
   $('animHint').textContent = animTab === 'cam'
     ? 'Arrastra en el lienzo para mover la cámara. El marco naranja muestra lo que se verá al reproducir y exportar.'
-    : 'Arrastra en el lienzo para mover la capa. Pon claves en distintos cuadros y Artlas 2D calcula los intermedios.';
+    : 'Arrastra en el lienzo para mover la capa. Pon claves en distintos cuadros y Artlas 2D calcula los intermedios. Para un personaje por piezas: pon el punto de giro en cada articulación y pega cada pieza a la de arriba (mano → antebrazo → brazo → cuerpo).';
+  renderRigRows();
 }
 $('animEase').innerHTML = EASES.map(([v, t]) => '<option value="' + v + '">' + t + '</option>').join('');
 $('animEase').onchange = () => {
@@ -3502,6 +3599,7 @@ $('btnCloseAnim').onclick = () => toggleAnimPanel(false);
 
 /* ----- arrastre sobre el lienzo con el panel abierto ----- */
 function animDown(e) {
+  if (animTab === 'layer' && pivotMode) { setPivotAt(e); return; }
   if (animTab === 'layer' && P.layers[cur.layer].locked) { toast('La capa está bloqueada'); return; }
   const p = screenToWorld(e.offsetX, e.offsetY);
   const keys = animKeys();
@@ -3518,6 +3616,240 @@ function animMove(e) {
 function animUp() {
   const a = AD; AD = null;
   if (a && a.moved) { structural(animTab === 'cam' ? 'Mover cámara' : 'Mover capa'); renderAnimPanel(); }
+}
+/* ---------- 93-pro.js ---------- */
+/* =========================================================
+   Herramientas «pro» (al estilo de Toon Boom Harmony):
+   rig de recortables (punto de giro y capas pegadas), trayectoria,
+   efectos de capa, sustitución de dibujos, labios automáticos y
+   secuencia PNG con transparencia.
+   ========================================================= */
+let pivotMode = false;
+
+/* ----- filas extra del panel Animar (capa) ----- */
+function renderRigRows() {
+  const box = $('animRig'); if (!box) return;
+  box.innerHTML = '';
+  if (!P || animTab !== 'layer') { pivotMode = false; return; }
+  const L = P.layers[cur.layer];
+  // Punto de giro
+  const pv = el('button', { class: 'tb' + (pivotMode ? ' on' : ''), text: pivotMode ? '✓ Toca el lienzo para poner el punto de giro' : '⊕ Punto de giro (hombro, codo, cadera…)' });
+  pv.onclick = () => { pivotMode = !pivotMode; renderRigRows(); requestRender(); };
+  const pvReset = el('button', { class: 'tb', text: 'Centrar', title: 'Punto de giro en el centro' });
+  pvReset.onclick = () => { delete L.pivot; structural('Punto de giro'); renderAnimPanel(); };
+  box.appendChild(el('div', { class: 'drow' }, [pv, pvReset]));
+  // Pegada a
+  const sel = el('select', { 'aria-label': 'Pegada a' });
+  sel.appendChild(el('option', { value: '', text: 'Nada (se mueve sola)' }));
+  for (const G of P.layers) {
+    if (G === L || pegLoops(L, G)) continue;
+    sel.appendChild(el('option', { value: G.id, text: (isGroup(G) ? '📁 ' : '') + G.name, selected: L.peg === G.id }));
+  }
+  sel.onchange = () => {
+    L.peg = sel.value || null;
+    structural(L.peg ? 'Pegar capa' : 'Soltar capa');
+    toast(L.peg ? '«' + L.name + '» ahora sigue a «' + pegOf(L).name + '»: al moverla o girarla, esta capa va con ella' : '«' + L.name + '» ya no sigue a ninguna capa');
+    renderAnimPanel();
+  };
+  box.appendChild(el('label', { class: 'sl' }, [el('span', { text: 'Pegada a' }), sel]));
+  const fx = el('button', { class: 'tb', text: '✨ Efectos de la capa' + (fxActive(L) ? ' (activos)' : '') });
+  fx.onclick = () => layerFxDialog();
+  box.appendChild(el('div', { class: 'drow' }, [fx]));
+}
+
+// Toque en el lienzo con «Punto de giro»: el punto del dibujo bajo el dedo
+function setPivotAt(e) {
+  const L = P.layers[cur.layer];
+  const w = screenToWorld(e.offsetX, e.offsetY);
+  const m = fullLayerMatrix(L, cur.frame);
+  const q = m ? m.inverse().transformPoint(new DOMPoint(w.x, w.y)) : { x: w.x, y: w.y };
+  const turned = L.keys && ['r', 's', 'sx', 'sy'].some(ch => L.keys[ch] && L.keys[ch].length);
+  L.pivot = { x: Math.round(q.x), y: Math.round(q.y) };
+  pivotMode = false;
+  structural('Punto de giro');
+  renderAnimPanel();
+  toast(turned ? 'Punto de giro cambiado. Consejo: ponlo antes de girar o escalar, así la capa no salta.' : 'Punto de giro puesto: la capa gira y se escala alrededor de él', 4000);
+}
+
+/* ----- dibujo sobre el lienzo: punto de giro y trayectoria ----- */
+function drawRigOverlay(c) {
+  if (presenting || !P || !animOpen() || animTab !== 'layer') return;
+  const L = P.layers[cur.layer]; if (!L) return;
+  const k = 1 / view.z, pv = layerPivot(L);
+  const at = f => { const m = fullLayerMatrix(L, f); return m ? m.transformPoint(new DOMPoint(pv.x, pv.y)) : { x: pv.x, y: pv.y }; };
+  // Trayectoria (como «motion path»): por dónde pasa el punto de giro
+  if (layerHasMotion(L)) {
+    const n = Math.min(P.frames, 900);
+    c.save(); c.lineWidth = 1.5 * k; c.strokeStyle = 'rgba(80,190,255,.85)'; c.beginPath();
+    for (let f = 0; f < n; f++) { const q = at(f); f ? c.lineTo(q.x, q.y) : c.moveTo(q.x, q.y); }
+    c.stroke();
+    const kf = new Set(keyFrames(L.keys));
+    for (let f = 0; f < n; f++) {
+      const q = at(f), key = kf.has(f);
+      c.fillStyle = key ? '#ffb02e' : 'rgba(80,190,255,.85)';
+      const r = (key ? 4 : 1.8) * k;
+      c.beginPath(); c.arc(q.x, q.y, r, 0, Math.PI * 2); c.fill();
+    }
+    c.restore();
+  }
+  // Punto de giro
+  const q = at(cur.frame), r = 9 * k;
+  c.save(); c.lineWidth = 2 * k; c.strokeStyle = pivotMode ? '#ff4fa3' : '#ffb02e';
+  c.beginPath(); c.arc(q.x, q.y, r, 0, Math.PI * 2); c.moveTo(q.x - r * 1.7, q.y); c.lineTo(q.x + r * 1.7, q.y); c.moveTo(q.x, q.y - r * 1.7); c.lineTo(q.x, q.y + r * 1.7); c.stroke();
+  // Línea hasta la capa a la que está pegada
+  const G = pegOf(L);
+  if (G) {
+    const gp = layerPivot(G), gm = fullLayerMatrix(G, cur.frame);
+    const g = gm ? gm.transformPoint(new DOMPoint(gp.x, gp.y)) : gp;
+    c.setLineDash([6 * k, 5 * k]); c.strokeStyle = 'rgba(255,176,46,.7)';
+    c.beginPath(); c.moveTo(g.x, g.y); c.lineTo(q.x, q.y); c.stroke();
+  }
+  c.restore();
+}
+
+/* ----- efectos de capa ----- */
+async function layerFxDialog() {
+  const L = P.layers[cur.layer];
+  if (isGroup(L)) { toast('Los efectos se ponen en capas de dibujo, no en carpetas'); return; }
+  const x = Object.assign({ blur: 0, bright: 100, contrast: 100, sat: 100, hue: 0, tint: '#ff3366', tintA: 0, shadow: false, shX: 12, shY: 12, shBlur: 10, shColor: '#000000', shA: 45, glow: 0, glowColor: '#ffe680' }, L.fx || {});
+  const before = clone(L.fx);
+  const live = () => { L.fx = Object.assign({}, x); invalidateAllFrames(); sceneDirty = true; requestRender(); };
+  const slider = (label, key, min, max, unit) => {
+    const out = el('output', { text: x[key] + unit });
+    const r = el('input', { type: 'range', min: String(min), max: String(max), value: String(x[key]) });
+    r.oninput = () => { x[key] = parseFloat(r.value); out.textContent = r.value + unit; live(); };
+    return el('label', {}, [el('span', {}, [label + ' ', out]), r]);
+  };
+  const color = (label, key) => {
+    const c = el('input', { type: 'color', value: x[key] });
+    c.oninput = () => { x[key] = c.value; live(); };
+    return el('label', {}, [label, c]);
+  };
+  const shOn = el('input', { type: 'checkbox' }); shOn.checked = !!x.shadow;
+  shOn.onchange = () => { x.shadow = shOn.checked; live(); };
+  const body = el('div', { class: 'form' }, [
+    el('p', { class: 'note', text: 'Se ven en el lienzo, al reproducir y al exportar. Sombra y resplandor siguen la forma del dibujo.' }),
+    el('label', { class: 'chk' }, [shOn, 'Sombra proyectada']),
+    el('div', { class: 'row2' }, [slider('Sombra X', 'shX', -80, 80, ' px'), slider('Sombra Y', 'shY', -80, 80, ' px')]),
+    el('div', { class: 'row2' }, [slider('Suavidad sombra', 'shBlur', 0, 60, ' px'), slider('Fuerza sombra', 'shA', 0, 100, '%')]),
+    color('Color de la sombra', 'shColor'),
+    slider('Resplandor (brillo alrededor)', 'glow', 0, 80, ' px'),
+    color('Color del resplandor', 'glowColor'),
+    slider('Desenfoque', 'blur', 0, 40, ' px'),
+    el('div', { class: 'row2' }, [slider('Brillo', 'bright', 0, 200, '%'), slider('Contraste', 'contrast', 0, 200, '%')]),
+    el('div', { class: 'row2' }, [slider('Saturación', 'sat', 0, 200, '%'), slider('Tono', 'hue', -180, 180, '°')]),
+    el('div', { class: 'row2' }, [color('Teñir de color', 'tint'), slider('Cuánto teñir', 'tintA', 0, 100, '%')]),
+  ]);
+  const r = await dialog({ title: 'Efectos · ' + L.name, body, buttons: [{ label: 'Quitar todos', value: 'clear', danger: true }, { label: 'Cancelar', value: false }, { label: 'Aplicar', value: true, primary: true }] });
+  if (r === true) { L.fx = Object.assign({}, x); structural('Efectos de capa'); }
+  else if (r === 'clear') { delete L.fx; structural('Quitar efectos'); }
+  else { if (before) L.fx = before; else delete L.fx; invalidateAllFrames(); sceneDirty = true; requestRender(); }
+  if (animOpen()) renderAnimPanel();
+}
+
+/* ----- sustitución de dibujos ----- */
+// Todos los dibujos que la capa usa en algún cuadro: se puede poner cualquiera en el cuadro actual
+// (bocas, manos, ojos… como la sustitución de dibujos de Harmony).
+function layerDrawings(L) {
+  const seen = [], set = new Set();
+  for (const id of L.cells) if (id && !set.has(id)) { set.add(id); seen.push(id); }
+  return seen;
+}
+async function swapDrawingDialog() {
+  const L = P.layers[cur.layer];
+  if (isGroup(L)) { toast('Elige una capa de dibujo'); return; }
+  if (L.locked) { toast('La capa está bloqueada'); return; }
+  const ids = layerDrawings(L);
+  if (ids.length < 1) { toast('Esta capa aún no tiene dibujos'); return; }
+  const tw = 96, th = Math.max(24, Math.round(96 * P.h / P.w));
+  const grid = el('div', { style: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(' + (tw + 8) + 'px,1fr));gap:8px;max-height:52vh;overflow:auto' });
+  const pick = v => closeDialog(v);
+  const tile = (id, n) => {
+    const cv = mkCanvas(tw, th), t = ctx2d(cv);
+    t.fillStyle = P.paper || '#fff'; t.fillRect(0, 0, tw, th);
+    if (id) loadCell(id).then(src => { if (src) t.drawImage(src, 0, 0, tw, th); }).catch(() => { });
+    cv.style.cssText = 'width:100%;height:auto;border-radius:6px;display:block;border:2px solid ' + (L.cells[cur.frame] === id ? 'var(--accent)' : 'var(--line2)');
+    const b = el('button', { style: 'padding:4px;display:flex;flex-direction:column;gap:3px;align-items:stretch;height:auto;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;color:var(--text)', onclick: () => pick(id || 'none') }, [cv, el('span', { text: id ? 'Dibujo ' + n : 'Vacío', style: 'font-size:11px' })]);
+    return b;
+  };
+  ids.forEach((id, i) => grid.appendChild(tile(id, i + 1)));
+  grid.appendChild(tile(null, 0));
+  const r = await dialog({ title: 'Cambiar dibujo · cuadro ' + (cur.frame + 1), body: el('div', { class: 'form' }, [el('p', { class: 'note', text: 'Elige qué dibujo de «' + L.name + '» se ve en este cuadro. Es el mismo dibujo, no una copia: si lo retocas, cambia en todos los cuadros donde aparece.' }), grid]), buttons: [{ label: 'Cerrar', value: null }] });
+  if (!r) return;
+  L.cells[cur.frame] = r === 'none' ? null : r;
+  structural('Cambiar dibujo');
+}
+
+/* ----- labios automáticos ----- */
+async function lipSyncDialog() {
+  if (!AU.buffer || !P.audio) { toast('Primero añade el audio con la voz (menú → Añadir audio)', 4000); return; }
+  if (!AU.peaks) computePeaks();
+  const L = P.layers[cur.layer];
+  if (isGroup(L) || L.locked) { toast('Elige la capa de la boca (desbloqueada)'); return; }
+  const ids = layerDrawings(L);
+  if (ids.length < 2) {
+    await dialog({ title: 'Labios automáticos', body: el('div', { class: 'form' }, [el('p', { class: 'note', text: 'En la capa «' + L.name + '» dibuja primero las bocas, una en cada cuadro y en este orden: 1) cerrada, 2) un poco abierta, 3) abierta… (de 2 a 8 bocas). Después vuelve aquí: Artlas 2D las pondrá solas siguiendo la voz.' })]) });
+    return;
+  }
+  const mouths = ids.slice(0, 8);
+  const sens = el('input', { type: 'range', min: '1', max: '100', value: '55' });
+  const hold = el('select', {}, [el('option', { value: '1', text: 'Cambiar en cada cuadro' }), el('option', { value: '2', text: 'Mínimo 2 cuadros por boca (más natural)', selected: true }), el('option', { value: '3', text: 'Mínimo 3 cuadros' })]);
+  const fromHere = el('input', { type: 'checkbox' });
+  const body = el('div', { class: 'form' }, [
+    el('p', { class: 'note', text: 'Se usarán las ' + mouths.length + ' bocas de «' + L.name + '» en el orden en que aparecen: la primera es la boca cerrada y la última la más abierta. Se sustituyen los dibujos de esta capa en los cuadros con audio.' }),
+    el('label', {}, ['Sensibilidad a la voz', sens]),
+    el('label', {}, ['Ritmo', hold]),
+    el('label', { class: 'chk' }, [fromHere, 'Solo desde el cuadro actual']),
+  ]);
+  const ok = await dialog({ title: 'Labios automáticos', body, buttons: [{ label: 'Cancelar', value: false }, { label: 'Sincronizar', value: true, primary: true }] });
+  if (!ok) return;
+  const peaks = AU.peaks, n = Math.min(peaks.length, P.frames);
+  const start = fromHere.checked ? cur.frame : 0;
+  const s = parseInt(sens.value, 10) / 100;           // más sensibilidad = umbral más bajo
+  const floor = 0.22 - s * 0.19, minHold = parseInt(hold.value, 10);
+  let last = -1, held = 0, changed = 0;
+  for (let f = start; f < n; f++) {
+    // un poco de suavizado con el cuadro vecino para que no tiemble
+    const v = (peaks[f] * 2 + (peaks[f - 1] || 0) + (peaks[f + 1] || 0)) / 4;
+    let idx = v < floor ? 0 : 1 + Math.min(mouths.length - 2, Math.floor((v - floor) / (1 - floor) * (mouths.length - 1)));
+    if (last >= 0 && idx !== last && held < minHold) idx = last;
+    if (idx === last) held++; else { held = 1; last = idx; }
+    if (L.cells[f] !== mouths[idx]) { L.cells[f] = mouths[idx]; changed++; }
+  }
+  structural('Labios automáticos');
+  toast(changed + ' cuadros sincronizados con la voz. Retoca a mano los que quieras con «Cambiar dibujo».', 5000);
+}
+
+/* ----- secuencia PNG ----- */
+async function exportPngSequence() {
+  stopPlayback();
+  const trans = el('input', { type: 'checkbox', checked: true });
+  const scaleSel = el('select', {}, [el('option', { value: '1', text: '100% (' + P.w + '×' + P.h + ')' }), el('option', { value: '0.5', text: '50% (' + Math.round(P.w / 2) + '×' + Math.round(P.h / 2) + ')' })]);
+  const body = el('div', { class: 'form' }, [
+    el('p', { class: 'note', text: P.frames + ' cuadros en un ZIP, uno por imagen (nombre_0001.png…). Sirve para editores de vídeo, juegos o para seguir el trabajo en otro programa.' }),
+    el('label', { class: 'chk' }, [trans, 'Fondo transparente (sin el color del papel)']),
+    el('label', {}, ['Tamaño', scaleSel]),
+  ]);
+  const ok = await dialog({ title: 'Exportar secuencia PNG', body, buttons: [{ label: 'Cancelar', value: false }, { label: 'Exportar', value: true, primary: true }] });
+  if (!ok) return;
+  const k = parseFloat(scaleSel.value) || 1, w = Math.max(1, Math.round(P.w * k)), h = Math.max(1, Math.round(P.h * k));
+  const base = safeName(P.name), files = [];
+  busyCancel = false;
+  busy(true, 'Exportando cuadros…', 0);
+  try {
+    const c = mkCanvas(w, h), t = ctx2d(c);
+    for (let f = 0; f < P.frames && !busyCancel; f++) {
+      await compositeFrameAsync(t, f, w, h, !trans.checked, true);
+      const blob = await canvasToBlob(c);
+      files.push({ name: base + '_' + String(f + 1).padStart(4, '0') + '.png', data: new Uint8Array(await blob.arrayBuffer()) });
+      busy(true, 'Exportando cuadros… ' + (f + 1) + ' / ' + P.frames, (f + 1) / P.frames);
+      if (f % 10 === 9) trimCache();
+    }
+    if (busyCancel) { busy(false); toast('Exportación cancelada'); return; }
+    busy(true, 'Creando el ZIP…', 1);
+    const r = await saveBinary(base + '_png.zip', 'application/zip', zipBuild(files));
+    busy(false); toast(r, 4000);
+  } catch (e) { busy(false); toast('Error al exportar: ' + (e && e.message || e), 4000); }
 }
 /* ---------- 95-proyectos.js ---------- */
 /* =========================================================

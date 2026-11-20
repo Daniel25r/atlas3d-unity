@@ -126,9 +126,19 @@ namespace Atlas
                 RenderTexture.active = rt;
                 var dst = new Texture2D(nw, nh, TextureFormat.RGBA32, true, linear);
                 dst.ReadPixels(new Rect(0, 0, nw, nh), 0, 0, false);
+                var px = dst.GetPixels32();
+                // Some phones' graphics drivers gave back an empty (black)
+                // copy: the model then looked completely black. A copy that
+                // is all black, or a «relief» with no blue in it, is thrown
+                // away and the original texture stays.
+                if (!LooksValid(px, normal))
+                {
+                    Object.Destroy(dst);
+                    Debug.LogWarning("ATLAS: copia vacía de la textura " + src.name + ", se usa la original");
+                    return null;
+                }
                 if (normal)
                 {
-                    var px = dst.GetPixels32();
                     for (int i = 0; i < px.Length; i++) px[i].a = 255;
                     dst.SetPixels32(px);
                 }
@@ -150,6 +160,23 @@ namespace Atlas
                 RenderTexture.active = prev;
                 if (rt != null) RenderTexture.ReleaseTemporary(rt);
             }
+        }
+
+        static bool LooksValid(Color32[] px, bool normal)
+        {
+            if (px == null || px.Length == 0) return false;
+            int step = Mathf.Max(1, px.Length / 2048), n = 0, maxRgb = 0;
+            long blue = 0;
+            for (int i = 0; i < px.Length; i += step)
+            {
+                var c = px[i];
+                maxRgb = Mathf.Max(maxRgb, Mathf.Max(c.r, Mathf.Max(c.g, c.b)));
+                blue += c.b;
+                n++;
+            }
+            if (maxRgb < 4) return false;
+            if (normal && blue / n < 64) return false;
+            return true;
         }
 
         /// Tangents for meshes that use a material with relief and have none.

@@ -357,6 +357,8 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• Artlas 2D a lo profesional (como Harmony): personajes por piezas con punto de giro y capas pegadas (mano → brazo → cuerpo), estirar y aplastar, trayectoria del movimiento, efectos de capa (sombra, resplandor, desenfoque, color), cambiar dibujo por cuadro, labios automáticos con la voz y secuencia PNG con fondo transparente.\n" +
+            "• Arreglado: modelos (sobre todo de Sketchfab) que se veían completamente negros en algunos móviles. Si el teléfono no puede reducir una textura grande, ahora se usa la original.\n" +
             "• Normal maps arreglados de verdad: en PC el relieve salía torcido (rayas, lados oscuros, luz al revés) cuando la imagen tenía transparencia o máscara de brillo; también se torcía un poco la luz de modelos sin relieve. En Android se leen siempre bien.\n" +
             "• Relieve que antes no se cargaba: modelos de Source ($bumpmap) y OBJ (map_Bump / bump, también mapas en blanco y negro).\n" +
             "• Gran optimización: en el móvil las texturas gigantes (4K, 8K) se reducen al tamaño que aguanta el teléfono (mucha menos memoria, menos cierres), el suavizado de bordes baja solo cuando el móvil va lento, y el modo aristas y el modo pose gastan mucho menos.\n" +

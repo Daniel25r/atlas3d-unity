@@ -151,6 +151,7 @@
       <div class="segs" id="animTabs"></div>
       <div class="lbl" id="animWho"></div>
       <div id="animRows" class="arows"></div>
+      <div id="animRig" class="arows"></div>
       <label class="sl"><span>Suavizado</span><select id="animEase"></select></label>
       <div class="drow">
         <button class="tb" id="animPrev">◀ Clave anterior</button>
