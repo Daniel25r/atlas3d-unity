@@ -11,6 +11,12 @@ import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
+import android.webkit.PermissionRequest;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.text.TextUtils;
@@ -84,6 +90,8 @@ public class Atlas2DActivity extends Activity {
         web.setWebChromeClient(new Chrome(this));
 
         web.addJavascriptInterface(new Bridge(this), "AndroidBridge");
+        voice = new Voice(this);
+        web.addJavascriptInterface(voice, "AtlasVoice");
 
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
         else web.loadUrl("https://" + HOST + "/index.html");
@@ -149,9 +157,101 @@ public class Atlas2DActivity extends Activity {
         if (web != null) web.saveState(out);
     }
 
+    // ---- Micrófono y cámara para la página (grabar voz, hacer fotos y vídeos) ----
+    private PermissionRequest pendingPerm;
+    private Voice voice;
+    private static final int REQ_MEDIA = 43;
+
+    void askMedia(PermissionRequest req) {
+        List<String> need = new ArrayList<>();
+        for (String r : req.getResources()) {
+            if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) need.add(Manifest.permission.RECORD_AUDIO);
+            if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) need.add(Manifest.permission.CAMERA);
+        }
+        List<String> missing = new ArrayList<>();
+        for (String n : need) if (checkSelfPermission(n) != PackageManager.PERMISSION_GRANTED) missing.add(n);
+        if (missing.isEmpty()) { grantAllowed(req); return; }
+        if (pendingPerm != null) pendingPerm.deny();
+        pendingPerm = req;
+        requestPermissions(missing.toArray(new String[0]), REQ_MEDIA);
+    }
+
+    private void grantAllowed(PermissionRequest req) {
+        List<String> ok = new ArrayList<>();
+        for (String r : req.getResources()) {
+            if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r) && checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) ok.add(r);
+            if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r) && checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) ok.add(r);
+        }
+        if (ok.isEmpty()) req.deny(); else req.grant(ok.toArray(new String[0]));
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
+        super.onRequestPermissionsResult(code, perms, results);
+        if (code == REQ_MEDIA && pendingPerm != null) { grantAllowed(pendingPerm); pendingPerm = null; }
+    }
+
+    // ---- Texto a voz: la voz de Android se guarda como audio para la animación ----
+    static final class Voice {
+        private final Atlas2DActivity act;
+        private TextToSpeech tts;
+        private boolean ready;
+
+        Voice(Atlas2DActivity act) {
+            this.act = act;
+            tts = new TextToSpeech(act, status -> ready = status == TextToSpeech.SUCCESS);
+            tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                @Override public void onStart(String id) { }
+                @Override public void onDone(String id) { send(id, true); }
+                @Override public void onError(String id) { send(id, false); }
+            });
+        }
+
+        @JavascriptInterface
+        public boolean available() { return ready; }
+
+        @JavascriptInterface
+        public boolean speak(String id, String text, float pitch, float rate, String lang) {
+            if (!ready || id == null || !id.matches("[A-Za-z0-9_]{1,40}")) return false;
+            try {
+                Locale loc = lang != null && lang.length() > 0 ? Locale.forLanguageTag(lang) : Locale.getDefault();
+                if (tts.isLanguageAvailable(loc) >= TextToSpeech.LANG_AVAILABLE) tts.setLanguage(loc);
+                tts.setPitch(Math.max(0.3f, Math.min(pitch, 3f)));
+                tts.setSpeechRate(Math.max(0.3f, Math.min(rate, 3f)));
+                File out = new File(act.getCacheDir(), "voz_" + id + ".wav");
+                Bundle b = new Bundle();
+                return tts.synthesizeToFile(text, b, out, id) == TextToSpeech.SUCCESS;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        private void send(String id, boolean ok) {
+            String b64 = "";
+            File f = new File(act.getCacheDir(), "voz_" + id + ".wav");
+            if (ok) {
+                try {
+                    byte[] data = new byte[(int) f.length()];
+                    try (java.io.FileInputStream in = new java.io.FileInputStream(f)) {
+                        int n = 0;
+                        while (n < data.length) { int r = in.read(data, n, data.length - n); if (r < 0) break; n += r; }
+                    }
+                    b64 = Base64.encodeToString(data, Base64.NO_WRAP);
+                } catch (Exception e) { b64 = ""; }
+            }
+            if (f.exists() && !f.delete()) f.deleteOnExit();
+            final String js = "window.__voiceDone && window.__voiceDone('" + id + "','" + b64 + "')";
+            act.runOnUiThread(() -> { if (act.web != null) act.web.evaluateJavascript(js, null); });
+        }
+
+        void shutdown() { try { tts.shutdown(); } catch (Exception ignored) { } }
+    }
+
     @Override
     protected void onDestroy() {
         if (web != null) {
+            web.removeJavascriptInterface("AtlasVoice");
+            if (voice != null) voice.shutdown();
             web.removeJavascriptInterface("AndroidBridge");
             web.destroy();
             web = null;
@@ -233,6 +333,11 @@ public class Atlas2DActivity extends Activity {
         }
 
         @Override
+        public void onPermissionRequest(PermissionRequest request) {
+            act.runOnUiThread(() -> act.askMedia(request));
+        }
+
+        @Override
         public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> cb, FileChooserParams params) {
             // Elige el tipo de archivo según lo que pide la página (accept="...")
             String type = "*/*";
@@ -240,6 +345,7 @@ public class Atlas2DActivity extends Activity {
             String joined = acc == null ? "" : TextUtils.join(",", acc);
             if (joined.contains("image/")) type = "image/*";
             else if (joined.contains("audio/")) type = "audio/*";
+            else if (joined.contains("video/")) type = "video/*";
             return act.openPicker(cb, type);
         }
     }

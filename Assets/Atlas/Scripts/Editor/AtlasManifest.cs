@@ -59,6 +59,20 @@ public class AtlasManifest : IPostGenerateGradleAndroidProject
             return;
         }
         string xml = File.ReadAllText(manifest);
+        // Atlas 2D graba voz y usa la cámara dentro de la app (fotos y vídeo para calcar).
+        foreach (var perm in new[] { "android.permission.RECORD_AUDIO", "android.permission.CAMERA" })
+        {
+            if (xml.Contains("\"" + perm + "\"")) continue;
+            int appAt = xml.IndexOf("<application");
+            if (appAt < 0) break;
+            xml = xml.Insert(appAt, "<uses-permission android:name=\"" + perm + "\" />\n    ");
+        }
+        if (!xml.Contains("android.hardware.camera\""))
+        {
+            int appAt = xml.IndexOf("<application");
+            if (appAt >= 0) xml = xml.Insert(appAt, "<uses-feature android:name=\"android.hardware.camera\" android:required=\"false\" />\n    ");
+        }
+        File.WriteAllText(manifest, xml);
         if (!xml.Contains("org.atlas3d.Atlas2DActivity"))
         {
             int at2 = xml.LastIndexOf("</application>");

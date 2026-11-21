@@ -1039,7 +1039,7 @@ function updateFrameUI() {
   $('btnLoop').classList.toggle('on', P.loop); $('btnOnion').classList.toggle('on', P.onion.on);
   $('btnAudio').classList.toggle('on', !!P.audio);
   $('btnPaste').disabled = !clipboard;
-  markStrip(); renderLayersPanel(); renderAnimPanel();
+  markStrip(); renderLayersPanel(); renderAnimPanel(); refreshLayerChip();
 }
 function isShared(li, f) {
   const L = P.layers[li], id = L.cells[f];
@@ -2122,7 +2122,7 @@ function drawTimeline() {
   if (AU.buffer && AU.peaks) {
     const y = TL.rulerH + n * TL.rh, mid = y + TL.audioH / 2;
     c.fillStyle = '#1f2a30'; c.fillRect(0, y, Math.min(w, endX), TL.audioH);
-    c.fillStyle = P.audio && P.audio.muted ? '#4a5560' : '#4cc9f0';
+    c.fillStyle = '#4cc9f0';
     for (let f = f0; f <= f1 && f < AU.peaks.length; f++) {
       const x = f * cw - TL.scroll, a = AU.peaks[f] * (TL.audioH / 2 - 4);
       c.fillRect(x + 2, mid - a, cw - 4, Math.max(1, a * 2));
@@ -2194,7 +2194,7 @@ function buildHeads() {
   if (AU.buffer) {
     const a = el('div', { class: 'lh audio' });
     a.style.height = TL.audioH + 'px';
-    a.append(el('span', { class: 'nm', text: '♪ ' + (P.audio ? P.audio.name : 'Audio') }));
+    a.append(el('span', { class: 'nm', text: '♪ ' + (P.audio ? P.audio.name : 'Sonido') + ((P.clips || []).length ? ' + ' + P.clips.length : '') }));
     const more = el('button', { class: 'mini', title: 'Ajustes de audio', 'aria-label': 'Ajustes de audio', html: ICON_DOTS });
     more.onclick = ev => { ev.stopPropagation(); audioMenu(); };
     a.append(more); a.onclick = () => audioMenu();
@@ -2858,14 +2858,14 @@ function actx() {
   return AU.ctx;
 }
 function clockNow() { return (AU.ctx && AU.src) ? AU.ctx.currentTime : performance.now() / 1000; }
-function audioOn() { return AU.buffer && P.audio && !P.audio.muted; }
+function audioOn() { return !!AU.buffer; }
 function startAudioAt(f) {
   stopAudio();
   if (!audioOn()) return;
   const c = actx(); if (!c) return;
   const off = f / P.fps;
   if (off >= AU.buffer.duration) return;
-  AU.gain.gain.value = P.audio.volume;
+  AU.gain.gain.value = 1;
   const s = c.createBufferSource(); s.buffer = AU.buffer; s.connect(AU.gain); s.start(0, off);
   AU.src = s;
 }
@@ -2876,7 +2876,7 @@ function scrubAudio(f) {
   if (AU.scrubSrc) { try { AU.scrubSrc.stop(); } catch (e) { } }
   const off = f / P.fps;
   if (off >= AU.buffer.duration) return;
-  AU.gain.gain.value = P.audio.volume;
+  AU.gain.gain.value = 1;
   const s = c.createBufferSource(); s.buffer = AU.buffer; s.connect(AU.gain);
   s.start(0, off, Math.max(0.05, 1.4 / P.fps));
   AU.scrubSrc = s;
@@ -2903,16 +2903,18 @@ async function decodeAudio(arrayBuf) {
   });
 }
 async function loadProjectAudio() {
-  AU.buffer = null; AU.peaks = null;
-  if (!P.audio) return;
-  try {
-    const blob = await DB.get('audio', P.id);
-    if (!blob) { P.audio = null; return; }
-    AU.buffer = await decodeAudio(await blob.arrayBuffer());
-    computePeaks();
-  } catch (e) { console.error(e); toast('No se pudo cargar el audio del proyecto'); }
+  AU.buffer = null; AU.peaks = null; AU.srcs.clear();
+  if (P.audio) {
+    try {
+      const blob = await DB.get('audio', P.id);
+      if (!blob) P.audio = null;
+      else AU.srcs.set('main', await decodeAudio(await blob.arrayBuffer()));
+    } catch (e) { console.error(e); toast('No se pudo cargar la música del proyecto'); }
+  }
+  await loadClips();
+  rebuildMix();
 }
-$('btnAudio').onclick = () => { stopPlayback(); AU.buffer ? audioMenu() : $('audioFile').click(); };
+$('btnAudio').onclick = () => { stopPlayback(); soundSheet(); };
 $('audioFile').onchange = async e => {
   const file = e.target.files && e.target.files[0];
   e.target.value = '';
@@ -2921,9 +2923,9 @@ $('audioFile').onchange = async e => {
   try {
     const buf = await decodeAudio(await file.arrayBuffer());
     await DB.put('audio', file, P.id);
-    AU.buffer = buf;
+    AU.srcs.set('main', buf);
     P.audio = { name: file.name.replace(/\.[^.]+$/, '').slice(0, 40), volume: 1, muted: false, duration: buf.duration };
-    computePeaks();
+    rebuildMix();
     busy(false);
     const need = Math.ceil(buf.duration * P.fps);
     if (need > P.frames) {
@@ -2944,7 +2946,7 @@ async function audioMenu() {
   vol.oninput = () => { volV.textContent = vol.value + '%'; };
   const mute = el('input', { type: 'checkbox', id: 'auMute' }); mute.checked = P.audio.muted;
   const body = el('div', { class: 'form' }, [
-    el('p', { class: 'note', text: P.audio.name + ' · ' + (P.audio.duration || AU.buffer.duration).toFixed(1) + ' s' }),
+    el('p', { class: 'note', text: P.audio.name + ' · ' + (P.audio.duration || 0).toFixed(1) + ' s' }),
     el('label', {}, [el('span', {}, ['Volumen ', volV]), vol]),
     el('label', { class: 'chk' }, [mute, 'Silenciar']),
   ]);
@@ -2953,12 +2955,393 @@ async function audioMenu() {
   P.audio.volume = vol.value / 100; P.audio.muted = mute.checked;
   if (r === 'remove') {
     if (await confirmDlg('Quitar audio', 'Se quitará la pista de audio del proyecto.', 'Quitar', true)) {
-      await DB.del('audio', P.id); P.audio = null; AU.buffer = null; AU.peaks = null; structural('Quitar audio');
+      await DB.del('audio', P.id); P.audio = null; AU.srcs.delete('main'); rebuildMix(); structural('Quitar audio');
     }
     return;
   }
   if (r === 'replace') { $('audioFile').click(); }
+  rebuildMix();
   scheduleSave(); buildHeads(); requestTimeline(); updateFrameUI();
+}
+/* ---------- 71-sonido.js ---------- */
+/* =========================================================
+   Sonido de la animación: varios sonidos a la vez, cada uno desde
+   el cuadro donde se pone (voces grabadas, efectos de sonido, texto a
+   voz), además de la música. Todo se mezcla en una sola pista para
+   reproducir, ver la onda en la línea de tiempo, sincronizar labios
+   y exportar el vídeo.
+   P.clips = [{ id, name, at (cuadro), vol }]; cada sonido se guarda en
+   DB 'audio' con la clave «proyecto:id».
+   ========================================================= */
+AU.srcs = new Map();
+const clipKey = id => P.id + ':' + id;
+function mixReady() { return AU.srcs.size > 0; }
+
+// Mezcla la música y todos los sonidos en AU.buffer
+function rebuildMix() {
+  const c = actx();
+  const sr = c ? c.sampleRate : 48000;
+  const items = [];
+  const main = AU.srcs.get('main');
+  if (P.audio && main && !P.audio.muted) items.push({ buf: main, at: 0, vol: P.audio.volume != null ? P.audio.volume : 1 });
+  for (const k of (P.clips || [])) {
+    const b = AU.srcs.get(k.id);
+    if (b && !k.muted) items.push({ buf: b, at: Math.max(0, k.at) / P.fps, vol: k.vol != null ? k.vol : 1 });
+  }
+  if (!items.length || !c) { AU.buffer = null; AU.peaks = null; return; }
+  let len = 1;
+  for (const it of items) len = Math.max(len, Math.round(it.at * sr) + Math.round(it.buf.duration * sr));
+  const mix = c.createBuffer(2, len, sr);
+  const L = mix.getChannelData(0), R = mix.getChannelData(1);
+  for (const it of items) {
+    const b = it.buf, off = Math.round(it.at * sr), ratio = b.sampleRate / sr;
+    const c0 = b.getChannelData(0), c1 = b.numberOfChannels > 1 ? b.getChannelData(1) : c0;
+    const n = Math.min(len - off, Math.floor(b.length / ratio));
+    for (let i = 0; i < n; i++) {
+      const j = ratio === 1 ? i : Math.min(b.length - 1, Math.floor(i * ratio));
+      L[off + i] += c0[j] * it.vol; R[off + i] += c1[j] * it.vol;
+    }
+  }
+  // que la suma de varios sonidos no se sature
+  let peak = 0; for (let i = 0; i < len; i += 7) peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
+  if (peak > 1) { const g = 0.98 / peak; for (let i = 0; i < len; i++) { L[i] *= g; R[i] *= g; } }
+  AU.buffer = mix;
+  computePeaks();
+}
+function audioChanged(label) {
+  rebuildMix();
+  if (label) structural(label); else { scheduleSave(); buildHeads(); requestTimeline(); updateFrameUI(); }
+}
+
+// AudioBuffer → archivo WAV (16 bits)
+function wavBlob(buf) {
+  const ch = Math.min(2, buf.numberOfChannels), n = buf.length, sr = buf.sampleRate;
+  const out = new DataView(new ArrayBuffer(44 + n * ch * 2));
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) out.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); out.setUint32(4, 36 + n * ch * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, ch, true); out.setUint32(24, sr, true);
+  out.setUint32(28, sr * ch * 2, true); out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true); w(36, 'data'); out.setUint32(40, n * ch * 2, true);
+  const data = []; for (let c = 0; c < ch; c++) data.push(buf.getChannelData(c));
+  let o = 44;
+  for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { const v = Math.max(-1, Math.min(1, data[c][i])); out.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true); o += 2; }
+  return new Blob([out], { type: 'audio/wav' });
+}
+
+async function loadClips() {
+  for (const k of (P.clips || [])) {
+    try {
+      const blob = await DB.get('audio', clipKey(k.id));
+      if (blob) AU.srcs.set(k.id, await decodeAudio(await blob.arrayBuffer()));
+    } catch (e) { console.warn('sonido no cargado', k.name, e); }
+  }
+}
+// Añade un sonido en el cuadro actual (y alarga la animación si hace falta)
+async function addClip(blob, name, buf) {
+  if (!buf) buf = await decodeAudio(await blob.arrayBuffer());
+  const id = uid();
+  await DB.put('audio', blob, clipKey(id));
+  if (!P.clips) P.clips = [];
+  const at = cur.frame;
+  P.clips.push({ id, name: String(name || 'Sonido').slice(0, 40), at, vol: 1 });
+  AU.srcs.set(id, buf);
+  const need = at + Math.ceil(buf.duration * P.fps);
+  if (need > P.frames) { for (const L of P.layers) while (L.cells.length < need) L.cells.push(null); P.frames = need; }
+  audioChanged('Añadir sonido');
+  toast('«' + name + '» añadido en el cuadro ' + (at + 1));
+}
+function playBuffer(buf) {
+  const c = actx(); if (!c || !buf) return;
+  if (AU.preview) { try { AU.preview.stop(); } catch (e) { } }
+  const s = c.createBufferSource(); s.buffer = buf; s.connect(c.destination); s.start(); AU.preview = s;
+}
+
+/* ----- panel «Sonido» ----- */
+async function soundSheet() {
+  stopPlayback(); commitSel();
+  const rows = [
+    srow(ICO.mic, 'Grabar voz', { value: 'rec', sub: 'Mantén pulsado para grabar; puede reproducir la animación mientras hablas' }),
+    srow(ICO.sfx, 'Efectos de sonido', { value: 'sfx', sub: 'Golpes, saltos, explosiones, pasos, magia… listos para usar' }),
+    srow(ICO.voice, 'Texto a voz', { value: 'tts', sub: 'Escribe lo que dice tu personaje y elige su voz' }),
+    srow(ICO.music, P.audio ? 'Música: ' + P.audio.name : 'Música o audio del teléfono', { value: 'file', sub: P.audio ? 'Volumen, silenciar o cambiar' : 'MP3, WAV, M4A, OGG' }),
+  ];
+  const clips = (P.clips || []).slice().sort((a, b) => a.at - b.at);
+  if (clips.length) {
+    rows.push(el('p', { class: 'note', style: 'margin:12px 4px 2px', text: 'Sonidos de esta animación (' + clips.length + ')' }));
+    for (const k of clips) rows.push(srow(ICO.music, k.name + (k.muted ? ' (silenciado)' : ''), { value: 'clip:' + k.id, sub: 'Desde el cuadro ' + (k.at + 1) + ' · ' + (AU.srcs.get(k.id) ? AU.srcs.get(k.id).duration.toFixed(1) + ' s' : 'sin cargar') }));
+  }
+  const r = await sheet('Sonido', rows);
+  if (!r) return;
+  if (r === 'rec') recorderDialog();
+  else if (r === 'sfx') sfxDialog();
+  else if (r === 'tts') ttsDialog();
+  else if (r === 'file') { if (P.audio) audioMenu(); else $('audioFile').click(); }
+  else if (r.startsWith('clip:')) clipDialog(r.slice(5));
+}
+async function clipDialog(id) {
+  const k = (P.clips || []).find(c => c.id === id); if (!k) return;
+  const vol = el('input', { type: 'range', min: 0, max: 150, value: Math.round((k.vol != null ? k.vol : 1) * 100) });
+  const volV = el('output', { text: vol.value + '%' }); vol.oninput = () => { volV.textContent = vol.value + '%'; };
+  const name = el('input', { type: 'text', value: k.name, maxlength: 40 });
+  const mute = el('input', { type: 'checkbox' }); mute.checked = !!k.muted;
+  const play = el('button', { class: 'tb', text: '▶ Escuchar' }); play.onclick = () => playBuffer(AU.srcs.get(id));
+  const body = el('div', { class: 'form' }, [
+    el('label', {}, ['Nombre', name]),
+    el('p', { class: 'note', text: 'Empieza en el cuadro ' + (k.at + 1) + '. «Mover aquí» lo pone en el cuadro actual (' + (cur.frame + 1) + ').' }),
+    el('label', {}, [el('span', {}, ['Volumen ', volV]), vol]),
+    el('label', { class: 'chk' }, [mute, 'Silenciar']), play,
+  ]);
+  const r = await dialog({ title: 'Sonido', body, buttons: [{ label: 'Quitar', value: 'del', danger: true }, { label: 'Mover aquí', value: 'move' }, { label: 'Listo', value: 'ok', primary: true }] });
+  if (!r) return;
+  k.name = name.value.trim().slice(0, 40) || k.name; k.vol = vol.value / 100; k.muted = mute.checked;
+  if (r === 'del') { P.clips = P.clips.filter(c => c !== k); AU.srcs.delete(id); DB.del('audio', clipKey(id)); audioChanged('Quitar sonido'); return; }
+  if (r === 'move') k.at = cur.frame;
+  audioChanged('Ajustar sonido');
+}
+
+/* ----- grabar voz ----- */
+async function recorderDialog() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) { toast('Este dispositivo no permite grabar desde aquí', 4000); return; }
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+  catch (e) { toast('Sin permiso para el micrófono: actívalo en los permisos de la app', 5000); return; }
+  const c = actx();
+  const an = c.createAnalyser(); an.fftSize = 512;
+  const srcNode = c.createMediaStreamSource(stream); srcNode.connect(an);
+  const level = el('div', { class: 'reclevel' }, [el('i')]);
+  const time = el('div', { class: 'rectime', text: '00:00.0' });
+  const btn = el('button', { class: 'recbtn', html: ICO.mic + '<span>Mantén pulsado para grabar</span>' });
+  const sync = el('input', { type: 'checkbox' }); sync.checked = true;
+  const status = el('p', { class: 'note', style: 'text-align:center', text: 'Se añadirá en el cuadro ' + (cur.frame + 1) + '.' });
+  let rec = null, chunks = [], t0 = 0, raf = 0, got = null, startFrame = cur.frame;
+  const tick = () => {
+    const d = new Uint8Array(an.fftSize); an.getByteTimeDomainData(d);
+    let m = 0; for (const v of d) m = Math.max(m, Math.abs(v - 128));
+    level.firstChild.style.width = Math.min(100, m / 128 * 180) + '%';
+    if (rec) { const s = (performance.now() - t0) / 1000; time.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + (s % 60).toFixed(1).padStart(4, '0'); }
+    raf = requestAnimationFrame(tick);
+  };
+  tick();
+  const start = e => {
+    e.preventDefault(); if (rec) return;
+    chunks = []; got = null;
+    try { rec = new MediaRecorder(stream); } catch (err) { toast('No se pudo grabar: ' + err.message); return; }
+    rec.ondataavailable = ev => { if (ev.data && ev.data.size) chunks.push(ev.data); };
+    rec.onstop = async () => {
+      const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+      rec = null; btn.classList.remove('on');
+      try { got = { buf: await decodeAudio(await blob.arrayBuffer()) }; status.textContent = 'Grabado: ' + got.buf.duration.toFixed(1) + ' s. «Escuchar» o «Añadir»; para repetir, vuelve a mantener pulsado.'; }
+      catch (err) { status.textContent = 'No se pudo leer la grabación'; }
+    };
+    startFrame = cur.frame;
+    rec.start(); t0 = performance.now(); btn.classList.add('on');
+    if (sync.checked) startPlayback();
+  };
+  const stop = () => { if (rec && rec.state === 'recording') { rec.stop(); if (sync.checked) { stopPlayback(); setFrame(startFrame); } } };
+  btn.addEventListener('pointerdown', start);
+  btn.addEventListener('pointerup', stop);
+  btn.addEventListener('pointercancel', stop);
+  btn.addEventListener('pointerleave', stop);
+  const body = el('div', { class: 'form recform' }, [time, level, btn, el('label', { class: 'chk' }, [sync, 'Reproducir la animación mientras grabo (para doblar en sincronía)']), status]);
+  let r;
+  try {
+    for (;;) {
+      r = await dialog({ title: 'Grabar voz', body, buttons: [{ label: 'Cerrar', value: null }, { label: '▶ Escuchar', value: 'play' }, { label: 'Añadir', value: 'add', primary: true }] });
+      if (r === 'play') { if (got) playBuffer(got.buf); continue; }
+      break;
+    }
+  } finally {
+    cancelAnimationFrame(raf); stop();
+    stream.getTracks().forEach(t => t.stop());
+    try { srcNode.disconnect(); } catch (e) { }
+  }
+  if (r === 'add') {
+    if (!got) { toast('Primero graba algo (mantén pulsado el botón)'); return; }
+    const n = (P.clips || []).filter(k => /^Voz/.test(k.name)).length + 1;
+    setFrame(startFrame);
+    await addClip(wavBlob(got.buf), 'Voz ' + n, got.buf);
+  }
+}
+
+/* ----- efectos de sonido (hechos por la app: sin derechos de autor) ----- */
+const SFX = [
+  ['punch', 'Golpe', 0.35], ['bigpunch', 'Golpe fuerte', 0.7], ['whoosh', 'Movimiento rápido', 0.45], ['swish', 'Látigo / corte', 0.25],
+  ['jump', 'Salto', 0.45], ['fall', 'Caída', 0.9], ['pop', 'Pop', 0.15], ['explosion', 'Explosión', 1.8],
+  ['laser', 'Láser', 0.35], ['coin', 'Moneda', 0.45], ['bell', 'Campana', 2], ['steps', 'Pasos', 1.4],
+  ['drop', 'Gota', 0.35], ['error', 'Error', 0.45], ['charge', 'Cargar energía', 1.6], ['teleport', 'Teletransporte', 0.8],
+  ['wind', 'Viento', 3], ['heart', 'Latido', 1.2], ['magic', 'Magia', 1.2], ['alarm', 'Alarma', 1.6],
+];
+async function makeSfx(kind, dur) {
+  const sr = (actx() && actx().sampleRate) || 48000;
+  const oc = new OfflineAudioContext(2, Math.ceil(sr * dur), sr);
+  const out = oc.createGain(); out.connect(oc.destination); out.gain.value = 0.9;
+  const T = 0;
+  const noise = len => { const b = oc.createBuffer(1, Math.ceil(sr * len), sr), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; const s = oc.createBufferSource(); s.buffer = b; return s; };
+  const env = (g, t, a, peak, d) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); };
+  const osc = (type, f) => { const o = oc.createOscillator(); o.type = type; o.frequency.value = f; return o; };
+  const tone = (type, f0, f1, t, len, peak, slide) => {
+    const o = osc(type, f0), g = oc.createGain(); o.connect(g); g.connect(out);
+    o.frequency.setValueAtTime(f0, t); if (f1 !== f0) (slide === 'lin' ? o.frequency.linearRampToValueAtTime(f1, t + len) : o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + len));
+    env(g, t, 0.005, peak, len); o.start(t); o.stop(t + len + 0.05);
+    return o;
+  };
+  const burst = (t, len, peak, type, f0, f1, q) => {
+    const n = noise(len + 0.1), f = oc.createBiquadFilter(), g = oc.createGain();
+    f.type = type; f.frequency.setValueAtTime(f0, t); if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(f1, t + len); f.Q.value = q || 0.8;
+    n.connect(f); f.connect(g); g.connect(out); env(g, t, 0.004, peak, len); n.start(t); n.stop(t + len + 0.1);
+  };
+  switch (kind) {
+    case 'punch': tone('sine', 150, 45, T, 0.25, 1); burst(T, 0.12, 0.8, 'lowpass', 2500, 300); break;
+    case 'bigpunch': tone('sine', 120, 30, T, 0.6, 1); tone('triangle', 90, 40, T, 0.4, 0.6); burst(T, 0.4, 1, 'lowpass', 4000, 150); break;
+    case 'whoosh': { const n = noise(dur), f = oc.createBiquadFilter(), g = oc.createGain(); f.type = 'bandpass'; f.Q.value = 2; f.frequency.setValueAtTime(300, T); f.frequency.exponentialRampToValueAtTime(2500, T + dur * 0.5); f.frequency.exponentialRampToValueAtTime(400, T + dur); n.connect(f); f.connect(g); g.connect(out); g.gain.setValueAtTime(0.0001, T); g.gain.exponentialRampToValueAtTime(1, T + dur * 0.45); g.gain.exponentialRampToValueAtTime(0.0001, T + dur); n.start(T); break; }
+    case 'swish': burst(T, 0.22, 0.9, 'highpass', 1500, 6000, 1.5); break;
+    case 'jump': { const o = tone('square', 220, 880, T, 0.4, 0.35); const l = osc('sine', 18), lg = oc.createGain(); lg.gain.value = 25; l.connect(lg); lg.connect(o.frequency); l.start(T); l.stop(T + 0.45); break; }
+    case 'fall': tone('sine', 1200, 120, T, 0.85, 0.5); break;
+    case 'pop': tone('sine', 700, 250, T, 0.1, 0.9); burst(T, 0.03, 0.5, 'highpass', 2000, 2000); break;
+    case 'explosion': burst(T, 1.7, 1, 'lowpass', 3500, 80); tone('sine', 70, 30, T, 1.2, 1); break;
+    case 'laser': tone('square', 1800, 180, T, 0.3, 0.35); tone('sawtooth', 1700, 160, T, 0.3, 0.2); break;
+    case 'coin': tone('square', 988, 988, T, 0.08, 0.3); tone('square', 1319, 1319, T + 0.08, 0.35, 0.3); break;
+    case 'bell': for (const [m, a] of [[1, 0.6], [2.76, 0.3], [5.4, 0.15], [8.9, 0.08]]) tone('sine', 660 * m, 660 * m, T, 1.9, a); break;
+    case 'steps': for (let i = 0; i < 4; i++) burst(T + i * 0.34, 0.08, 0.9, 'lowpass', 900, 300, 1); break;
+    case 'drop': tone('sine', 1400, 500, T, 0.12, 0.7); tone('sine', 900, 1300, T + 0.1, 0.18, 0.3); break;
+    case 'error': tone('square', 160, 160, T, 0.18, 0.35); tone('square', 120, 120, T + 0.2, 0.22, 0.35); break;
+    case 'charge': { const o = tone('sawtooth', 90, 900, T, 1.55, 0.35); const l = osc('sine', 9), lg = oc.createGain(); lg.gain.value = 0.5; const g2 = oc.createGain(); o.disconnect(); o.connect(g2); g2.connect(out); l.connect(lg); lg.connect(g2.gain); l.start(T); l.stop(T + 1.6); burst(T, 1.5, 0.3, 'bandpass', 400, 4000, 3); break; }
+    case 'teleport': { const o = tone('sine', 300, 2400, T, 0.75, 0.4); const m = osc('sine', 40), mg = oc.createGain(); mg.gain.value = 400; m.connect(mg); mg.connect(o.frequency); m.start(T); m.stop(T + 0.8); break; }
+    case 'wind': { const n = noise(dur), f = oc.createBiquadFilter(), g = oc.createGain(); f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.value = 500; const l = osc('sine', 0.4), lg = oc.createGain(); lg.gain.value = 350; l.connect(lg); lg.connect(f.frequency); n.connect(f); f.connect(g); g.connect(out); g.gain.setValueAtTime(0.0001, T); g.gain.exponentialRampToValueAtTime(0.7, T + 0.8); g.gain.setValueAtTime(0.7, T + dur - 0.8); g.gain.exponentialRampToValueAtTime(0.0001, T + dur); n.start(T); l.start(T); l.stop(T + dur); break; }
+    case 'heart': for (const t of [0, 0.22, 0.75, 0.97]) tone('sine', 70, 45, T + t, 0.16, t % 0.75 ? 0.6 : 1); break;
+    case 'magic': for (let i = 0; i < 10; i++) tone('sine', 1200 + i * 180, 1400 + i * 180, T + i * 0.08, 0.35, 0.18); break;
+    case 'alarm': for (let i = 0; i < 4; i++) tone('square', 880, 660, T + i * 0.4, 0.38, 0.25, 'lin'); break;
+  }
+  return await oc.startRendering();
+}
+async function sfxDialog() {
+  const grid = el('div', { class: 'sfxgrid' });
+  let pick = null;
+  for (const [k, name, dur] of SFX) {
+    const b = el('button', { class: 'sfxb', html: '<b>' + escapeHtml(name) + '</b><small>' + dur.toFixed(1) + ' s</small>' });
+    b.onclick = async () => {
+      for (const x of grid.children) x.classList.remove('on');
+      b.classList.add('on');
+      const buf = await makeSfx(k, dur);
+      pick = { buf, name }; playBuffer(buf);
+    };
+    grid.appendChild(b);
+  }
+  const body = el('div', { class: 'form' }, [el('p', { class: 'note', text: 'Toca un sonido para oírlo y pulsa «Añadir»: entra en el cuadro ' + (cur.frame + 1) + '. Cada vez suena un poco distinto, como en la vida real.' }), grid]);
+  const r = await dialog({ title: 'Efectos de sonido', body, buttons: [{ label: 'Cerrar', value: null }, { label: 'Añadir', value: 'add', primary: true }] });
+  if (r === 'add') { if (!pick) { toast('Elige un sonido primero'); return; } await addClip(wavBlob(pick.buf), pick.name, pick.buf); }
+}
+
+/* ----- texto a voz (voz de Android) ----- */
+const VOICES = [
+  ['Normal', 1, 1], ['Niño', 1.7, 1.1], ['Niña', 1.9, 1.05], ['Gigante', 0.45, 0.8], ['Anciano', 0.75, 0.75],
+  ['Ardilla', 2.4, 1.45], ['Villano', 0.55, 0.85], ['Robot', 0.8, 0.9, 'robot'], ['Narrador', 0.9, 0.92], ['Rápido', 1.1, 1.7],
+];
+const voiceWait = new Map();
+window.__voiceDone = (id, b64) => { const r = voiceWait.get(id); if (r) { voiceWait.delete(id); r(b64); } };
+async function speakToBuffer(text, pitch, rate, lang, fx) {
+  const id = 'v' + uid().replace(/[^A-Za-z0-9]/g, '');
+  const p = new Promise(res => { voiceWait.set(id, res); setTimeout(() => { if (voiceWait.has(id)) { voiceWait.delete(id); res(''); } }, 30000); });
+  if (!window.AtlasVoice.speak(id, text, pitch, rate, lang)) throw new Error('la voz de Android no respondió');
+  const b64 = await p;
+  if (!b64) throw new Error('no se pudo crear la voz');
+  const bin = atob(b64), u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  let buf = await decodeAudio(u8.buffer);
+  if (fx === 'robot') {
+    const oc = new OfflineAudioContext(1, buf.length, buf.sampleRate);
+    const s = oc.createBufferSource(); s.buffer = buf;
+    const g = oc.createGain(); g.gain.value = 0;
+    const m = oc.createOscillator(); m.frequency.value = 55; m.connect(g.gain);
+    s.connect(g); g.connect(oc.destination); s.start(); m.start();
+    buf = await oc.startRendering();
+  }
+  return buf;
+}
+async function ttsDialog() {
+  if (!window.AtlasVoice || !window.AtlasVoice.available()) {
+    await dialog({ title: 'Texto a voz', body: 'La voz se crea con el «texto a voz» de Android. En este aparato no está disponible: en Android, revisa Ajustes → Idioma → Salida de texto a voz (motor de Google). En PC, graba la voz con el micrófono.' });
+    return;
+  }
+  const txt = el('textarea', { rows: 3, maxlength: 400, placeholder: '¿Qué quieres que diga tu personaje?', style: 'width:100%;resize:vertical;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:10px;color:var(--text)' });
+  const lang = el('select', {}, [['es-ES', 'Español (España)'], ['es-US', 'Español (Latinoamérica)'], ['en-US', 'Inglés'], ['pt-BR', 'Portugués'], ['fr-FR', 'Francés'], ['ja-JP', 'Japonés']].map(([v, n]) => el('option', { value: v, text: n })));
+  let vi = 0;
+  const vg = el('div', { class: 'sfxgrid' });
+  VOICES.forEach((v, i) => { const b = el('button', { class: 'sfxb' + (i === 0 ? ' on' : ''), html: '<b>' + v[0] + '</b>' }); b.onclick = () => { vi = i; for (const x of vg.children) x.classList.remove('on'); b.classList.add('on'); }; vg.appendChild(b); });
+  const body = el('div', { class: 'form' }, [txt, el('label', {}, ['Idioma', lang]), el('p', { class: 'note', text: 'Elige la voz del personaje:' }), vg]);
+  let made = null, madeKey = '';
+  for (;;) {
+    const r = await dialog({ title: 'Texto a voz', body, buttons: [{ label: 'Cerrar', value: null }, { label: '▶ Escuchar', value: 'play' }, { label: 'Añadir', value: 'add', primary: true }] });
+    if (!r) return;
+    const text = txt.value.trim();
+    if (!text) { toast('Escribe lo que dice tu personaje'); continue; }
+    const key = text + '|' + vi + '|' + lang.value;
+    if (key !== madeKey) {
+      busy(true, 'Creando la voz…', 0.5);
+      try { const v = VOICES[vi]; made = await speakToBuffer(text, v[1], v[2], lang.value, v[3]); madeKey = key; }
+      catch (e) { busy(false); toast('No se pudo crear la voz: ' + e.message, 4000); continue; }
+      busy(false);
+    }
+    if (r === 'play') { playBuffer(made); continue; }
+    await addClip(wavBlob(made), VOICES[vi][0] + ': ' + text.slice(0, 24), made);
+    return;
+  }
+}
+
+/* ----- cámara: foto o vídeo para calcar ----- */
+async function cameraDialog(mode) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('Este dispositivo no permite usar la cámara desde aquí', 4000); return; }
+  let facing = 'environment', stream = null;
+  const v = el('video', { class: 'camview', autoplay: true, playsinline: true, muted: true });
+  v.muted = true; v.playsInline = true;
+  const open = async () => {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    v.srcObject = stream; await v.play().catch(() => { });
+  };
+  try { await open(); } catch (e) { toast('Sin permiso para la cámara: actívalo en los permisos de la app', 5000); return; }
+  const flip = el('button', { class: 'tb', text: '⟲ Cambiar cámara' });
+  flip.onclick = async () => { facing = facing === 'environment' ? 'user' : 'environment'; try { await open(); } catch (e) { } };
+  const time = el('div', { class: 'rectime', text: '' });
+  let rec = null, chunks = [], t0 = 0, timer = 0;
+  const body = el('div', { class: 'form' }, [v, el('div', { class: 'drow', style: 'gap:8px;align-items:center' }, [flip, time])]);
+  try {
+    for (;;) {
+      const buttons = mode === 'video'
+        ? [{ label: 'Cerrar', value: null }, { label: rec ? '■ Parar y usar' : '● Grabar', value: rec ? 'stop' : 'rec', primary: true }]
+        : [{ label: 'Cerrar', value: null }, { label: 'Hacer foto', value: 'shot', primary: true }];
+      const r = await dialog({ title: mode === 'video' ? 'Grabar vídeo para calcar' : 'Hacer una foto', body, buttons });
+      if (!r) return;
+      if (r === 'shot') {
+        const c = mkCanvas(v.videoWidth || 1280, v.videoHeight || 720);
+        ctx2d(c).drawImage(v, 0, 0, c.width, c.height);
+        const blob = await canvasToBlob(c, 'image/jpeg', 0.92);
+        const file = new File([blob], 'foto.jpg', { type: 'image/jpeg' });
+        await $('imageFile').onchange({ target: { files: [file], value: '' } });
+        return;
+      }
+      if (r === 'rec') {
+        chunks = [];
+        rec = new MediaRecorder(stream);
+        rec.ondataavailable = ev => { if (ev.data && ev.data.size) chunks.push(ev.data); };
+        rec.start(); t0 = performance.now();
+        timer = setInterval(() => { time.textContent = '● ' + ((performance.now() - t0) / 1000).toFixed(1) + ' s'; }, 100);
+        continue;
+      }
+      if (r === 'stop' && rec) {
+        const done = new Promise(res => { rec.onstop = res; });
+        rec.stop(); await done; clearInterval(timer);
+        const blob = new Blob(chunks, { type: rec.mimeType || 'video/webm' });
+        rec = null;
+        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+        await importVideo(new File([blob], 'video.webm', { type: blob.type }));
+        return;
+      }
+    }
+  } finally {
+    clearInterval(timer);
+    if (rec && rec.state === 'recording') { try { rec.stop(); } catch (e) { } }
+    if (stream) stream.getTracks().forEach(t => t.stop());
+  }
 }
 /* ---------- 75-exportar.js ---------- */
 /* =========================================================
@@ -3096,7 +3479,7 @@ async function exportVideo(scale, includeAudio) {
       aenc.configure(a.cfg);
       const sr = abuf.sampleRate, ch = a.cfg.numberOfChannels;
       const total = Math.min(abuf.length, Math.round(P.frames / fps * sr));
-      const vol = P.audio ? P.audio.volume : 1;
+      const vol = 1; // el volumen de cada sonido ya va en la mezcla
       const srcCh = []; for (let i = 0; i < ch; i++) srcCh.push(abuf.getChannelData(Math.min(i, abuf.numberOfChannels - 1)));
       const N = 4096;
       for (let off = 0; off < total; off += N) {
@@ -3156,7 +3539,7 @@ async function projectSettings() {
     for (const L of P.layers) L.cells.length = nf;
   } else for (const L of P.layers) while (L.cells.length < nf) L.cells.push(null);
   P.frames = nf; cur.frame = Math.min(cur.frame, nf - 1);
-  if (newFps !== P.fps) { P.fps = newFps; if (AU.buffer) computePeaks(); }
+  if (newFps !== P.fps) { P.fps = newFps; rebuildMix(); }
   structural('Ajustes del proyecto');
 }
 async function showHelp() {
@@ -4477,7 +4860,7 @@ async function swapDrawingDialog() {
 
 /* ----- labios automáticos ----- */
 async function lipSyncDialog() {
-  if (!AU.buffer || !P.audio) { toast('Primero añade el audio con la voz (menú → Añadir audio)', 4000); return; }
+  if (!AU.buffer) { toast('Primero añade el audio con la voz (menú → Añadir audio)', 4000); return; }
   if (!AU.peaks) computePeaks();
   const L = P.layers[cur.layer];
   if (isGroup(L) || L.locked) { toast('Elige la capa de la boca (desbloqueada)'); return; }
@@ -4574,7 +4957,7 @@ async function renderProjects() {
       } }),
       el('button', { class: 'btn danger sm', text: 'Eliminar', onclick: async () => {
         if (!(await confirmDlg('Eliminar proyecto', '«' + p.name + '» se borrará para siempre con todos sus dibujos y audio.', 'Eliminar', true))) return;
-        await DB.delRange('cells', p.id + ':'); await DB.del('audio', p.id); await DB.del('thumbs', p.id); await DB.del('projects', p.id);
+        await DB.delRange('cells', p.id + ':'); await DB.del('audio', p.id); await DB.delRange('audio', p.id + ':'); await DB.del('thumbs', p.id); await DB.del('projects', p.id);
         renderProjects(); toast('Proyecto eliminado');
       } }),
     ]);
@@ -4607,6 +4990,7 @@ async function duplicateProject(p) {
     for (const L of np.layers) L.cells = L.cells.map(id => { if (!id) return null; if (!map.has(id)) map.set(id, np.id + ':' + uid()); return map.get(id); });
     for (const [o, n] of map) { const blob = await DB.get('cells', o); if (blob) await DB.put('cells', blob, n); }
     const au = await DB.get('audio', p.id); if (au) await DB.put('audio', au, np.id);
+    for (const k of (np.clips || [])) { const b = await DB.get('audio', p.id + ':' + k.id); if (b) await DB.put('audio', b, np.id + ':' + k.id); }
     const th = await DB.get('thumbs', p.id); if (th) await DB.put('thumbs', th, np.id);
     await DB.put('projects', np);
     renderProjects(); toast('Proyecto duplicado');
@@ -4772,6 +5156,7 @@ async function exportProjectBackup(id) {
   }
   const audio = await DB.get('audio', id);
   if (audio) files.push({ name: 'audio.bin', data: new Uint8Array(await audio.arrayBuffer()) });
+  for (const k of (proj.clips || [])) { const b = await DB.get('audio', id + ':' + k.id); if (b) files.push({ name: 'clips/' + k.id + '.bin', data: new Uint8Array(await b.arrayBuffer()) }); }
   const thumb = await DB.get('thumbs', id);
   if (thumb) files.push({ name: 'thumb.jpg', data: new Uint8Array(await thumb.arrayBuffer()) });
   files.unshift({ name: 'project.json', data: enc.encode(JSON.stringify(proj)) });
@@ -4811,6 +5196,11 @@ async function importProjectBackup(file) {
     if (au && au.ok) await DB.put('audio', new Blob([au.data], { type: manifest.audioType || 'audio/mpeg' }), p.id);
     else { p.audio = null; damaged++; }
   }
+  if (Array.isArray(p.clips)) {
+    const keep = [];
+    for (const k of p.clips) { const e = zip.get('clips/' + k.id + '.bin'); if (e && e.ok) { await DB.put('audio', new Blob([e.data]), p.id + ':' + k.id); keep.push(k); } else damaged++; }
+    p.clips = keep;
+  }
   const th = zip.get('thumb.jpg');
   if (th && th.ok) await DB.put('thumbs', new Blob([th.data], { type: 'image/jpeg' }), p.id);
   await DB.put('projects', p);
@@ -4829,6 +5219,150 @@ $('projectFile').onchange = async e => {
   } catch (err) { await dialog({ title: 'No se pudo importar', body: String(err.message || err) }); }
 };
 window.__trazoBackupTest = { zipBuild, zipRead, crc32 };
+/* ---------- 97-interfaz.js ---------- */
+/* =========================================================
+   Interfaz de ATLAS para el móvil: grupos redondeados con botones
+   grandes y con nombre, la capa siempre a la vista junto a los
+   cuadros, herramientas plegables y menús que suben desde abajo.
+   ========================================================= */
+const ICO = {
+  mic: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  sfx: '<svg viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10z"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></svg>',
+  voice: '<svg viewBox="0 0 24 24"><path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>',
+  camvid: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/><circle cx="9.5" cy="12" r="2" fill="currentColor"/></svg>',
+  img: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>',
+  vid: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg>',
+  cam: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  music: '<svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
+  pencil: '<svg viewBox="0 0 24 24"><path d="m4 20 1-4L16 5l3 3L8 19z"/></svg>',
+  onion: '<svg viewBox="0 0 24 24"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6" stroke-dasharray="2 2.5"/></svg>',
+  grid: '<svg viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M9 4v16M15 4v16"/></svg>',
+  pen: '<svg viewBox="0 0 24 24"><path d="M15 4l5 5-10 10H5v-5z"/><path d="M13 6l5 5"/></svg>',
+  sheet: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 8h16M10 3v18"/></svg>',
+  brush: '<svg viewBox="0 0 24 24"><path d="M4 20c2.5 0 4-1.5 4-3.5S6.5 13 5 14.5 4 18 4 20z"/><path d="M8 15 19 4l1 1L9 16"/></svg>',
+  fx: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg>',
+  swap: '<svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>',
+  lips: '<svg viewBox="0 0 24 24"><path d="M3 12c3-4 6-4 9-2 3-2 6-2 9 2-3 4-15 4-18 0z"/></svg>',
+  png: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 13l3 3 5-6"/></svg>',
+  zip: '<svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M12 7v2M12 11v2M12 15v2"/></svg>',
+  save: '<svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg>',
+  clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>',
+  gauge: '<svg viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0"/><path d="m12 16 4-5"/></svg>',
+  help: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17h.01"/></svg>',
+  gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>',
+  file: '<svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/></svg>',
+};
+
+/* ----- barra inferior en grupos ----- */
+(() => {
+  const bottom = document.querySelector('footer.bottom');
+  if (!bottom) return;
+  const grp = cls => { const d = document.createElement('div'); d.className = 'grp' + (cls ? ' ' + cls : ''); return d; };
+  const bb = (id, ico, label, title, fn) => { const b = el('button', { class: 'bb', id, title: title || label, html: ico + '<span>' + escapeHtml(label) + '</span>' }); b.onclick = fn; return b; };
+  const g1 = grp(), g2 = grp('frames'), g3 = grp(), g4 = grp();
+  g1.append($('btnUndo'), $('btnRedo'));
+  const chip = el('button', { class: 'layerchip', id: 'layerChip', title: 'Capas' }, [el('i', { id: 'layerChipName', text: 'Capa' }), el('small', { id: 'layerChipN', text: '' })]);
+  chip.onclick = () => $('btnLayers').click();
+  g2.append(chip, $('strip'), $('btnPlay'));
+  g3.append(bb('btnImport', ICO.img, 'Imagen/Vídeo', 'Importar imagen, vídeo o foto', () => importSheet()), $('btnAudio'), $('btnTimeline'));
+  g4.append($('btnCopy'), $('btnPaste'));
+  const keep = el('div', { hidden: true });
+  keep.append($('btnPrev'), $('btnNext'));
+  for (const s of [...bottom.querySelectorAll('.bsep')]) s.remove();
+  bottom.append(g1, g2, g3, g4, keep);
+  $('btnAudio').querySelector('span').textContent = 'Audio';
+})();
+function refreshLayerChip() {
+  const n = $('layerChipName'); if (!n || !P) return;
+  const L = P.layers[cur.layer];
+  n.textContent = L ? L.name : 'Capa';
+  $('layerChipN').textContent = P.layers.filter(l => !isGroup(l)).length + ' capas';
+}
+
+/* ----- herramientas plegables ----- */
+(() => {
+  const dock = $('dock'); if (!dock) return;
+  const grip = el('button', { class: 'grip', title: 'Mostrar u ocultar herramientas', 'aria-label': 'Plegar herramientas', html: '<svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="1.2"/><circle cx="12" cy="9" r="1.2"/><circle cx="16" cy="9" r="1.2"/><circle cx="8" cy="15" r="1.2"/><circle cx="12" cy="15" r="1.2"/><circle cx="16" cy="15" r="1.2"/></svg>' });
+  let col = false; try { col = localStorage.getItem('trazo_dockcol') === '1'; } catch (e) { }
+  dock.classList.toggle('collapsed', col);
+  grip.onclick = () => { col = !col; dock.classList.toggle('collapsed', col); try { localStorage.setItem('trazo_dockcol', col ? '1' : '0'); } catch (e) { } };
+  dock.insertBefore(grip, dock.firstChild);
+})();
+
+/* ----- paneles que suben desde abajo ----- */
+function sheet(title, rows, primary) {
+  const body = el('div', { class: 'sheetbody' }, rows);
+  if (primary) body.appendChild(el('button', { class: 'bigbtn', text: primary.label, onclick: () => closeDialog(primary.value) }));
+  $('modal').classList.add('sheet');
+  const p = dialog({ title, body, buttons: [] });
+  p.then(() => $('modal').classList.remove('sheet'));
+  return p;
+}
+function srow(ico, label, opts = {}) {
+  const kids = [el('span', { class: 'si', html: ico }), el('span', { class: 'sp', text: label })];
+  if (opts.sub) kids[1].appendChild(el('small', { text: opts.sub }));
+  if (opts.edit) { const e = el('button', { class: 'ed', text: 'Editar' }); e.onclick = ev => { ev.stopPropagation(); closeDialog(opts.edit); }; kids.push(e); }
+  if (opts.toggle != null) {
+    const t = el('span', { class: 'tg' + (opts.toggle ? ' on' : '') });
+    kids.push(t);
+  }
+  const r = el('button', { class: 'srow' }, kids);
+  r.onclick = () => closeDialog(opts.value);
+  return r;
+}
+async function importSheet() {
+  stopPlayback(); commitSel();
+  const r = await sheet('Importar', [
+    srow(ICO.img, 'Foto o imagen', { value: 'img', sub: 'Fondo, referencia o dibujo en una capa nueva' }),
+    srow(ICO.vid, 'Vídeo para calcar', { value: 'vid', sub: 'Rotoscopia: un fotograma en cada cuadro' }),
+    srow(ICO.cam, 'Hacer una foto', { value: 'cam', sub: 'Con la cámara, sin salir de la app' }),
+    srow(ICO.camvid, 'Grabar vídeo para calcar', { value: 'camvid', sub: 'Grábate haciendo el movimiento y anímalo encima' }),
+    srow(ICO.sfx, 'Sonido', { value: 'aud', sub: 'Voz, efectos de sonido, texto a voz o música' }),
+  ]);
+  if (r === 'img') $('imageFile').click();
+  else if (r === 'vid') $('videoFile').click();
+  else if (r === 'cam') cameraDialog('photo');
+  else if (r === 'camvid') cameraDialog('video');
+  else if (r === 'aud') soundSheet();
+}
+
+$('btnMenu').onclick = async () => {
+  stopPlayback(); commitSel();
+  const r = await sheet(P.name, [
+    srow(ICO.gear, 'Configuración del proyecto', { value: 'settings', sub: 'Nombre, cuadros por segundo, duración, papel' }),
+    srow(ICO.onion, 'Papel cebolla', { value: 'onionT', toggle: !!P.onion.on, edit: 'onion' }),
+    srow(ICO.grid, 'Guías y simetría', { value: 'guides', sub: 'Dibujo en espejo, cuadrícula, tercios' }),
+    srow(ICO.pen, 'Dibujar solo con lápiz', { value: 'pen', toggle: !!penOnly, sub: 'Los dedos solo mueven y hacen zoom' }),
+    srow(ICO.sheet, 'Hoja de tiempos', { value: 'xsheet', sub: 'Cuánto dura cada dibujo; ritmo a 1s, 2s, 3s' }),
+    srow(ICO.brush, 'Tinta y color', { value: 'ink', sub: 'Línea de referencia, colores con nombre, sombras' }),
+    srow(ICO.swap, 'Cambiar dibujo de este cuadro', { value: 'swap', sub: 'Bocas, manos, ojos…' }),
+    srow(ICO.lips, 'Labios automáticos', { value: 'lips', sub: 'La boca sigue la voz del audio' }),
+    srow(ICO.fx, 'Efectos de la capa', { value: 'fx', sub: 'Sombra, desenfoque, color' }),
+    srow(ICO.png, 'Guardar este cuadro como imagen', { value: 'png' }),
+    srow(ICO.zip, 'Secuencia de imágenes (ZIP)', { value: 'pngseq', sub: 'Todos los cuadros, con fondo transparente' }),
+    srow(ICO.save, 'Copia de seguridad', { value: 'backup', sub: 'Archivo .artlas con todo el proyecto' }),
+    srow(ICO.clock, 'Historial', { value: 'history', sub: undoStack.length + ' acciones' }),
+    srow(ICO.gauge, 'Rendimiento', { value: 'perf', sub: 'Perfil: ' + PERF.name }),
+    srow(ICO.help, 'Cómo se usa', { value: 'help' }),
+  ], { label: 'Crear vídeo', value: 'video' });
+  if (r === 'video') exportVideoDialog();
+  else if (r === 'onionT') { P.onion.on = !P.onion.on; sceneDirty = true; requestRender(); updateFrameUI(); scheduleSave(); }
+  else if (r === 'onion') onionDialog();
+  else if (r === 'guides') $('btnGuides').click();
+  else if (r === 'pen') { penOnly = !penOnly; savePrefs(); toast(penOnly ? 'Ahora los dedos solo mueven la hoja' : 'Los dedos vuelven a dibujar'); }
+  else if (r === 'png') exportPng();
+  else if (r === 'pngseq') exportPngSequence();
+  else if (r === 'swap') swapDrawingDialog();
+  else if (r === 'lips') lipSyncDialog();
+  else if (r === 'fx') layerFxDialog();
+  else if (r === 'xsheet') xsheetDialog();
+  else if (r === 'ink') inkPaintDialog();
+  else if (r === 'settings') projectSettings();
+  else if (r === 'help') showHelp();
+  else if (r === 'perf') perfDialog();
+  else if (r === 'history') historyPanel();
+  else if (r === 'backup') { try { busy(true, 'Creando copia de seguridad…', 0.5); const m = await exportProjectBackup(P.id); busy(false); toast(m, 4000); } catch (e) { busy(false); toast('No se pudo crear la copia: ' + e.message, 4000); } }
+};
 /* ---------- 99-arranque.js ---------- */
 /* =========================================================
    Arranque
