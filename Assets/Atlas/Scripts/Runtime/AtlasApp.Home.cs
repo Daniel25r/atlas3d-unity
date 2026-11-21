@@ -404,6 +404,7 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• Arreglado: al importar modelos faltaban huesos: los que no deforman la piel sino que llevan piezas rígidas (mandíbula, ojos, orejas, piezas de robots y animatrónicos) o que solo usan las animaciones. Ahora aparecen y se pueden posar.\n" +
             "• NUEVO · «Configuración de geometría» flotante: al elegir una figura aparece un panel sobre la vista con sus números (profundidad, vértices, radio de abajo y de arriba para hacer conos truncados, anillos), la deformación radial y la topología. Escribe el valor y la figura cambia al momento.\n" +
             "• Arreglado de verdad: los mapas normales (relieve) no se veían en el móvil ni en PC, ni en modelos ni en figuras. La versión del sombreado que dibuja el relieve se quedaba fuera de la app al compilarla; ahora va incluida.\n" +
             "• NUEVO · Geometría de las figuras (inspector → Geometría): segmentos, anillos y radio de esfera, cilindro, cono, cápsula, pirámide, toro, plano y cubo; deformación radial (hundir o extender con ondas, en el eje X, Y o Z, con espejo), torsión geométrica, huecos de rejilla y topología: cuadriláteros, triángulos o R-Cube (esfera hecha con un cubo / cubo redondeado).\n" +

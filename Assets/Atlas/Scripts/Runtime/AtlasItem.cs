@@ -198,6 +198,15 @@ namespace Atlas
                 foreach (var b in smr.bones)
                     if (b != null && b.IsChildOf(transform)) used.Add(b);
             if (used.Count == 0) return;
+            // Bones that move no skin but carry rigid parts (a jaw, eyes,
+            // ears, loose pieces on robots and animatronics) or that only
+            // the animations use: empty nodes inside the skeleton. They
+            // were left out, so those parts could not be posed.
+            var more = new List<Transform>();
+            foreach (var b in used)
+                foreach (var d in b.GetComponentsInChildren<Transform>(true))
+                    if (!used.Contains(d) && IsPlainNode(d)) more.Add(d);
+            foreach (var d in more) used.Add(d);
             // Two bones with the same name under the same parent (Prisma3D
             // calls them all «Hueso») had the same path: the second one could
             // not be posed. It gets a number, the same on every load.
@@ -257,6 +266,16 @@ namespace Atlas
             IkRig.Sync(this);
             morphsBuilt = false;
             ApplyMorphs();
+        }
+
+        /// A node with nothing on it but its place (no mesh, light, effect…)
+        /// that belongs to this model, not to an object held by a bone.
+        bool IsPlainNode(Transform t)
+        {
+            if (t.GetComponents<Component>().Length != 1) return false;
+            if (t.gameObject.layer == Gizmo.Layer) return false;
+            var owner = t.GetComponentInParent<AtlasItem>(true);
+            return owner == this;
         }
 
         /// IK controls behave like bones (posed, keyed, saved by path).
