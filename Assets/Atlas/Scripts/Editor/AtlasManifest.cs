@@ -14,7 +14,7 @@ public class AtlasManifest : IPostGenerateGradleAndroidProject
     const string Activity = @"
         <activity android:name=""org.atlas3d.AtlasOpenFile""
             android:exported=""true""
-            android:label=""ATLAS 3D""
+            android:label=""ATLAS 5D""
             android:theme=""@android:style/Theme.Translucent.NoTitleBar""
             android:excludeFromRecents=""true""
             android:noHistory=""true"">

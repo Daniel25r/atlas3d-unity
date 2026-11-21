@@ -15,6 +15,8 @@ Shader "Atlas/Toon"
         _OutlineWidth ("Outline width", Float) = 1
         _OutlineColor ("Outline color", Color) = (0.05, 0.04, 0.06, 1)
         _Cutoff ("Cutoff", Float) = 0
+        _BumpMap ("Normal map", 2D) = "bump" {}
+        _BumpScale ("Normal strength", Float) = 0
     }
     SubShader
     {
@@ -24,6 +26,8 @@ Shader "Atlas/Toon"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         TEXTURE2D(_BaseMap);
         SAMPLER(sampler_BaseMap);
+        TEXTURE2D(_BumpMap);
+        SAMPLER(sampler_BumpMap);
         CBUFFER_START(UnityPerMaterial)
             float4 _BaseMap_ST;
             half4 _BaseColor;
@@ -34,6 +38,7 @@ Shader "Atlas/Toon"
             float _OutlineWidth;
             half4 _OutlineColor;
             half _Cutoff;
+            half _BumpScale;
         CBUFFER_END
         ENDHLSL
 
@@ -52,8 +57,9 @@ Shader "Atlas/Toon"
             #pragma multi_compile_fog
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; };
-            struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float fog : TEXCOORD3; };
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float4 tangentOS : TANGENT; float2 uv : TEXCOORD0; };
+            struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float fog : TEXCOORD3; float4 tangentWS : TEXCOORD4; };
 
             Varyings vert(Attributes v)
             {
@@ -62,6 +68,8 @@ Shader "Atlas/Toon"
                 o.positionCS = p.positionCS;
                 o.positionWS = p.positionWS;
                 o.normalWS = TransformObjectToWorldNormal(v.normalOS);
+                // The relief (normal map) bends the light inside each band.
+                o.tangentWS = float4(TransformObjectToWorldDir(v.tangentOS.xyz), v.tangentOS.w * GetOddNegativeScale());
                 o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
                 o.fog = ComputeFogFactor(p.positionCS.z);
                 return o;
@@ -81,6 +89,13 @@ Shader "Atlas/Toon"
                 half4 tex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv) * _BaseColor;
                 clip(tex.a - _Cutoff);
                 float3 n = normalize(i.normalWS);
+                if (_BumpScale > 0.001 && dot(i.tangentWS.xyz, i.tangentWS.xyz) > 1e-6)
+                {
+                    half3 nt = UnpackNormalScale(SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, i.uv), _BumpScale);
+                    float3 t = normalize(i.tangentWS.xyz);
+                    float3 b = cross(n, t) * i.tangentWS.w;
+                    n = normalize(nt.x * t + nt.y * b + nt.z * n);
+                }
                 float4 sc = TransformWorldToShadowCoord(i.positionWS);
                 Light main = GetMainLight(sc);
                 half ndl = saturate(dot(n, main.direction)) * main.shadowAttenuation;

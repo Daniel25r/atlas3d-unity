@@ -220,13 +220,29 @@ namespace Atlas
                 cam.targetTexture = prevTarget;
                 cam.ResetAspect();
             }
+            // Some phones' graphics (Mali among them) gave back garbage when
+            // the picture was read straight from the smoothed (MSAA) target
+            // or converted to RGB while reading («render Cine» full of
+            // coloured noise). It is first resolved into a plain target and
+            // read in its own RGBA format; the conversion is done here.
+            RenderTexture plain = null;
+            if (aa > 1)
+            {
+                plain = RenderTexture.GetTemporary(bw, bh, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default, 1);
+                Graphics.Blit(rt, plain);
+            }
             var prev = RenderTexture.active;
-            RenderTexture.active = rt;
-            var big = new Texture2D(bw, bh, TextureFormat.RGB24, false);
-            big.ReadPixels(new UnityEngine.Rect(0, 0, bw, bh), 0, 0);
-            big.Apply();
+            RenderTexture.active = plain != null ? plain : rt;
+            var rgba = new Texture2D(bw, bh, TextureFormat.RGBA32, false);
+            rgba.ReadPixels(new UnityEngine.Rect(0, 0, bw, bh), 0, 0);
+            rgba.Apply();
             RenderTexture.active = prev;
+            if (plain != null) RenderTexture.ReleaseTemporary(plain);
             RenderTexture.ReleaseTemporary(rt);
+            var big = new Texture2D(bw, bh, TextureFormat.RGB24, false);
+            big.SetPixels32(rgba.GetPixels32());
+            big.Apply();
+            Destroy(rgba);
             if (ss == 1) return big;
             // 2×2 → 1 pixel average.
             var src = big.GetPixels32();
@@ -476,7 +492,8 @@ namespace Atlas
             Toast("El MP4 no funcionó en este teléfono (" + err + "): se guardan los fotogramas en ZIP", true);
             yield return RenderFrames();
 #else
-            Toast("El vídeo MP4 se hace en Android: aquí se guardan los fotogramas en ZIP");
+            if (FfmpegPath() != null) { yield return RenderVideoFfmpeg(); yield break; }
+            Toast("No se encontró el programa de vídeo (ffmpeg) junto a ATLAS: se guardan los fotogramas en ZIP", true);
             yield return RenderFrames();
 #endif
         }

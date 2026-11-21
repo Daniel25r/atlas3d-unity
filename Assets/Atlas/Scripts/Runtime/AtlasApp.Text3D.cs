@@ -45,7 +45,7 @@ namespace Atlas
                 scale = Vector3.one,
                 color = new Color(1f, 0.85f, 0.3f),
                 preset = "raised",
-                text = "ATLAS 3D",
+                text = "ATLAS 5D",
             };
             Select(Create(d));
             Commit(true);

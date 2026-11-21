@@ -271,6 +271,8 @@ namespace Atlas
                 BarButton("subdivide", "Bisel", () => BevelMenu(BarPoint()));
                 BarButton("merge", "Conectar", ConnectSelected);
                 BarButton("add", "Crear cara", FillSelected);
+                BarButton("add", "Rellenar agujero", FillHolesSelected);
+                BarButton("merge", "Puente", BridgeSelected);
                 BarButton("edit", "Cuchillo", () => { knifeOn = !knifeOn; if (knifeOn) boxSelect = false; BuildMeshBar(); Toast(knifeOn ? "Cuchillo: dibuja una línea de lado a lado de la forma (o elige vértices en orden y pulsa Conectar)" : "Cuchillo desactivado"); }, knifeOn);
                 BarButton("loop", "Corte en bucle", LoopCutSelected);
                 BarButton("loop", "Bucle", () => LoopOrRing(false));

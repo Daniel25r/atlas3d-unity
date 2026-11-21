@@ -144,7 +144,7 @@ namespace Atlas
             byte[] buffer = bin.data.ToArray();
 
             var js = new StringBuilder();
-            js.Append("{\"asset\":{\"version\":\"2.0\",\"generator\":\"ATLAS 3D\"},\"scene\":0,\"scenes\":[{\"name\":\"ATLAS 3D\",\"nodes\":[");
+            js.Append("{\"asset\":{\"version\":\"2.0\",\"generator\":\"ATLAS 5D\"},\"scene\":0,\"scenes\":[{\"name\":\"ATLAS 5D\",\"nodes\":[");
             for (int i = 0; i < nodes.Count; i++) js.Append(i > 0 ? "," : "").Append(i);
             js.Append("]}],\"nodes\":[").Append(string.Join(",", nodes)).Append("]");
             js.Append(",\"meshes\":[").Append(string.Join(",", meshes)).Append("]");

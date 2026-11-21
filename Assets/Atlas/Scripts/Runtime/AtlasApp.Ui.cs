@@ -371,6 +371,7 @@ namespace Atlas
             AtlasTheme.TextButton(content, "save", "Guardar", () => { CloseMenus(); SaveNow(true); }, false, 46f);
             AtlasTheme.TextButton(content, "edit", "Renombrar…", () => { CloseMenus(); RenameCurrentProject(); }, false, 46f);
             AtlasTheme.TextButton(content, "info", "Información", () => { CloseMenus(); ShowProjectInfo(); }, false, 46f);
+            AtlasTheme.TextButton(content, "undo", "Versiones anteriores…", () => { CloseMenus(); ShowVersions(); }, false, 46f);
             AtlasTheme.TextButton(content, "camera", "Renderizar imagen o vídeo…", () => ToggleMenu(renderPanel), false, 46f);
             var t2 = AtlasTheme.Label(content, "EXPORTAR MODELO 3D", 15, AtlasTheme.TextDim, true);
             AtlasTheme.Le(t2.gameObject, 22f);
@@ -384,8 +385,9 @@ namespace Atlas
             AtlasTheme.TextButton(content, "save", "Copia del proyecto (.zip)", () => { CloseMenus(); ExportProjectZip(store != null ? store.name : null); }, false, 46f);
             AtlasTheme.TextButton(content, "settings", "Preferencias…", () => ShowPrefs(0), false, 46f);
             AtlasTheme.TextButton(content, "help", "Guía de inicio", () => { CloseMenus(); ShowGuide(); }, false, 46f);
+            AtlasTheme.TextButton(content, "info", "Informar de un error…", ShowBugReport, false, 46f);
             AtlasTheme.TextButton(content, "home", "Cerrar proyecto", () => ShowHome(true), false, 46f);
-            var about = AtlasTheme.Label(content, "ATLAS 3D · versión " + Version, 14, AtlasTheme.AccentLight, false, TextAnchor.MiddleCenter);
+            var about = AtlasTheme.Label(content, "ATLAS 5D · versión " + Version, 14, AtlasTheme.AccentLight, false, TextAnchor.MiddleCenter);
             AtlasTheme.Le(about.gameObject, 22f);
             mainMenu = menu.gameObject;
             mainMenu.SetActive(false);

@@ -48,6 +48,12 @@ namespace Atlas
             }
             Color c = src.HasProperty("_BaseColor") ? src.GetColor("_BaseColor") : Color.white;
             m.SetColor("_BaseColor", new Color(c.r, c.g, c.b, 1f));
+            // The relief goes along too (it was lost with the anime style on).
+            var bump = src.HasProperty("_BumpMap") && src.IsKeywordEnabled("_NORMALMAP") ? src.GetTexture("_BumpMap") : null;
+            bool hasBump = bump != null && bump != TextureTune.Flat;
+            m.SetTexture("_BumpMap", hasBump ? bump : null);
+            m.SetFloat("_BumpScale", hasBump ? (src.HasProperty("_BumpScale") ? src.GetFloat("_BumpScale") : 1f) : 0f);
+            if (hasBump) EnsureTangentsFor(it, src);
             bool cut = src.IsKeywordEnabled("_ALPHATEST_ON") || src.IsKeywordEnabled("_SURFACE_TYPE_TRANSPARENT");
             m.SetFloat("_Cutoff", cut ? 0.4f : 0f);
             m.SetColor("_EmissionColor", src.IsKeywordEnabled("_EMISSION") && src.HasProperty("_EmissionColor") ? src.GetColor("_EmissionColor") : Color.black);

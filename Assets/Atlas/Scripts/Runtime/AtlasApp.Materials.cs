@@ -102,6 +102,8 @@ namespace Atlas
 
         /// The meshes that use `m` get tangents if they have none (a normal
         /// map without them lights the surface wrongly).
+        void EnsureTangentsFor(AtlasItem it, Material m) { EnsureTangents(it, m); }
+
         void EnsureTangents(AtlasItem it, Material m)
         {
             foreach (var kv in it.rendererMats)

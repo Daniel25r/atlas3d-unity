@@ -230,8 +230,30 @@ namespace Atlas
             float lens = fl * fl / fNum * tanHalf / 0.024f;
             lens = Mathf.Min(lens, 0.05f * focus * tanHalf);
             float pixAngle = cam.fieldOfView / h;
+            // Enough passes for what moves the most: with few passes a fast
+            // turn of the camera (or a strong lens blur) showed the sky and
+            // the background as several sharp copies instead of a smooth blur.
+            if (samples > 1 && first == 0)
+            {
+                float travel = 0f;
+                if (dof) travel = Mathf.Max(travel, 2f * lens / focus * Mathf.Rad2Deg / pixAngle);
+                if (shutter > 0.001f && rc != null)
+                {
+                    Vector3 p0, p1; Quaternion q0, q1;
+                    SetFrame(Mathf.Clamp(baseFrame - shutter * 0.5f, 0f, endFrame));
+                    CameraPose(rc, frame, out p0, out q0);
+                    SetFrame(Mathf.Clamp(baseFrame + shutter * 0.5f, 0f, endFrame));
+                    CameraPose(rc, frame, out p1, out q1);
+                    SetFrame(baseFrame);
+                    CameraPose(rc, frame, out basePos, out baseRot);
+                    travel = Mathf.Max(travel, Quaternion.Angle(q0, q1) / pixAngle);
+                }
+                int need = Mathf.CeilToInt(travel / 2.5f);
+                samples = Mathf.Clamp(Mathf.Max(samples, need), samples, rendering ? 40 : 64);
+            }
             var sum = new int[w * h * 3];
-            int done = 0;
+            int done = 0, badPasses = 0;
+            float baseNoise = -1f;
             Ambience.SuspendFilm(true);
             try
             {
@@ -267,6 +289,11 @@ namespace Atlas
                     catch (System.Exception e) { Debug.LogWarning("ATLAS: cine: " + e.Message); }
                     if (t == null) continue;
                     var px = t.GetPixels32();
+                    // A pass that came back as coloured garbage (a graphics
+                    // driver hiccup) is left out instead of spoiling the picture.
+                    float noise = PixelNoise(px, w, h);
+                    if (baseNoise < 0f) baseNoise = noise;
+                    else if (noise > 55f && noise > baseNoise * 3f) { Destroy(t); badPasses++; if (badPasses > samples) break; continue; }
                     for (int i = 0; i < px.Length && i < w * h; i++)
                     {
                         sum[i * 3] += px[i].r;
@@ -290,6 +317,24 @@ namespace Atlas
             tex.SetPixels32(o);
             tex.Apply();
             return tex;
+        }
+
+        /// How much neighbouring pixels differ (0 smooth … 255 pure noise),
+        /// measured on a scattered sample of the picture.
+        static float PixelNoise(Color32[] px, int w, int h)
+        {
+            if (px == null || w < 4 || h < 4) return 0f;
+            long sum = 0;
+            int n = 0;
+            for (int i = 0; i < 1500; i++)
+            {
+                int x = (i * 7919) % (w - 1), y = (i * 104729) % h;
+                var a = px[y * w + x];
+                var b = px[y * w + x + 1];
+                sum += System.Math.Abs(a.r - b.r) + System.Math.Abs(a.g - b.g) + System.Math.Abs(a.b - b.b);
+                n++;
+            }
+            return n > 0 ? sum / (3f * n) : 0f;
         }
 
         static float Halton(int i, int b)

@@ -44,24 +44,28 @@ Shader "Atlas/SkyClouds"
                 return o;
             }
 
+            // A good hash (no straight streaks: the old one repeated along
+            // lines, and the sky showed sheets with hard edges).
             float Hash(float2 p)
             {
-                p = frac(p * float2(123.34, 456.21));
-                p += dot(p, p + 45.32);
-                return frac(p.x * p.y);
+                float3 p3 = frac(float3(p.xyx) * 0.1031);
+                p3 += dot(p3, p3.yzx + 33.33);
+                return frac((p3.x + p3.y) * p3.z);
             }
 
             float Noise(float2 p)
             {
                 float2 i = floor(p), f = frac(p);
-                float2 u = f * f * (3 - 2 * f);
+                float2 u = f * f * f * (f * (f * 6 - 15) + 10);   // smoother joins between cells
                 return lerp(lerp(Hash(i), Hash(i + float2(1, 0)), u.x), lerp(Hash(i + float2(0, 1)), Hash(i + float2(1, 1)), u.x), u.y);
             }
 
             float Fbm(float2 p)
             {
+                // Each layer turned a little: no lines along the grid.
+                const float2x2 m = float2x2(0.80, 0.60, -0.60, 0.80);
                 float v = 0, a = 0.5;
-                for (int k = 0; k < 5; k++) { v += a * Noise(p); p = p * 2.03 + 17.1; a *= 0.5; }
+                for (int k = 0; k < 5; k++) { v += a * Noise(p); p = mul(m, p) * 2.02 + float2(7.3, 3.1); a *= 0.5; }
                 return v;
             }
 
@@ -75,7 +79,7 @@ Shader "Atlas/SkyClouds"
                     half t = pow(saturate(d.y), 0.45);
                     col = lerp(_HorizonColor.rgb, _TopColor.rgb, t);
                     // Clouds on a flat layer above, fading to the horizon
-                    float2 uv = d.xz / (d.y + 0.08) * 1.6;
+                    float2 uv = d.xz / (d.y + 0.12) * 1.6;
                     float n = Fbm(uv);
                     float c = smoothstep(1 - _Cover, 1 - _Cover + 0.28, n);
                     float shade = Fbm(uv + s.xz * 0.35);

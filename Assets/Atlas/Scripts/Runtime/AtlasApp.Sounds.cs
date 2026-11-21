@@ -152,6 +152,7 @@ namespace Atlas
         void AddSoundMenu(List<AtlasTheme.MenuItem> l)
         {
             l.Add(new AtlasTheme.MenuItem("music", "Añadir otro sonido aquí…", PickExtraSound));
+            l.Add(new AtlasTheme.MenuItem("music", "Grabar voz aquí (micrófono)", StartVoiceRecording));
             for (int i = 0; i < sounds.Count; i++)
             {
                 int k = i;

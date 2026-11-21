@@ -224,11 +224,14 @@ public static class AtlasBuild
         EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
 
         // --- Android player settings.
+        // Kept as «ATLAS 3D»: on PC the projects folder is named after them
+        // (changing it would hide everyone's projects). The app shows
+        // «ATLAS 5D» everywhere else (label, window title, interface).
         PlayerSettings.companyName = "ATLAS 3D";
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "1.8.5";
+        PlayerSettings.bundleVersion = "1.12.1";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;

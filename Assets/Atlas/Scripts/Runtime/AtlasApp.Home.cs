@@ -128,7 +128,7 @@ namespace Atlas
             var titles = AtlasTheme.Rect(head.transform, "Titulos").gameObject;
             AtlasTheme.Column(titles, 2f, new RectOffset(0, 0, 10, 0), TextAnchor.UpperLeft);
             AtlasTheme.Le(titles, 112f, -1f, 1f);
-            var t1 = AtlasTheme.Label(titles.transform, "ATLAS 3D", 32, AtlasTheme.TextColor, true);
+            var t1 = AtlasTheme.Label(titles.transform, "ATLAS 5D", 32, AtlasTheme.TextColor, true);
             AtlasTheme.Le(t1.gameObject, 40f);
             var t2 = AtlasTheme.Label(titles.transform, "Estudio de creación 3D · versión " + Version, 16, AtlasTheme.TextDim);
             AtlasTheme.Le(t2.gameObject, 24f);
@@ -160,13 +160,60 @@ namespace Atlas
                 AtlasTheme.Le(empty.gameObject, 40f);
                 return;
             }
+            // Search and order (with many projects).
+            var bar = AtlasTheme.Rect(homeContent, "Buscar");
+            AtlasTheme.Le(bar.gameObject, 44f);
+            AtlasTheme.Row(bar.gameObject, 8f, new RectOffset(0, 0, 0, 0), TextAnchor.MiddleLeft);
+            var search = AtlasTheme.TextField(bar, homeFilter, null, 44f);
+            AtlasTheme.Le(search.gameObject, 44f, 300f);
+            var ph = AtlasTheme.Label(search.transform, "Buscar proyectos…", 16, AtlasTheme.TextDim, false);
+            AtlasTheme.Fill(ph.rectTransform, 12f, 12f);
+            search.placeholder = ph;
+            string[] orders = { "Recientes", "Nombre", "Antiguos" };
+            var orderBtns = new List<Button>();
+            for (int i = 0; i < orders.Length; i++)
+            {
+                int k = i;
+                var ch = AtlasTheme.Chip(bar, orders[i], () =>
+                {
+                    homeOrder = k;
+                    for (int j = 0; j < orderBtns.Count; j++) AtlasTheme.SetActive(orderBtns[j], j == homeOrder);
+                    FillProjectCards(list);
+                }, homeOrder == i);
+                AtlasTheme.Le(ch.gameObject, 40f, 110f);
+                orderBtns.Add(ch);
+            }
             var gridGo = AtlasTheme.Rect(homeContent, "Tarjetas").gameObject;
             var grid = gridGo.AddComponent<GridLayoutGroup>();
             grid.cellSize = new Vector2(248f, 206f);
             grid.spacing = new Vector2(16f, 16f);
             grid.constraint = GridLayoutGroup.Constraint.Flexible;
             grid.childAlignment = TextAnchor.UpperLeft;
-            foreach (var p in list) MakeCard(gridGo.transform, p);
+            homeGrid = gridGo.transform;
+            search.onValueChanged.AddListener(v => { homeFilter = v; FillProjectCards(list); });
+            FillProjectCards(list);
+        }
+
+        static string homeFilter = "";
+        static int homeOrder;
+        Transform homeGrid;
+
+        void FillProjectCards(List<ProjectInfo> all)
+        {
+            if (homeGrid == null) return;
+            AtlasTheme.Clear(homeGrid);
+            var l = new List<ProjectInfo>();
+            string f = (homeFilter ?? "").Trim().ToLowerInvariant();
+            foreach (var p in all) if (f == "" || p.name.ToLowerInvariant().Contains(f)) l.Add(p);
+            if (homeOrder == 1) l.Sort((a, b) => string.Compare(a.name, b.name, System.StringComparison.CurrentCultureIgnoreCase));
+            else if (homeOrder == 2) l.Sort((a, b) => a.modified.CompareTo(b.modified));
+            else l.Sort((a, b) => b.modified.CompareTo(a.modified));
+            foreach (var p in l) MakeCard(homeGrid, p);
+            if (l.Count == 0)
+            {
+                var none = AtlasTheme.Label(homeGrid, "Ningún proyecto se llama así", 16, AtlasTheme.TextDim);
+                none.rectTransform.sizeDelta = new Vector2(248f, 40f);
+            }
         }
 
         void MakeCard(Transform parent, ProjectInfo p)
@@ -357,6 +404,25 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• Arreglado: el render «Cine» a veces salía lleno de ruido de colores en algunos teléfonos (gráficos Mali). Ahora la imagen se lee de forma segura y una pasada corrupta se descarta.\n" +
+            "• El desenfoque de movimiento solo se aplica en el render: en la vista del editor emborronaba todo al girar la cámara.\n" +
+            "• NUEVO · Exportar MP4 también en PC, con todos los sonidos mezclados (antes daba un ZIP de imágenes).\n" +
+            "• NUEVO · Animar los efectos de imagen: pon claves de exposición, color, resplandor, desenfoque, estilo, pixelado… y cambian durante la animación (Escena → Estilo de la imagen → Animar los efectos).\n" +
+            "• NUEVO · Quitar huesos: el que elijas o todos los de un modelo, para que no estorben (se recuperan cuando quieras). «Mostrar todos los huesos» ahora enseña también puntas y extremos que antes no salían.\n" +
+            "• Arreglado: con el modelo girado, el manipulador de los huesos sigue los ejes del modelo.\n" +
+            "• Arreglado: extruir un plano lo convierte en un sólido cerrado (antes quedaba abierto por debajo y se veía raro).\n" +
+            "• Arreglado: el relieve (normal maps) se ve también con el estilo dibujo (anime).\n" +
+            "• NUEVO · Estilo de la imagen (Escena → Estilo de la imagen): Spider-Verse, anime, cómic, contorno de tinta, póster, pintura, boceto, retro y VHS, con su intensidad. Encima: pixelado, gran angular, lente sucia, polvo en el aire y película antigua. Más etalonaje (cálido, frío, cine, blanco y negro, dramático, sueño) y mapeo de tonos.\n" +
+            "• NUEVO · Versiones anteriores (menú → Versiones anteriores): una copia del proyecto cada pocos minutos para volver atrás cuando quieras.\n" +
+            "• NUEVO · Informar de un error dentro de la app, con etiquetas, los datos del teléfono y una captura de la pantalla (menú → Informar de un error).\n" +
+            "• Inicio: buscador de proyectos y orden por recientes, nombre o antiguos.\n" +
+            "• NUEVO · Editor de curvas (como el de Blender): la línea de cada eje sobre el tiempo; toca entre dos claves y dale forma al movimiento con dos tiradores, o elige Suave, Acelerar, Frenar, Pasarse, Rebote, Muelle… (línea de tiempo → icono de curva).\n" +
+            "• NUEVO · Estirar claves en el tiempo: haz una parte de la animación más lenta o más rápida de golpe (200 % = el doble de lenta).\n" +
+            "• NUEVO · Modelar: «Rellenar agujero» tapa un hueco entero con una cara y «Puente» une dos bordes con caras (dos anillos o dos filas de aristas).\n" +
+            "• NUEVO · Grabar voz con el micrófono mientras se reproduce la animación; queda como un sonido más en la línea de tiempo (opciones de la línea de tiempo → Grabar voz aquí).\n" +
+            "• ATLAS 3D ahora se llama ATLAS 5D: 3D + 2D en un solo programa.\n" +
+            "• Al elegir un hueso en modo pose, la línea de tiempo muestra solo las claves de ese hueso (con «Todo el modelo» debajo como referencia).\n" +
+            "• Cielo con nubes arreglado: las nubes ya no se ven como láminas con bordes rectos, y el render «Cine» hace más pasadas cuando la cámara gira rápido o hay mucho desenfoque, para que el fondo salga suave y no repetido.\n" +
             "• Artlas 2D a lo profesional (como Harmony): personajes por piezas con punto de giro y capas pegadas (mano → brazo → cuerpo), estirar y aplastar, trayectoria del movimiento, efectos de capa (sombra, resplandor, desenfoque, color), cambiar dibujo por cuadro, labios automáticos con la voz y secuencia PNG con fondo transparente.\n" +
             "• Arreglado: modelos (sobre todo de Sketchfab) que se veían completamente negros en algunos móviles. Si el teléfono no puede reducir una textura grande, ahora se usa la original.\n" +
             "• Normal maps arreglados de verdad: en PC el relieve salía torcido (rayas, lados oscuros, luz al revés) cuando la imagen tenía transparencia o máscara de brillo; también se torcía un poco la luz de modelos sin relieve. En Android se leen siempre bien.\n" +
@@ -410,13 +476,13 @@ namespace Atlas
             if (seen == Version) return;
             try { PlayerPrefs.SetString("atlas.seen", Version); PlayerPrefs.Save(); } catch (System.Exception) { }
             if (seen == "") return;   // first install: the guide is enough
-            AtlasTheme.Dialog(canvasRoot, "Novedades · ATLAS 3D " + Version, WhatsNew, null, "Entendido", false, null);
+            AtlasTheme.Dialog(canvasRoot, "Novedades · ATLAS 5D " + Version, WhatsNew, null, "Entendido", false, null);
             toastHolder.SetAsLastSibling();
         }
 
         void ShowAbout()
         {
-            AtlasTheme.Dialog(canvasRoot, "ATLAS 3D " + Version,
+            AtlasTheme.Dialog(canvasRoot, "ATLAS 5D " + Version,
                 "Estudio de creación y animación 3D para móviles.\n\n" +
                 "Esta es la nueva versión hecha en Unity: más fluida y con mejor imagen (URP, sombras suaves, efectos de cine). " +
                 "Importa GLB, glTF, FBX, OBJ (+MTL), BLEND, Prisma3D, 3DS, STL, PLY y ZIP; exporta GLB, glTF, OBJ, STL, PLY y 3MF.\n\n" +

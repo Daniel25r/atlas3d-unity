@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.8.5";
+        public const string Version = "1.12.1";
 
         Camera cam;
         Light sunLight;
@@ -47,6 +47,7 @@ namespace Atlas
         void Awake()
         {
             Application.targetFrameRate = 60;
+            WindowTitle.Set("ATLAS 5D");
             // Always landscape (either side), from the first frame.
             Screen.autorotateToPortrait = false;
             Screen.autorotateToPortraitUpsideDown = false;
@@ -349,6 +350,7 @@ namespace Atlas
             it.ik = IkRig.Copy(d.ik);
             it.gobo = d.gobo ?? "";
             it.group = d.group ?? "";
+            it.hiddenBones = d.hiddenBones != null ? new List<string>(d.hiddenBones) : new List<string>();
             it.pixelated = d.pixelated;
             it.pureEmit = d.pureEmit;
             it.loopKeys = d.loopKeys;
@@ -783,10 +785,10 @@ namespace Atlas
             AtlasTheme.Dialog(canvasRoot, "Faltan las mallas del proyecto",
                 full
                 ? "Este proyecto de Prisma3D no trae dentro las mallas de sus objetos" + what + ". Suele pasar cuando se exporta sin guardar antes. " +
-                  "Ábrelo en Prisma3D, guárdalo y vuelve a exportarlo o compartirlo con ATLAS 3D.\n\nSi tienes sus archivos .pobject (carpeta «content»), tócalos con «Elegir archivos»."
+                  "Ábrelo en Prisma3D, guárdalo y vuelve a exportarlo o compartirlo con ATLAS 5D.\n\nSi tienes sus archivos .pobject (carpeta «content»), tócalos con «Elegir archivos»."
                 : "Un .proj de Prisma3D guarda sus modelos aparte" + what + ", en la carpeta «content» que está junto a él (archivos .pobject). " +
                   "Toca «Elegir archivos», entra en esa carpeta «content» y marca todos los .pobject (y las imágenes de «res» si tiene texturas).\n\n" +
-                  "Más fácil: en Prisma3D comparte el proyecto con ATLAS 3D o expórtalo como .prisma.",
+                  "Más fácil: en Prisma3D comparte el proyecto con ATLAS 5D o expórtalo como .prisma.",
                 null, "Elegir archivos", false, _ =>
                 {
                     if (NativeFilePicker.IsFilePickerBusy()) return;
@@ -1045,6 +1047,7 @@ namespace Atlas
         void ShowGizmo()
         {
             gizmo.pivot = null;
+            gizmo.axesFrom = null;
             if (lookThrough != null) { gizmo.Show(null); return; }
             if (meshMode != "")
             {
@@ -1054,6 +1057,7 @@ namespace Atlas
             if (poseMode)
             {
                 var bone = selected != null && activeBone != "" ? selected.Bone(activeBone) : null;
+                gizmo.axesFrom = selected != null ? selected.transform : null;
                 gizmo.Show(bone != null && tool != Tool.Select && !playing ? bone : null);
                 return;
             }
@@ -1165,6 +1169,7 @@ namespace Atlas
             try
             {
                 store.Save(Snapshot());
+                MaybeKeepVersion();
                 if (tell)
                 {
                     SaveThumbnail();
@@ -1297,6 +1302,7 @@ namespace Atlas
             UpdateEffects();
             UpdateWorld();
             UpdateLights();
+            EvaluateFxKeys();
             RefreshTimeline();
         }
 
@@ -1535,6 +1541,7 @@ namespace Atlas
             UpdateDesktop();
             UpdateLookThrough();
             UpdateReflections();
+            UpdateCurves();
             if (viewArea != null && Mathf.Abs(viewArea.rect.width - lastViewW) > 1f)
             {
                 lastViewW = viewArea.rect.width;

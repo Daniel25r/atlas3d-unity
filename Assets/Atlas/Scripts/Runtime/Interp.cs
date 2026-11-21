@@ -17,8 +17,81 @@ namespace Atlas
             "Cúbica (curva suave)", "Pesada (arranque y frenado lentos)", "Rebote", "Elástica (muelle)", "Pasarse y volver",
         };
 
+        // ------------------------------------------------------------------
+        // Custom curve (editor de curvas): "bez:x1,y1,x2,y2", a cubic Bézier
+        // from (0,0) to (1,1) with two handles, like CSS / After Effects.
+        public const string BezPrefix = "bez:";
+
+        public static bool IsBezier(string mode) { return mode != null && mode.StartsWith(BezPrefix); }
+
+        public static string Bezier(Vector4 h)
+        {
+            var c = System.Globalization.CultureInfo.InvariantCulture;
+            return BezPrefix + Mathf.Clamp01(h.x).ToString("0.###", c) + "," + h.y.ToString("0.###", c) + "," + Mathf.Clamp01(h.z).ToString("0.###", c) + "," + h.w.ToString("0.###", c);
+        }
+
+        static string lastBez;
+        static Vector4 lastHandles;
+
+        /// The two handles of a custom curve (x1, y1, x2, y2).
+        public static Vector4 Handles(string mode)
+        {
+            if (mode == lastBez) return lastHandles;
+            var h = new Vector4(0.42f, 0f, 0.58f, 1f);
+            if (IsBezier(mode))
+            {
+                var p = mode.Substring(BezPrefix.Length).Split(',');
+                float v;
+                var c = System.Globalization.CultureInfo.InvariantCulture;
+                if (p.Length == 4)
+                    for (int i = 0; i < 4; i++)
+                        if (float.TryParse(p[i], System.Globalization.NumberStyles.Float, c, out v)) h[i] = v;
+                h.x = Mathf.Clamp01(h.x);
+                h.z = Mathf.Clamp01(h.z);
+            }
+            lastBez = mode;
+            lastHandles = h;
+            return h;
+        }
+
+        static float Bez1(float a, float b, float t)
+        {
+            float u = 1f - t;
+            return 3f * u * u * t * a + 3f * u * t * t * b + t * t * t;
+        }
+
+        /// y for x on the curve (x found by bisection: always steady).
+        public static float BezierAt(Vector4 h, float x)
+        {
+            if (x <= 0f) return 0f;
+            if (x >= 1f) return 1f;
+            float lo = 0f, hi = 1f, t = x;
+            for (int i = 0; i < 24; i++)
+            {
+                t = (lo + hi) * 0.5f;
+                if (Bez1(h.x, h.z, t) < x) lo = t; else hi = t;
+            }
+            return Bez1(h.y, h.w, t);
+        }
+
+        /// Handles that match a ready-made mode (to start editing from it).
+        public static Vector4 HandlesFor(string mode)
+        {
+            if (IsBezier(mode)) return Handles(mode);
+            switch (string.IsNullOrEmpty(mode) ? EaseInOut : mode)
+            {
+                case Linear: return new Vector4(0.33f, 0.33f, 0.67f, 0.67f);
+                case EaseIn: return new Vector4(0.55f, 0f, 1f, 0.45f);
+                case EaseOut: return new Vector4(0f, 0.55f, 0.45f, 1f);
+                case Heavy: return new Vector4(0.8f, 0f, 0.2f, 1f);
+                case Back: return new Vector4(0.34f, 1.56f, 0.64f, 1f);
+            }
+            return new Vector4(0.42f, 0f, 0.58f, 1f);
+        }
+
         public static string Name(string mode)
         {
+            if (IsBezier(mode)) return "Curva personalizada";
             if (string.IsNullOrEmpty(mode)) mode = EaseInOut;
             int i = System.Array.IndexOf(Modes, mode);
             return i >= 0 ? Names[i] : "Suave (ease in-out)";
@@ -28,6 +101,7 @@ namespace Atlas
         public static float Shape(string mode, float t)
         {
             if (string.IsNullOrEmpty(mode)) mode = EaseInOut;
+            if (IsBezier(mode)) return BezierAt(Handles(mode), t);
             switch (mode)
             {
                 case Constant: return 0f;

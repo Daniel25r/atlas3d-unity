@@ -384,6 +384,7 @@ namespace Atlas
                     l.Add(new AtlasTheme.MenuItem("add", "Nuevo proyecto", () => { ShowHome(true); NewProject(false); }));
                     l.Add(new AtlasTheme.MenuItem("home", "Abrir proyecto…  (lista de proyectos)", () => ShowHome(true)));
                     l.Add(new AtlasTheme.MenuItem("save", "Guardar                Ctrl+S", () => SaveNow(true)));
+                    l.Add(new AtlasTheme.MenuItem("undo", "Versiones anteriores…", ShowVersions));
                     l.Add(new AtlasTheme.MenuItem("edit", "Renombrar…", RenameCurrentProject));
                     l.Add(new AtlasTheme.MenuItem("info", "Información del proyecto", ShowProjectInfo));
                     l.Add(AtlasTheme.MenuItem.Header("Importar y exportar"));
@@ -485,7 +486,8 @@ namespace Atlas
                 case "Ayuda":
                     l.Add(new AtlasTheme.MenuItem("help", "Guía de inicio", ShowGuide));
                     l.Add(new AtlasTheme.MenuItem("key", "Atajos de teclado", ShowShortcuts));
-                    l.Add(new AtlasTheme.MenuItem("info", "Acerca de ATLAS 3D", ShowAbout));
+                    l.Add(new AtlasTheme.MenuItem("info", "Informar de un error…", ShowBugReport));
+                    l.Add(new AtlasTheme.MenuItem("info", "Acerca de ATLAS 5D", ShowAbout));
                     break;
             }
             var corners = new Vector3[4];

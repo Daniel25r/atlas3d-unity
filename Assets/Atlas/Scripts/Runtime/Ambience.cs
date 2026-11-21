@@ -149,8 +149,12 @@ namespace Atlas
         static URP.DepthOfField dof;
         static URP.MotionBlur motion;
         static URP.ChromaticAberration chroma;
+        static URP.SplitToning split;
         static Material skyMat, cloudMat, stylizeMat;
         static EnvData lastEnv;
+        /// Renders in progress: motion blur only then (in the editor's view
+        /// it smeared everything while turning the camera).
+        public static bool Capturing;
         static bool glowWanted;
 
         /// Something in the scene glows (neon, emission): bloom makes it
@@ -168,7 +172,7 @@ namespace Atlas
         {
             if (dof == null || lastEnv == null) return;
             dof.active = !off && lastEnv.dof;
-            motion.active = !off && lastEnv.motionBlur > 0.01f;
+            motion.active = !off && Capturing && lastEnv.motionBlur > 0.01f;
         }
 
         /// The sky, the sun (or the moon) and the light of an hour of the
@@ -255,6 +259,7 @@ namespace Atlas
             dof = profile.Add<URP.DepthOfField>(true);
             motion = profile.Add<URP.MotionBlur>(true);
             chroma = profile.Add<URP.ChromaticAberration>(true);
+            split = profile.Add<URP.SplitToning>(true);
             vol.sharedProfile = profile;
             try
             {
@@ -357,17 +362,41 @@ namespace Atlas
             else if (e.cloudCover >= 0f && cloudMat != null && RenderSettings.skybox == cloudMat) cloudMat.SetFloat("_Cover", e.cloudCover);
             if (stylizeMat != null)
             {
-                stylizeMat.SetFloat("_Mode", p.stylize);
-                stylizeMat.SetFloat("_Amount", 1f);
+                bool own = e.style >= 0;
+                stylizeMat.SetFloat("_Mode", own ? e.style : p.stylize);
+                stylizeMat.SetFloat("_Amount", own ? Mathf.Clamp01(e.styleAmount) : 1f);
+                stylizeMat.SetFloat("_Pixel", Mathf.Max(0f, e.pixel));
+                stylizeMat.SetFloat("_Wide", Mathf.Clamp01(e.wideLens));
+                stylizeMat.SetFloat("_Lens", Mathf.Clamp01(e.dirtyLens));
+                stylizeMat.SetFloat("_Dust", Mathf.Clamp01(e.dust));
+                stylizeMat.SetFloat("_Vintage", Mathf.Clamp01(e.vintage));
             }
             if (profile == null) return;
             lastEnv = e;
             ApplyBloom(e);
-            tone.mode.Override(p.aces ? URP.TonemappingMode.ACES : URP.TonemappingMode.Neutral);
+            var tm = e.tonemap == 0 ? URP.TonemappingMode.None : e.tonemap == 1 ? URP.TonemappingMode.Neutral : e.tonemap == 2 ? URP.TonemappingMode.ACES
+                : (p.aces ? URP.TonemappingMode.ACES : URP.TonemappingMode.Neutral);
+            tone.mode.Override(tm);
+            // Colour grading («etalonaje»): tints for shadows and lights.
+            float gSat = 0f, gCon = 0f;
+            Color gSh = Color.gray, gHi = Color.gray, gFilter = p.filter;
+            switch (e.grade ?? "")
+            {
+                case "warm": gSh = new Color(0.55f, 0.45f, 0.4f); gHi = new Color(0.75f, 0.55f, 0.35f); gFilter = p.filter * new Color(1f, 0.95f, 0.88f); break;
+                case "cool": gSh = new Color(0.35f, 0.45f, 0.6f); gHi = new Color(0.5f, 0.58f, 0.7f); gFilter = p.filter * new Color(0.9f, 0.96f, 1.05f); break;
+                case "teal": gSh = new Color(0.2f, 0.5f, 0.55f); gHi = new Color(0.8f, 0.55f, 0.3f); gCon = 12f; break;
+                case "bw": gSat = -100f; gCon = 15f; break;
+                case "dramatic": gSat = -30f; gCon = 35f; gSh = new Color(0.35f, 0.4f, 0.5f); break;
+                case "dream": gSh = new Color(0.6f, 0.45f, 0.6f); gHi = new Color(0.75f, 0.6f, 0.7f); gCon = -15f; gSat = 10f; break;
+            }
+            split.active = gSh != Color.gray || gHi != Color.gray;
+            split.shadows.Override(gSh);
+            split.highlights.Override(gHi);
+            split.balance.Override(0f);
             color.postExposure.Override(e.exposure);
-            color.contrast.Override(e.contrast);
-            color.saturation.Override(e.saturation);
-            color.colorFilter.Override(p.filter);
+            color.contrast.Override(Mathf.Clamp(e.contrast + gCon, -100f, 100f));
+            color.saturation.Override(Mathf.Clamp(e.saturation + gSat, -100f, 100f));
+            color.colorFilter.Override(gFilter);
             vignette.active = e.vignette > 0.01f;
             vignette.intensity.Override(e.vignette);
             vignette.smoothness.Override(0.45f);
@@ -380,7 +409,7 @@ namespace Atlas
             dof.focusDistance.Override(Mathf.Max(0.1f, e.focus));
             dof.aperture.Override(Mathf.Lerp(16f, 1.2f, Mathf.Clamp01(e.dofBlur)));
             dof.focalLength.Override(Mathf.Lerp(35f, 120f, Mathf.Clamp01(e.dofBlur)));
-            motion.active = e.motionBlur > 0.01f;
+            motion.active = Capturing && e.motionBlur > 0.01f;
             motion.intensity.Override(Mathf.Clamp01(e.motionBlur));
             chroma.active = e.chroma > 0.01f;
             chroma.intensity.Override(Mathf.Clamp01(e.chroma));

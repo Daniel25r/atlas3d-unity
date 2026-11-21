@@ -340,6 +340,29 @@ namespace Atlas
                     edgeCount[ek] = c + 1;
                 }
             }
+            // An open sheet (a plane, a face with nothing around it): every
+            // border of the selection is also a border of the mesh. Its
+            // bottom stays closed, so it becomes a solid instead of an open
+            // box that looked broken and dark inside.
+            bool sheet = true;
+            var ef = EdgeFaces();
+            foreach (var kv in edgeCount)
+            {
+                if (kv.Value != 1) continue;
+                List<int> users;
+                if (ef.TryGetValue(kv.Key, out users) && users.Count > 1) { sheet = false; break; }
+            }
+            if (sheet)
+                foreach (int fi in sel)
+                {
+                    var f = faces[fi];
+                    var u = uvs[fi];
+                    var bf = new int[f.Length];
+                    var bu = new Vector2[f.Length];
+                    for (int k = 0; k < f.Length; k++) { bf[k] = f[f.Length - 1 - k]; bu[k] = u[f.Length - 1 - k]; }
+                    faces.Add(bf);
+                    uvs.Add(bu);
+                }
             var copy = new Dictionary<int, int>();
             foreach (int v in VertsOfFaces(sel))
             {

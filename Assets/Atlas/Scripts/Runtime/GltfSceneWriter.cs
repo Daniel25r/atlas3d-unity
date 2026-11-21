@@ -200,7 +200,7 @@ namespace Atlas
 
             // Rest transforms (at the frame on screen)
             var js2 = new StringBuilder();
-            js2.Append("{\"asset\":{\"version\":\"2.0\",\"generator\":\"ATLAS 3D\"},\"scene\":0,\"scenes\":[{\"name\":\"ATLAS 3D\",\"nodes\":[");
+            js2.Append("{\"asset\":{\"version\":\"2.0\",\"generator\":\"ATLAS 5D\"},\"scene\":0,\"scenes\":[{\"name\":\"ATLAS 5D\",\"nodes\":[");
             for (int i = 0; i < roots.Count; i++) js2.Append(i > 0 ? "," : "").Append(roots[i]);
             js2.Append("]}],\"nodes\":[");
             for (int i = 0; i < nodes.Count; i++)

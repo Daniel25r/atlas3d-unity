@@ -302,7 +302,18 @@ namespace Atlas
             else foreach (var it in items) if (it != null && it.Animated) ids.Add(it);
             string focus = poseMode && selected != null && activeBone != "" ? "b:" + activeBone : "";
             if (focus != "")
-                rows.Add(new TimelineRow { item = selected, track = focus, label = selected.BoneLabel(activeBone), focus = true, frames = selected.TrackFrames(focus) });
+            {
+                // A bone chosen: its own timeline (only its keys), like in
+                // Blender's dope sheet with one bone selected. The whole
+                // model stays as a reference row underneath.
+                rows.Add(new TimelineRow { item = selected, track = focus, label = "Hueso: " + selected.BoneLabel(activeBone), focus = true, frames = selected.TrackFrames(focus) });
+                if (timelineState >= 2)
+                    foreach (var track in selected.Tracks())
+                        if (track.StartsWith("b:") && track != focus)
+                            rows.Add(new TimelineRow { item = selected, track = track, label = "   " + selected.BoneLabel(track.Substring(2)), frames = selected.TrackFrames(track) });
+                rows.Add(new TimelineRow { item = selected, track = "", label = "Todo «" + selected.gameObject.name + "»", frames = selected.TrackFrames("") });
+                ids.Clear();
+            }
             foreach (var it in ids)
             {
                 rows.Add(new TimelineRow { item = it, track = "", label = (focus != "" && it == selected ? "Todo: " : "") + it.gameObject.name, frames = it.TrackFrames("") });
@@ -522,7 +533,12 @@ namespace Atlas
         void OpenKeyMenu(Vector3 screenOrWorld)
         {
             Vector2 sp = screenOrWorld;
-            var l = new List<AtlasTheme.MenuItem> { AtlasTheme.MenuItem.Header("Interpolación (hasta la clave siguiente)") };
+            var l = new List<AtlasTheme.MenuItem>
+            {
+                new AtlasTheme.MenuItem("curve", "Editor de curvas…", ToggleCurveEditor),
+                new AtlasTheme.MenuItem("scale", "Estirar claves en el tiempo…", AskRetimeKeys),
+                AtlasTheme.MenuItem.Header("Interpolación (hasta la clave siguiente)"),
+            };
             for (int i = 0; i < Interp.Modes.Length; i++)
             {
                 string mode = Interp.Modes[i];

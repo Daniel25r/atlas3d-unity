@@ -35,6 +35,9 @@ namespace Atlas
         public float pxScale = 1f;   // logical -> screen pixels (canvas scale)
         public bool snap;            // «Imán»: 0.25 m, 15°, ×0.1 (Preferencias)
         public bool localMove;        // move along the object's own axes (like Prisma3D), in Preferencias
+        /// Bones: the axes follow the model (turned model → turned arrows)
+        /// instead of the world or the bone's own, often crooked, axes.
+        public Transform axesFrom;
         public float sizeMul = 1f, snapMove = 0.25f, snapAngle = 15f;
 
         static float Snap(float v, float step) { return Mathf.Round(v / step) * step; }
@@ -160,7 +163,8 @@ namespace Atlas
             transform.position = at;
             // Moving uses the world axes; turning and stretching the object's own.
             // (the object's own axes also for moving when «localMove», like Prisma3D).
-            transform.rotation = tool == Tool.Move && !localMove ? Quaternion.identity : target.rotation;
+            if (axesFrom != null && tool != Tool.Scale && !localMove) transform.rotation = axesFrom.rotation;
+            else transform.rotation = tool == Tool.Move && !localMove ? Quaternion.identity : target.rotation;
             float d = Mathf.Max(0.001f, Vector3.Dot(at - cam.transform.position, cam.transform.forward));
             float worldH = 2f * d * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
             float s = worldH * BaseSizePx * sizeMul * pxScale / Mathf.Max(1f, Screen.height);

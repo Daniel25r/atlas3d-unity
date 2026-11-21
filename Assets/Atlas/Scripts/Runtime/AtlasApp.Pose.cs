@@ -76,6 +76,7 @@ namespace Atlas
             ShowGizmo();
             RefreshMode();
             RefreshProps();
+            RefreshKeys();
         }
 
         void SetActiveBone(string path)
@@ -95,6 +96,7 @@ namespace Atlas
             ShowGizmo();
             RefreshMode();
             RefreshProps();
+            RefreshKeys();   // the timeline switches to this bone
         }
 
         /// After dragging the manipulator on a bone: store it in the pose.
@@ -113,12 +115,44 @@ namespace Atlas
 
         /// The body's joints only (no hair, skirt or clothes bones) unless
         /// «Todos los huesos» is on; if that would leave nothing, all.
+        /// «Quitar hueso»: out of the view and the list (the model is not
+        /// changed: the bone stays as it is). «Recuperar» brings them back.
+        void HideBone(AtlasItem it, string path)
+        {
+            if (it == null || string.IsNullOrEmpty(path)) return;
+            if (!it.hiddenBones.Contains(path)) it.hiddenBones.Add(path);
+            string label = it.BoneLabel(path);
+            SetActiveBone("");
+            overlayItem = null;
+            Commit(true);
+            RefreshProps();
+            Toast("Hueso «" + label + "» quitado. «Recuperar huesos» lo devuelve");
+        }
+
+        void HideAllBones(AtlasItem it)
+        {
+            if (it == null) return;
+            AtlasTheme.Dialog(canvasRoot, "Quitar todos los huesos", "Ningún hueso de «" + it.gameObject.name + "» se verá ni se podrá elegir (el modelo no cambia). «Recuperar huesos» los devuelve cuando quieras.", null, "Quitar todos", true, _ =>
+            {
+                foreach (var p in it.BoneOrder) if (!IkRig.IsControl(p) && !it.hiddenBones.Contains(p)) it.hiddenBones.Add(p);
+                SetActiveBone("");
+                overlayItem = null;
+                Commit(true);
+                RefreshProps();
+                Toast("Huesos quitados de «" + it.gameObject.name + "»");
+            });
+        }
+
         bool ShowBone(AtlasItem it, string path)
         {
             string leaf = BoneNames.Leaf(path);
             if (IkRig.IsControl(path)) return true;
+            if (path == activeBone) return true;
+            if (it.hiddenBones != null && it.hiddenBones.Contains(path)) return false;
+            // «Mostrar todos»: also tips and helpers (some models only have
+            // those for fingers, tails or accessories).
+            if (allBones) return true;
             if (BoneNames.IsHelper(leaf)) return false;
-            if (allBones || path == activeBone) return true;
             if (!BoneNames.IsSecondary(leaf)) return true;
             return MainBoneCount(it) == 0;
         }
@@ -142,12 +176,14 @@ namespace Atlas
         int HiddenBoneCount(AtlasItem it)
         {
             int n = 0;
+            bool hasMain = MainBoneCount(it) > 0;
             foreach (var p in it.BoneOrder)
             {
+                if (IkRig.IsControl(p) || (it.hiddenBones != null && it.hiddenBones.Contains(p))) continue;
                 string l = BoneNames.Leaf(p);
-                if (!BoneNames.IsHelper(l) && BoneNames.IsSecondary(l)) n++;
+                if (BoneNames.IsHelper(l) || (hasMain && BoneNames.IsSecondary(l))) n++;
             }
-            return MainBoneCount(it) == 0 ? 0 : n;
+            return n;
         }
 
         void BuildBoneOverlay()
@@ -424,9 +460,16 @@ namespace Atlas
             BuildLipSyncSection(it, box);
             BuildSpringSection(it, box);
             BuildLookAtSection(it, box);
+            if (activeBone != "" && !IkRig.IsControl(activeBone))
+                AtlasTheme.TextButton(box, "delete", "Quitar este hueso (deja de verse y de elegirse)", () => HideBone(it, activeBone), false, 42f, 15);
+            var hb = AtlasTheme.Grid(box, 2, InnerWidth, 40f, 4f);
+            AtlasTheme.TextButton(hb, "delete", "Quitar todos los huesos", () => HideAllBones(it), false, 40f, 14);
+            int quitados = it.hiddenBones != null ? it.hiddenBones.Count : 0;
+            if (quitados > 0)
+                AtlasTheme.TextButton(hb, "undo", "Recuperar huesos (" + quitados + ")", () => { it.hiddenBones.Clear(); overlayItem = null; Commit(true); RefreshProps(); Toast("Huesos recuperados"); }, false, 40f, 14);
             int hidden = HiddenBoneCount(it);
             if (hidden > 0 || allBones)
-                AtlasTheme.Switch(box, "Mostrar también pelo, falda y ropa (" + hidden + ")", allBones, on =>
+                AtlasTheme.Switch(box, "Mostrar todos los huesos: pelo, ropa, puntas… (" + hidden + ")", allBones, on =>
                 {
                     allBones = on;
                     overlayItem = null;   // rebuilt with the new set

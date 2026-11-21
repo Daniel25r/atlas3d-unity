@@ -623,6 +623,8 @@ namespace Atlas
             Hint(sky, "La hora mueve el sol (o la luna), el color del cielo y la luz de la escena.");
             BuildCustomSkyControls(sky);
 
+            BuildStyleSection();
+
             var fx = Sec("Efectos de imagen", "image");
             AtlasTheme.SliderRow(fx, "Exposición", -2f, 2f, env.exposure, "0.00", x => { env.exposure = x; ApplyEnv(); }, () => Commit(true));
             AtlasTheme.SliderRow(fx, "Contraste", -50f, 50f, env.contrast, "0", x => { env.contrast = x; ApplyEnv(); }, () => Commit(true));

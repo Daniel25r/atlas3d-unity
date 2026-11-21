@@ -362,7 +362,7 @@ namespace Atlas.Import
             }
 
             var js = new StringBuilder();
-            js.Append("{\"asset\":{\"version\":\"2.0\",\"generator\":\"ATLAS 3D\"},\"scene\":0,\"scenes\":[{\"nodes\":[").Append(string.Join(",", roots)).Append("]}]");
+            js.Append("{\"asset\":{\"version\":\"2.0\",\"generator\":\"ATLAS 5D\"},\"scene\":0,\"scenes\":[{\"nodes\":[").Append(string.Join(",", roots)).Append("]}]");
             js.Append(",\"nodes\":[").Append(string.Join(",", nodeJson)).Append(']');
             js.Append(",\"meshes\":[").Append(string.Join(",", meshOut)).Append(']');
             if (matJson.Count > 0) js.Append(",\"materials\":[").Append(string.Join(",", matJson)).Append(']');

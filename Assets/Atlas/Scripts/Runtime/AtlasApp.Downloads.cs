@@ -118,7 +118,7 @@ namespace Atlas
             FillSaved();
 
             // Workshop
-            var l4 = AtlasTheme.Label(c, "WORKSHOP DE ATLAS 3D", 14, AtlasTheme.TextDim, true);
+            var l4 = AtlasTheme.Label(c, "WORKSHOP DE ATLAS 5D", 14, AtlasTheme.TextDim, true);
             AtlasTheme.Le(l4.gameObject, 22f);
             dlWorkshop = AtlasTheme.Rect(c, "Workshop");
             AtlasTheme.Column(dlWorkshop.gameObject, 6f, new RectOffset(0, 0, 0, 0));

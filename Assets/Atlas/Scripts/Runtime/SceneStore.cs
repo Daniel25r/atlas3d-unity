@@ -62,6 +62,7 @@ namespace Atlas
         public List<IkChain> ik = new List<IkChain>();
         public List<MorphValue> morphs = new List<MorphValue>();
         public string group = "";
+        public List<string> hiddenBones = new List<string>();
         public bool pixelated, pureEmit, loopKeys;
         public float reduce;
         public bool normalFlip;
@@ -134,6 +135,48 @@ namespace Atlas
         public float timeOfDay = -1f, cloudCover = -1f;
         public string skyImage = "";              // «Cielo propio»: a picture (project texture)
         public float skyRotation, skyExposure = 1f;
+        // Look of the whole picture: style (-1: the ambience's own; see
+        // Ambience.Styles) and its strength, plus effects on top.
+        public int style = -1;
+        public float styleAmount = 1f;
+        public float pixel, wideLens, dirtyLens, dust, vintage;
+        // Colour grading ("", warm, cool, teal, bw, dramatic, dream) and tone
+        // mapping (-1 the ambience's, 0 none, 1 neutral, 2 cinema / ACES).
+        public string grade = "";
+        public int tonemap = -1;
+        // Keys of the image effects (they change along the animation).
+        public List<EnvKey> fxKeys = new List<EnvKey>();
+    }
+
+    /// The image effects' values at one frame.
+    [Serializable]
+    public class EnvKey
+    {
+        public int frame;
+        public float exposure, contrast, saturation, bloom, vignette, grain, fog, motionBlur, chroma, dofBlur = 0.5f, focus = 5f;
+        public float styleAmount = 1f, pixel, wideLens, dirtyLens, dust, vintage;
+        public string interp = "";
+
+        public static EnvKey From(EnvData e, int f)
+        {
+            return new EnvKey
+            {
+                frame = f, exposure = e.exposure, contrast = e.contrast, saturation = e.saturation, bloom = e.bloom, vignette = e.vignette,
+                grain = e.grain, fog = e.fog, motionBlur = e.motionBlur, chroma = e.chroma, dofBlur = e.dofBlur, focus = e.focus,
+                styleAmount = e.styleAmount, pixel = e.pixel, wideLens = e.wideLens, dirtyLens = e.dirtyLens, dust = e.dust, vintage = e.vintage,
+            };
+        }
+
+        /// `e` gets the values between `a` and `b` at `t` (0 a … 1 b).
+        public static void Blend(EnvKey a, EnvKey b, float t, EnvData e)
+        {
+            Func<float, float, float> L = (x, y) => x + (y - x) * t;
+            e.exposure = L(a.exposure, b.exposure); e.contrast = L(a.contrast, b.contrast); e.saturation = L(a.saturation, b.saturation);
+            e.bloom = L(a.bloom, b.bloom); e.vignette = L(a.vignette, b.vignette); e.grain = L(a.grain, b.grain); e.fog = L(a.fog, b.fog);
+            e.motionBlur = L(a.motionBlur, b.motionBlur); e.chroma = L(a.chroma, b.chroma); e.dofBlur = L(a.dofBlur, b.dofBlur); e.focus = L(a.focus, b.focus);
+            e.styleAmount = L(a.styleAmount, b.styleAmount); e.pixel = Mathf.Round(L(a.pixel, b.pixel)); e.wideLens = L(a.wideLens, b.wideLens);
+            e.dirtyLens = L(a.dirtyLens, b.dirtyLens); e.dust = L(a.dust, b.dust); e.vintage = L(a.vintage, b.vintage);
+        }
     }
 
     [Serializable]
@@ -347,6 +390,7 @@ namespace Atlas
                     morphs = CopyMorphs(it.morphs),
                     gobo = it.gobo ?? "",
                     group = it.group ?? "",
+                    hiddenBones = it.hiddenBones != null ? new List<string>(it.hiddenBones) : new List<string>(),
                     pixelated = it.pixelated,
                     pureEmit = it.pureEmit,
                     loopKeys = it.loopKeys,
@@ -442,6 +486,45 @@ namespace Atlas
             File.WriteAllText(tmp, JsonUtility.ToJson(d, true));
             if (File.Exists(ScenePath)) File.Delete(ScenePath);
             File.Move(tmp, ScenePath);
+        }
+
+        // ------------------------------------------------------------------
+        // Earlier versions (copies of scene.json every few minutes)
+
+        public string VersionsDir { get { return Path.Combine(projectDir, "versiones"); } }
+
+        /// A copy of the saved scene now; only the newest `keep` stay.
+        public void KeepVersion(int keep)
+        {
+            if (!File.Exists(ScenePath)) return;
+            Directory.CreateDirectory(VersionsDir);
+            string to = Path.Combine(VersionsDir, DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".json");
+            File.Copy(ScenePath, to, true);
+            var all = Versions();
+            for (int i = Mathf.Max(1, keep); i < all.Count; i++)
+            {
+                try { File.Delete(all[i]); } catch (Exception) { }
+            }
+        }
+
+        /// Newest first.
+        public List<string> Versions()
+        {
+            var l = new List<string>();
+            if (Directory.Exists(VersionsDir)) l.AddRange(Directory.GetFiles(VersionsDir, "*.json"));
+            l.Sort((a, b) => string.CompareOrdinal(Path.GetFileName(b), Path.GetFileName(a)));
+            return l;
+        }
+
+        public static SceneData LoadFile(string path)
+        {
+            var d = JsonUtility.FromJson<SceneData>(File.ReadAllText(path));
+            if (d != null)
+            {
+                if (d.env == null) d.env = new EnvData();
+                foreach (var it in d.items) it.FixOld();
+            }
+            return d;
         }
 
         public SceneData Load()

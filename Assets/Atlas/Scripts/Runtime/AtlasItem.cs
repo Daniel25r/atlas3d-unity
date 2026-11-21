@@ -64,6 +64,7 @@ namespace Atlas
         public List<IkChain> ik = new List<IkChain>();   // IK rig: hands / feet controls
         public List<MorphValue> morphs = new List<MorphValue>();   // face / shape sliders set now
         public string group = "";        // objects selected together
+        public List<string> hiddenBones = new List<string>();   // «Quitar hueso»: not shown nor chosen
         public bool pureEmit;            // «Emisión pura»
         public bool loopKeys;            // the keys repeat after the last one («En bucle»)
         public float reduce;             // «Reducir polígonos»: 0 original .. 0.95
@@ -776,6 +777,41 @@ namespace Atlas
                 if (t != null) b.ApplyTo(t);
             }
             if (ik.Count > 0) IkRig.Solve(this);
+        }
+
+        /// The value of a channel at `frame`, without moving anything (for
+        /// the curve editor). "T" position, "R" rotation (degrees), "S"
+        /// scale, "O" opacity, "G" glow, "m:<shape>", "b:<bone>" (its
+        /// rotation, or `bonePos`: its position).
+        public bool TrackSample(string track, float frame, bool bonePos, out Vector3 v)
+        {
+            v = Vector3.zero;
+            frame = LoopFrame(frame);
+            KeyData a0, a, b, b1;
+            if (track.StartsWith("b:"))
+            {
+                var bp = BoneAt(track.Substring(2), frame);
+                if (bp == null) return false;
+                v = bonePos ? bp.p : bp.r.eulerAngles;
+                return true;
+            }
+            if (!Segment(track, frame, out a0, out a, out b, out b1)) return false;
+            float t = SegT(a, b, frame);
+            switch (track)
+            {
+                case "T": v = Interp.Blend(a.interp, a0.position, a.position, b.position, b1.position, t); return true;
+                case "R": v = Interp.Blend(a.interp, a.rotation, b.rotation, t).eulerAngles; return true;
+                case "S": v = Interp.Blend(a.interp, a0.scale, a.scale, b.scale, b1.scale, t); return true;
+                case "O": v = Interp.Blend(a.interp, new Vector3(a0.opacity, 0f, 0f), new Vector3(a.opacity, 0f, 0f), new Vector3(b.opacity, 0f, 0f), new Vector3(b1.opacity, 0f, 0f), t); return true;
+                case "G": v = Interp.Blend(a.interp, new Vector3(a0.glow, 0f, 0f), new Vector3(a.glow, 0f, 0f), new Vector3(b.glow, 0f, 0f), new Vector3(b1.glow, 0f, 0f), t); return true;
+            }
+            if (track.StartsWith("m:"))
+            {
+                string mn = track.Substring(2);
+                v = a == b ? new Vector3(a.Morph(mn), 0f, 0f) : Interp.Blend(a.interp, new Vector3(a0.Morph(mn), 0f, 0f), new Vector3(a.Morph(mn), 0f, 0f), new Vector3(b.Morph(mn), 0f, 0f), new Vector3(b1.Morph(mn), 0f, 0f), t);
+                return true;
+            }
+            return false;
         }
 
         BonePose BoneAt(string path, float frame)

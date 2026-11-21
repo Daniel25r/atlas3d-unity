@@ -211,6 +211,35 @@ namespace Atlas
             MeshOp("Crear cara", m => m.Fill(vs), true);
         }
 
+        /// «Rellenar agujero»: the hole around what is chosen (every hole if nothing is).
+        void FillHolesSelected()
+        {
+            if (selected == null || selected.edit == null) return;
+            HashSet<int> touch = null;
+            if (selMode == "edge" && selEdges.Count > 0) touch = VertsOfEdges();
+            else if (selMode == "vert" && selVerts.Count > 0) touch = new HashSet<int>(selVerts);
+            else if (selMode == "face" && selFaces.Count > 0)
+            {
+                touch = new HashSet<int>();
+                foreach (int f in selFaces) foreach (int v in selected.edit.faces[f]) touch.Add(v);
+            }
+            int n = 0;
+            MeshOp("Rellenar agujero", m => n = m.FillHoles(touch), true);
+            if (n == 0) Toast(touch == null ? "Esta forma no tiene agujeros" : "Lo elegido no está en el borde de un agujero");
+            else Toast(n == 1 ? "Agujero rellenado" : n + " agujeros rellenados");
+        }
+
+        /// «Puente»: joins two chosen borders (open edges) with faces.
+        void BridgeSelected()
+        {
+            if (selected == null || selected.edit == null) return;
+            if (selMode != "edge" || selEdges.Count < 2) { Toast("Pasa a «Aristas» y elige los bordes de dos agujeros (usa «Bucle» para elegir un borde entero)"); return; }
+            string why = "";
+            var edges = new HashSet<long>(selEdges);
+            MeshOp("Puente", m => why = m.Bridge(edges), true);
+            if (why != "") Toast(why, true);
+        }
+
         void LoopOrRing(bool ring)
         {
             if (selMode != "edge" || selEdges.Count == 0) { Toast("Pasa a «Aristas» y elige una arista"); return; }

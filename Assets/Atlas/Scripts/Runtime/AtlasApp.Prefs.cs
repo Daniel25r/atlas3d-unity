@@ -19,6 +19,7 @@ namespace Atlas
         public static int accent;
         public static float homeDim = 0.45f;   // darkening over the start screen's picture
         public static int profile = 2, maxFps = 60, msaa = 4;
+        public static int versionEvery = 5, versionKeep = 10;   // earlier versions: minutes (0 off) and how many
         public static string lang = "";
 
         /// The phone's language the first time: Arabic, English or Spanish.
@@ -61,6 +62,8 @@ namespace Atlas
             try { lang = PlayerPrefs.GetString("atlas.lang", ""); } catch (System.Exception) { lang = ""; }
             if (string.IsNullOrEmpty(lang)) lang = DefaultLang();
             msaa = I("msaa", 4);
+            versionEvery = I("versionEvery", 5);
+            versionKeep = Mathf.Clamp(I("versionKeep", 10), 1, 100);
             // First time on this device: a profile that suits it (phones
             // with little memory start lighter instead of freezing).
             bool known = false;
@@ -92,6 +95,8 @@ namespace Atlas
                 PlayerPrefs.SetInt("atlas.profile", profile);
                 PlayerPrefs.SetInt("atlas.maxFps", maxFps);
                 PlayerPrefs.SetInt("atlas.msaa", msaa);
+                PlayerPrefs.SetInt("atlas.versionEvery", versionEvery);
+                PlayerPrefs.SetInt("atlas.versionKeep", versionKeep);
                 PlayerPrefs.SetString("atlas.lang", lang);
                 PlayerPrefs.Save();
             }
@@ -189,6 +194,8 @@ namespace Atlas
         void BeginCapture()
         {
             capturing = true;
+            Ambience.Capturing = true;
+            ApplyEnv();
             var urp = Urp;
             if (urp != null) { urp.renderScale = 1f; urp.msaaSampleCount = 4; }
             ViewEffects(true);
@@ -199,6 +206,8 @@ namespace Atlas
         void EndCapture()
         {
             capturing = false;
+            Ambience.Capturing = false;
+            ApplyEnv();
             ApplyPrefs();
             SetAO(AOWanted);
         }
@@ -339,7 +348,7 @@ namespace Atlas
             AtlasTheme.SliderRow(c, "Escala de la interfaz", 0.7f, 1.5f, Prefs.uiScale, "0.00", v => { Prefs.uiScale = v; }, () => { ApplyPrefs(); Prefs.Save(); ShowPrefs(0); });
             PrefHint(c, "Más grande si los botones se ven pequeños; más pequeña para ver más escena. Se aplica al soltar.");
             AtlasTheme.TextButton(c, "help", "Ver la guía de inicio", () => { ClosePrefs(); ShowGuide(); }, false, 44f, 16);
-            AtlasTheme.TextButton(c, "info", "Acerca de ATLAS 3D", () => { ClosePrefs(); ShowAbout(); }, false, 44f, 16);
+            AtlasTheme.TextButton(c, "info", "Acerca de ATLAS 5D", () => { ClosePrefs(); ShowAbout(); }, false, 44f, 16);
         }
 
         void PrefsView(Transform c)
@@ -476,7 +485,7 @@ namespace Atlas
                 string first;
                 try { n = RestoreProjects(path, out first); }
                 catch (System.Exception e) { Toast("No se pudo leer la copia: " + e.Message, true); return; }
-                if (n == 0) { Toast("Ese archivo no es una copia de proyectos de ATLAS 3D", true); return; }
+                if (n == 0) { Toast("Ese archivo no es una copia de proyectos de ATLAS 5D", true); return; }
                 Toast(n == 1 ? "Proyecto «" + first + "» recuperado" : n + " proyectos recuperados");
                 if (store == null) RefreshHome();
             }, new string[] { "*/*" });

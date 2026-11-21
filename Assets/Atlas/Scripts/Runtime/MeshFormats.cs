@@ -593,7 +593,7 @@ namespace Atlas
             using (var w = new BinaryWriter(ms))
             {
                 var header = new byte[80];
-                Encoding.ASCII.GetBytes("ATLAS 3D").CopyTo(header, 0);
+                Encoding.ASCII.GetBytes("ATLAS 5D").CopyTo(header, 0);
                 w.Write(header);
                 w.Write((uint)n);
                 foreach (var p in parts)
@@ -621,7 +621,7 @@ namespace Atlas
             foreach (var p in parts) { nv += p.verts.Length; nf += p.tris.Length / 3; }
             using (var ms = new MemoryStream())
             {
-                string header = "ply\nformat binary_little_endian 1.0\ncomment ATLAS 3D\nelement vertex " + nv +
+                string header = "ply\nformat binary_little_endian 1.0\ncomment ATLAS 5D\nelement vertex " + nv +
                     "\nproperty float x\nproperty float y\nproperty float z\nproperty float nx\nproperty float ny\nproperty float nz\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nelement face " + nf +
                     "\nproperty list uchar int vertex_indices\nend_header\n";
                 var hb = Encoding.ASCII.GetBytes(header);
@@ -661,7 +661,7 @@ namespace Atlas
         {
             var obj = new StringBuilder();
             var mtl = new StringBuilder();
-            obj.Append("# ATLAS 3D\nmtllib ").Append(name).Append(".mtl\n");
+            obj.Append("# ATLAS 5D\nmtllib ").Append(name).Append(".mtl\n");
             var textures = new Dictionary<Texture, string>();
             int baseIndex = 1, mi = 0;
             foreach (var p in parts)
