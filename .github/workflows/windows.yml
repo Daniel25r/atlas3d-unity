@@ -47,6 +47,18 @@ jobs:
           buildName: ATLAS3D
           versioning: None
 
+      # MP4 export on the PC: FFmpeg (LGPL build) next to the program.
+      - name: Add FFmpeg (MP4 export)
+        run: |
+          set -e
+          curl -L --fail --retry 4 -o /tmp/ffmpeg.zip https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip
+          unzip -q /tmp/ffmpeg.zip -d /tmp/ffmpeg
+          sudo mkdir -p build/StandaloneWindows64/ffmpeg
+          sudo cp /tmp/ffmpeg/*/bin/ffmpeg.exe build/StandaloneWindows64/ffmpeg/
+          sudo cp /tmp/ffmpeg/*/LICENSE.txt build/StandaloneWindows64/ffmpeg/ || true
+          echo "FFmpeg (LGPL) - https://ffmpeg.org - compilado por https://github.com/BtbN/FFmpeg-Builds. ATLAS lo usa para crear los videos MP4." | sudo tee build/StandaloneWindows64/ffmpeg/LEEME.txt
+          ls -la build/StandaloneWindows64/ffmpeg
+
       - uses: actions/upload-artifact@v4
         with:
           name: ATLAS3D-Windows
