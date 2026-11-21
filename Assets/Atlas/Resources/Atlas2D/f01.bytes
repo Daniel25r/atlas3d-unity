@@ -248,6 +248,7 @@ function createCell() {
   return id;
 }
 function markCellDirty(id) {
+  viewStale = true;
   const e = cache.get(id);
   if (e) { e.dirty = true; e.used = ++useTick; }
   scheduleSave();
@@ -369,7 +370,9 @@ function rebuildScene() {
   const needed = [];
   for (const L of P.layers) if (L.visible && L.cells[f]) needed.push(L.cells[f]);
   const on = onionFrames();
-  needed.push(...on.prev, ...on.next);
+  needed.push(...on.prev, ...on.next, ...on.light);
+  if (on.ibPrev) needed.push(on.ibPrev);
+  if (on.ibNext) needed.push(on.ibNext);
   const missing = needed.filter(id => !cache.has(id));
   if (missing.length) {
     if (!sceneLoading) {
@@ -926,6 +929,17 @@ function updateHud() {
 let renderQueued = false, tlQueued = false;
 function requestRender() { if (!renderQueued) { renderQueued = true; requestAnimationFrame(doRender); } }
 function requestTimeline() { if (!tlQueued) { tlQueued = true; requestAnimationFrame(() => { tlQueued = false; drawTimeline(); }); } }
+// La imagen del cuadro ya compuesta: al moverse o hacer zoom solo se pinta esta
+// (antes se componían todas las capas en cada imagen y con vídeo o efectos iba a tirones).
+let viewStale = true, viewCvRef = null, lastViewKey = '', navUntil = 0, sharpenT = 0, halfOk = false;
+// Copia a media resolución (cuando la hoja se ve pequeña, pinta 4 veces menos píxeles)
+function drawViewImage(c, vc) {
+  if (view.z * DPR <= 0.55) {
+    const hw = Math.ceil(P.w / 2), hh = Math.ceil(P.h / 2), half = tmpCanvas('viewHalf', hw, hh);
+    if (!halfOk) { const t = resetCtx(ctx2d(half)); t.imageSmoothingQuality = 'high'; t.clearRect(0, 0, hw, hh); t.drawImage(vc, 0, 0, hw, hh); halfOk = true; }
+    c.drawImage(half, 0, 0, P.w, P.h);
+  } else c.drawImage(vc, 0, 0);
+}
 function doRender() {
   renderQueued = false;
   if (!P || !SW) return;
@@ -934,15 +948,31 @@ function doRender() {
   c.fillStyle = presenting ? '#000000' : '#2a2a30'; c.fillRect(0, 0, stage.width, stage.height);
   const m = viewMatrix();
   c.setTransform(DPR, 0, 0, DPR, 0, 0); c.transform(m.a, m.b, m.c, m.d, m.e, m.f);
-  c.imageSmoothingEnabled = view.z < 2; c.imageSmoothingQuality = 'high';
+  // Mientras se mueve la vista: escalado rápido; al parar, una imagen nítida
+  const vkey = view.x + ',' + view.y + ',' + view.z + ',' + (view.r || 0) + ',' + stage.width + 'x' + stage.height;
+  const now = performance.now();
+  if (vkey !== lastViewKey) { lastViewKey = vkey; navUntil = now + 160; clearTimeout(sharpenT); sharpenT = setTimeout(requestRender, 190); }
+  c.imageSmoothingEnabled = view.z < 2; c.imageSmoothingQuality = now < navUntil ? 'low' : 'high';
   drawPegBar(c);
-  c.save(); c.shadowColor = 'rgba(0,0,0,.4)'; c.shadowBlur = 22; c.shadowOffsetY = 6; c.fillStyle = P.paper; c.fillRect(0, 0, P.w, P.h); c.restore();
+  // sombra del papel sin desenfoque (era cara de dibujar en cada imagen)
+  c.fillStyle = 'rgba(0,0,0,.16)'; c.fillRect(-6 / view.z, 2 / view.z, P.w + 12 / view.z, P.h + 12 / view.z);
+  c.fillStyle = 'rgba(0,0,0,.22)'; c.fillRect(-2 / view.z, 3 / view.z, P.w + 4 / view.z, P.h + 5 / view.z);
+  c.fillStyle = P.paper; c.fillRect(0, 0, P.w, P.h);
   if (PB.playing) {
     const bm = PB.frames.get(PB.shown);
     if (bm) c.drawImage(bm, 0, 0, P.w, P.h);
   } else {
+    const wasDirty = sceneDirty;
     const ready = !sceneDirty || rebuildScene();
     if (ready) sceneDirty = false;
+    const live = !!(S || MV || SEL || LS || SD || AD);
+    const vc = tmpCanvas('view', P.w, P.h);
+    const reuse = ready && !wasDirty && !live && !viewStale && viewCvRef === vc;
+    if (reuse) drawViewImage(c, vc);
+    else {
+    // Sin edición en curso se compone en la imagen guardada; con un trazo en curso, directo a la pantalla
+    const out = live ? c : resetCtx(ctx2d(vc));
+    if (!live) { out.fillStyle = P.paper; out.fillRect(0, 0, P.w, P.h); }
     if (hasClipping() || anyMotion() || hasGroups() || anyFx() || sceneFxOn(cur.frame)) {
       // con máscaras de recorte se compone el cuadro completo
       const cc = tmpCanvas('comp', P.w, P.h), t = resetCtx(ctx2d(cc));
@@ -952,16 +982,19 @@ function doRender() {
         t.globalCompositeOperation = 'destination-over'; t.fillStyle = P.paper || '#ffffff'; t.fillRect(0, 0, P.w, P.h);
         resetCtx(t); applySceneFx(cc, cur.frame, P.w, P.h);
       }
-      c.drawImage(cc, 0, 0);
+      out.drawImage(cc, 0, 0);
     } else {
-      c.drawImage(belowCv, 0, 0);
+      out.drawImage(belowCv, 0, 0);
       const L = P.layers[cur.layer];
       if (L && L.visible) {
-        c.globalAlpha = L.opacity; c.globalCompositeOperation = L.blend || 'source-over';
-        drawLiveCell(c, L);
-        c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+        out.globalAlpha = L.opacity; out.globalCompositeOperation = L.blend || 'source-over';
+        drawLiveCell(out, L);
+        out.globalAlpha = 1; out.globalCompositeOperation = 'source-over';
       }
-      drawAboveLayers(c);
+      drawAboveLayers(out);
+    }
+    if (!live) { halfOk = false; viewCvRef = vc; drawViewImage(c, vc); }
+    viewStale = live || !ready;
     }
     drawGuides(c);
     drawCameraFrame(c);
@@ -2671,7 +2704,7 @@ async function toneParams(title, fields, col) {
    ========================================================= */
 const PB = { playing: false, frames: new Map(), shown: 0, start: 0, t0: 0, raf: 0, src: null, scale: 1 };
 function invalidateFrame(f) { const b = PB.frames.get(f); if (b) { if (b.close) b.close(); PB.frames.delete(f); } thumbDirty(f); }
-function invalidateAllFrames() { for (const b of PB.frames.values()) if (b.close) b.close(); PB.frames.clear(); for (let f = 0; f < STRIP.els.length; f++) thumbDirty(f); }
+function invalidateAllFrames() { viewStale = true; for (const b of PB.frames.values()) if (b.close) b.close(); PB.frames.clear(); for (let f = 0; f < STRIP.els.length; f++) thumbDirty(f); }
 function invalidateCellFrames(id) { for (const L of P.layers) L.cells.forEach((x, f) => { if (x === id) invalidateFrame(f); }); }
 async function preparePlayback() {
   const s = Math.min(1, PERF.previewMax / Math.max(P.w, P.h));

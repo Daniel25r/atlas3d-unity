@@ -404,6 +404,7 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• Arreglado: Atlas 2D iba a tirones al moverse o hacer zoom (sobre todo con un vídeo importado o con efectos). Ahora el cuadro se compone una vez y al mover la vista solo se pinta esa imagen: unas 3 veces más fluido.\n" +
             "• Mejorado: importar vídeo en Atlas 2D es mucho más rápido (el vídeo se reproduce acelerado y se captura cada fotograma al pasar, en vez de buscar uno a uno) y con mejor calidad (imagen suavizada en alta calidad y opción «Calidad: Alta»). Ya no llena la memoria del móvil.\n" +
             "• NUEVO · Atlas 2D con composición de estudio (satsuei): en «Efectos de anime» de cada capa, luz transmitida (T光), degradado «para» y desenfoque de movimiento con estela; en «Efectos de escena», difusión (DF), cuadros de impacto (negativo, tinta, blanco y negro o rojo) en los cuadros que elijas, y looks guardados para usar el mismo estilo en todos tus proyectos.\n" +
             "• NUEVO · Atlas 2D con tinta y color de anime (menú → «Tinta y color»): capa de línea de referencia para rellenar en otra capa; el color entra por debajo de la línea (sin bordes blancos); línea sin suavizado; colores con nombre que recolorean todos los dibujos a la vez; línea de color que toma el color del relleno; y capas de sombra y brillo automáticas o vacías, recortadas al color.\n" +

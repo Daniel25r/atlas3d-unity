@@ -1,4 +1,4 @@
-d43209c1f4563fd4f5e0a99fcfc97b98
+e0ca65d4376befdc187f9b7559e4e620
 app.css
 app.js
 fonts/bricolage-grotesque-latin-600-normal.woff2
