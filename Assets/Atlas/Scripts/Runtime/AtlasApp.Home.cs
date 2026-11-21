@@ -404,6 +404,7 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• NUEVO · Curva (Añadir → Curva): un tubo que pasa suave por varios puntos. Mueve cada punto con el manipulador, añade o quita puntos y elige grosor, lados, cerrada (aro) y puntas finas. Para cables, colas, tubos, cuerdas o letras.\n" +
             "• NUEVO · Shading (editor de materiales → Texturas generadas): degradado, ruido, nubes, cuadros, rayas, puntos, madera, mármol, ladrillos y baldosas en los dos colores que elijas, sin cortes al repetirse. Se pueden usar como textura, como relieve o como brillo propio, y mezclar la textura con otra imagen usando el patrón de máscara.\n" +
             "• NUEVO · Copiar y pegar materiales entre objetos y piezas.\n" +
             "• Arreglado: el render «Cine» a veces salía lleno de ruido de colores en algunos teléfonos (gráficos Mali). Ahora la imagen se lee de forma segura y una pasada corrupta se descarta.\n" +

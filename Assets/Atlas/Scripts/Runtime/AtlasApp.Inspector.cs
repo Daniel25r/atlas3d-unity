@@ -178,6 +178,7 @@ namespace Atlas
 
             BuildMultiSection();
             BuildTransformSection(it);
+            BuildCurveSection(it);
             BuildToonSection(it);
             if (!it.IsLight && it.kind != "camera")
             {

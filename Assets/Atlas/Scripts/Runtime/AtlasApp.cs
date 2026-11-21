@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.13.0";
+        public const string Version = "1.14.0";
 
         Camera cam;
         Light sunLight;
@@ -210,6 +210,7 @@ namespace Atlas
                 case "cone": return "Cono";
                 case "pyramid": return "Pirámide";
                 case "torus": return "Toroide";
+                case "curve": return "Curva";
                 case "light": return "Luz";
                 case "spot": return "Foco";
                 case "sun": return "Sol";
@@ -268,6 +269,9 @@ namespace Atlas
                 case "text":
                     go = MakeText3D();
                     break;
+                case "curve":
+                    go = MakeCurveObject();
+                    break;
                 case "water":
                 case "terrain":
                 case "flag":
@@ -280,6 +284,7 @@ namespace Atlas
             it.kind = d.kind;
             it.modelFile = d.modelFile;
             ApplyData(it, d);
+            if (it.kind == "curve") RebuildCurve(it);
             items.Add(it);
             if (!string.IsNullOrEmpty(it.meshFile)) LoadItemMesh(it);
             if (d.kind == "model") LoadModel(it);
@@ -351,6 +356,15 @@ namespace Atlas
             it.gobo = d.gobo ?? "";
             it.group = d.group ?? "";
             it.hiddenBones = d.hiddenBones != null ? new List<string>(d.hiddenBones) : new List<string>();
+            if (it.kind == "curve" || d.kind == "curve")
+            {
+                it.curvePts = d.curvePts != null && d.curvePts.Count >= 2 ? new List<Vector3>(d.curvePts) : DefaultCurvePoints();
+                it.curveRadius = d.curveRadius > 0f ? d.curveRadius : 0.05f;
+                it.curveSides = d.curveSides >= 3 ? d.curveSides : 8;
+                it.curveClosed = d.curveClosed;
+                it.curveTaper = d.curveTaper;
+                if (it.kind == "curve") RebuildCurve(it);
+            }
             it.pixelated = d.pixelated;
             it.pureEmit = d.pureEmit;
             it.loopKeys = d.loopKeys;
@@ -723,6 +737,7 @@ namespace Atlas
                 case "cylinder":
                 case "capsule": d.position.y = 1f; break;
                 case "torus": d.position.y = 0.17f; break;
+                case "curve": d.position.y = 0.7f; d.curvePts = DefaultCurvePoints(); break;
                 case "light":
                     d.position.y = 2.5f;
                     d.scale = Vector3.one * 0.25f;
@@ -1066,6 +1081,11 @@ namespace Atlas
                 var sel = selected;
                 gizmo.pivot = () => sel != null ? VisualCenter(sel) : Vector3.zero;
             }
+            if (selected != null && selected.kind == "curve" && curvePoint >= 0 && curvePtHandle != null && curvePtHandle.parent == selected.transform)
+            {
+                gizmo.Show(tool != Tool.Select && !playing ? curvePtHandle : null);
+                return;
+            }
             gizmo.Show(selected != null && !selected.locked && tool != Tool.Select && !playing ? selected.transform : null);
         }
 
@@ -1156,6 +1176,7 @@ namespace Atlas
         void Commit(bool save)
         {
             if (store == null) return;
+            SyncCurvePoint();
             store.Push(Snapshot());
             reflDirty = true;
             RefreshUndo();
@@ -1270,6 +1291,7 @@ namespace Atlas
         void AutoKey()
         {
             if (selected == null || !(autoKey || selected.Animated)) return;
+            if (curvePoint >= 0 && selected.kind == "curve") return;   // a point of the curve was moved, not the object
             int f = Mathf.RoundToInt(frame);
             if (poseMode && ikTip != "" && ikBones.Count > 0) selected.SetKey(f, 0, IkKeyBones());
             else if (poseMode && activeBone != "")
@@ -1542,6 +1564,7 @@ namespace Atlas
             UpdateLookThrough();
             UpdateReflections();
             UpdateCurves();
+            UpdateCurveEdit();
             if (viewArea != null && Mathf.Abs(viewArea.rect.width - lastViewW) > 1f)
             {
                 lastViewW = viewArea.rect.width;

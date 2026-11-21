@@ -73,6 +73,11 @@ namespace Atlas
         void SelectionChanged(AtlasItem it)
         {
             multi.Clear();
+            if (curvePoint >= 0 && (it == null || curvePtHandle == null || curvePtHandle.parent != it.transform))
+            {
+                curvePoint = -1;
+                if (curveGuide != null) curveGuide.gameObject.SetActive(false);
+            }
             if (it != null && !string.IsNullOrEmpty(it.group))
                 foreach (var o in GroupOf(it)) if (o != it) multi.Add(o);
             ShowMultiHighlight();

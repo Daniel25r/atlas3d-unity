@@ -65,6 +65,11 @@ namespace Atlas
         public List<MorphValue> morphs = new List<MorphValue>();   // face / shape sliders set now
         public string group = "";        // objects selected together
         public List<string> hiddenBones = new List<string>();   // «Quitar hueso»: not shown nor chosen
+        // «Curva»: the points it passes through (local), thickness and shape.
+        public List<Vector3> curvePts = new List<Vector3>();
+        public float curveRadius = 0.05f;
+        public int curveSides = 8;
+        public bool curveClosed, curveTaper;
         public bool pureEmit;            // «Emisión pura»
         public bool loopKeys;            // the keys repeat after the last one («En bucle»)
         public float reduce;             // «Reducir polígonos»: 0 original .. 0.95
@@ -113,7 +118,7 @@ namespace Atlas
         public bool IsLight { get { return kind == "light" || kind == "spot" || kind == "sun"; } }
         public bool IsShape { get { return !IsLight && kind != "model" && kind != "camera" && kind != "video" && kind != "fx" && kind != "water" && kind != "terrain" && kind != "text"; } }
         /// Built by ATLAS (not editable with Modelar).
-        public bool IsGenerated { get { return kind == "fx" || kind == "water" || kind == "terrain" || kind == "flag" || kind == "video" || kind == "text"; } }
+        public bool IsGenerated { get { return kind == "curve" || kind == "fx" || kind == "water" || kind == "terrain" || kind == "flag" || kind == "video" || kind == "text"; } }
         /// Lights and cameras: tools of the scene, not part of exported models.
         public bool IsHelper { get { return IsLight || kind == "camera"; } }
         public bool HasBones { get { return bones.Count > 0; } }

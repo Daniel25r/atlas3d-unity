@@ -63,6 +63,10 @@ namespace Atlas
         public List<MorphValue> morphs = new List<MorphValue>();
         public string group = "";
         public List<string> hiddenBones = new List<string>();
+        public List<Vector3> curvePts = new List<Vector3>();
+        public float curveRadius = 0.05f;
+        public int curveSides = 8;
+        public bool curveClosed, curveTaper;
         public bool pixelated, pureEmit, loopKeys;
         public float reduce;
         public bool normalFlip;
@@ -391,6 +395,8 @@ namespace Atlas
                     gobo = it.gobo ?? "",
                     group = it.group ?? "",
                     hiddenBones = it.hiddenBones != null ? new List<string>(it.hiddenBones) : new List<string>(),
+                    curvePts = it.curvePts != null ? new List<Vector3>(it.curvePts) : new List<Vector3>(),
+                    curveRadius = it.curveRadius, curveSides = it.curveSides, curveClosed = it.curveClosed, curveTaper = it.curveTaper,
                     pixelated = it.pixelated,
                     pureEmit = it.pureEmit,
                     loopKeys = it.loopKeys,

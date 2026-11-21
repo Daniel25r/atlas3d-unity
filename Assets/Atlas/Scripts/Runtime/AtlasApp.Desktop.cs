@@ -257,7 +257,7 @@ namespace Atlas
                 case "camera": return "camera";
                 case "light": case "spot": case "sun": return kind;
                 case "fx": return "sparkle";
-                case "text": return "edit";
+                case "text": case "curve": return "edit";
                 case "water": return "plane";
                 case "terrain": return "pyramid";
                 case "flag": case "image": return "image";
@@ -410,7 +410,7 @@ namespace Atlas
                     break;
                 case "Añadir":
                     l.Add(AtlasTheme.MenuItem.Header("Formas"));
-                    foreach (var k0 in new[] { "cube", "sphere", "cylinder", "capsule", "cone", "pyramid", "torus", "plane" })
+                    foreach (var k0 in new[] { "cube", "sphere", "cylinder", "capsule", "cone", "pyramid", "torus", "plane", "curve" })
                     {
                         string k = k0;
                         l.Add(new AtlasTheme.MenuItem(k, DisplayName(k), () => AddShape(k)));

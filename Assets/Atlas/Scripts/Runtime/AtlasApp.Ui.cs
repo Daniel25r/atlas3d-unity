@@ -307,7 +307,7 @@ namespace Atlas
             var title = AtlasTheme.Label(content, "FORMAS", 15, AtlasTheme.TextDim, true);
             AtlasTheme.Le(title.gameObject, 22f);
             var shapes = AtlasTheme.Grid(content, 2, 316f, 46f);
-            string[] kinds = { "cube", "sphere", "cylinder", "capsule", "cone", "pyramid", "torus", "plane" };
+            string[] kinds = { "cube", "sphere", "cylinder", "capsule", "cone", "pyramid", "torus", "plane", "curve" };
             foreach (var k in kinds)
             {
                 string kind = k;
