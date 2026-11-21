@@ -231,7 +231,7 @@ public static class AtlasBuild
         PlayerSettings.productName = "ATLAS 3D";
         // Separate id: installs next to the Godot version while we test.
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "org.atlas3d.unity");
-        PlayerSettings.bundleVersion = "1.16.0";
+        PlayerSettings.bundleVersion = "1.16.1";
         int run;
         if (int.TryParse(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"), out run))
             PlayerSettings.Android.bundleVersionCode = run;
@@ -418,7 +418,7 @@ public static class AtlasBuild
             m.EnableKeyword("_EMISSION");
             m.EnableKeyword("_NORMALMAP");
             m.SetColor("_EmissionColor", Color.black);
-            m.SetTexture("_BumpMap", Texture2D.normalTexture);
+            m.SetTexture("_BumpMap", FlatNormalAsset());
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
         }
         else if (name == "AtlasLitTransparent")
@@ -443,7 +443,7 @@ public static class AtlasBuild
             m.EnableKeyword("_EMISSION");
             m.EnableKeyword("_NORMALMAP");
             m.SetColor("_EmissionColor", Color.black);
-            m.SetTexture("_BumpMap", Texture2D.normalTexture);
+            m.SetTexture("_BumpMap", FlatNormalAsset());
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
             if (name == "AtlasLitCutoutNormal") Atlas.MatUtil.SetCutout(m, 0.5f);
             else
@@ -467,6 +467,49 @@ public static class AtlasBuild
             m.SetFloat("_Exposure", 1.2f);
         }
         AssetDatabase.CreateAsset(m, path);
+        if (name.EndsWith("Normal"))
+        {
+            // URP sets a new material's keywords again from its textures when
+            // it is saved: with a relief texture that was not a project file
+            // (Texture2D.normalTexture) «_NORMALMAP» was switched off, so the
+            // normal-map variant was stripped from the build and no relief
+            // ever showed on phones. Check it and put it back if needed.
+            var saved = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (saved != null)
+            {
+                if (saved.GetTexture("_BumpMap") == null) saved.SetTexture("_BumpMap", FlatNormalAsset());
+                saved.EnableKeyword("_NORMALMAP");
+                saved.EnableKeyword("_EMISSION");
+                EditorUtility.SetDirty(saved);
+                AssetDatabase.SaveAssets();
+                Debug.Log("ATLAS: " + name + " → " + string.Join(" ", saved.shaderKeywords) + " · relieve: " + (saved.GetTexture("_BumpMap") != null));
+            }
+        }
+    }
+
+    /// A flat relief picture saved in the project (a material's textures
+    /// must be project files to stay on it).
+    static Texture2D FlatNormalAsset()
+    {
+        string path = ResourcesDir + "/AtlasFlatNormal.png";
+        var have = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        if (have != null) return have;
+        var t = new Texture2D(4, 4, TextureFormat.RGBA32, false, true);
+        var px = new Color32[16];
+        for (int i = 0; i < px.Length; i++) px[i] = new Color32(128, 128, 255, 255);
+        t.SetPixels32(px);
+        t.Apply();
+        System.IO.File.WriteAllBytes(path, t.EncodeToPNG());
+        UnityEngine.Object.DestroyImmediate(t);
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+        var imp = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (imp != null)
+        {
+            imp.textureType = TextureImporterType.NormalMap;
+            imp.mipmapEnabled = false;
+            imp.SaveAndReimport();
+        }
+        return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
     }
 
     /// The FBX reader (ufbx, C source): compiled into the Android app by
