@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.16.1";
+        public const string Version = "1.17.0";
 
         Camera cam;
         Light sunLight;
@@ -1555,6 +1555,7 @@ namespace Atlas
 
         void LateUpdate()
         {
+            UpdateGeoPanel();
             if (inspectorDirty && propsPanel != null && propsPanel.activeSelf)
             {
                 inspectorDirty = false;

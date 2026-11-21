@@ -25,6 +25,8 @@ namespace Atlas
         public bool holes;
         public int topo;                // 0 quads, 1 triangles, 2 R-Cube
         public float round = 0.15f;     // R-Cube on a cube: rounded edges
+        public float height;            // cylinder, cone, pyramid, capsule: metres (0 = usual)
+        public float radius2 = -1f;     // radius at the top (×0.5 m like `radius`; -1 = usual)
 
         public GeoParams Clone() { return (GeoParams)MemberwiseClone(); }
     }
@@ -67,6 +69,18 @@ namespace Atlas
         }
 
         public static bool HasRings(string kind) { return kind != "cube"; }
+        public static bool HasHeight(string kind) { return kind == "cylinder" || kind == "cone" || kind == "pyramid" || kind == "capsule"; }
+        public static bool HasTop(string kind) { return kind == "cylinder" || kind == "cone" || kind == "pyramid"; }
+
+        public static float DefaultHeight(string kind)
+        {
+            return kind == "cylinder" || kind == "capsule" ? 2f : kind == "cone" || kind == "pyramid" ? 1f : 0f;
+        }
+
+        /// Metres: radius at the bottom, at the top, and the height.
+        public static float Radius(GeoParams g) { return 0.5f * Mathf.Clamp(g.radius, 0.02f, 40f); }
+        public static float Top(string kind, GeoParams g) { return g.radius2 >= 0f ? 0.5f * Mathf.Min(g.radius2, 40f) : (kind == "cylinder" ? Radius(g) : 0f); }
+        public static float Height(string kind, GeoParams g) { return g.height > 0f ? Mathf.Min(g.height, 100f) : DefaultHeight(kind); }
         public static bool HasRCube(string kind) { return kind == "sphere" || kind == "cube"; }
 
         // ------------------------------------------------------------------
@@ -102,6 +116,7 @@ namespace Atlas
             int rings = g.rings > 0 ? g.rings : DefaultRings(kind);
             var polys = new List<Poly>();
             bool tri = g.topo == 1;
+            float R = Radius(g), R2 = Top(kind, g), H = Height(kind, g);
             switch (kind)
             {
                 case "sphere":
@@ -110,16 +125,16 @@ namespace Atlas
                     else Lathe(polys, SphereProfile(Mathf.Max(2, rings)), Mathf.Max(3, seg), 0f, false);
                     break;
                 case "cylinder":
-                    Lathe(polys, Tube(-1f, 1f, 0.5f, 0.5f, Mathf.Max(1, rings)), Mathf.Max(3, seg), 0f, tri);
+                    Lathe(polys, Tube(-H / 2f, H / 2f, R, R2, Mathf.Max(1, rings)), Mathf.Max(3, seg), 0f, tri);
                     break;
                 case "cone":
-                    Lathe(polys, Tube(-0.5f, 0.5f, 0.5f, 0f, Mathf.Max(1, rings)), Mathf.Max(3, seg), 0f, tri);
+                    Lathe(polys, Tube(-H / 2f, H / 2f, R, R2, Mathf.Max(1, rings)), Mathf.Max(3, seg), 0f, tri);
                     break;
                 case "pyramid":
-                    Lathe(polys, Tube(-0.5f, 0.5f, 0.70710678f, 0f, Mathf.Max(1, rings)), Mathf.Max(3, seg), 45f, tri);
+                    Lathe(polys, Tube(-H / 2f, H / 2f, R * 1.41421356f, R2 * 1.41421356f, Mathf.Max(1, rings)), Mathf.Max(3, seg), 45f, tri);
                     break;
                 case "capsule":
-                    Lathe(polys, CapsuleProfile(Mathf.Max(1, rings)), Mathf.Max(3, seg), 0f, tri);
+                    Lathe(polys, CapsuleProfile(Mathf.Max(1, rings), R, H), Mathf.Max(3, seg), 0f, tri);
                     break;
                 case "torus":
                     Torus(polys, Mathf.Max(3, seg), Mathf.Max(3, rings), tri);
@@ -139,7 +154,7 @@ namespace Atlas
                 for (int i = 0; i < polys.Count; i++) if (!Hole(polys[i])) kept.Add(polys[i]);
                 polys = kept;
             }
-            Deform(polys, g);
+            Deform(polys, g, !HasHeight(kind));
             ToArrays(polys, g.holes, out verts, out norms, out uvs, out tris);
             return true;
         }
@@ -174,19 +189,20 @@ namespace Atlas
             return l;
         }
 
-        static List<Vector3> CapsuleProfile(int rings)
+        static List<Vector3> CapsuleProfile(int rings, float r, float h)
         {
             var l = new List<Vector3>();
             int hr = Mathf.Max(2, rings);
+            float c = Mathf.Max(0f, h / 2f - r);   // half of the straight part
             for (int j = 0; j <= hr; j++)
             {
                 float a = Mathf.PI * 0.5f * j / hr;
-                l.Add(new Vector3(Mathf.Sin(a) * 0.5f, -0.5f - Mathf.Cos(a) * 0.5f, 0.25f * j / hr));
+                l.Add(new Vector3(Mathf.Sin(a) * r, -c - Mathf.Cos(a) * r, 0.25f * j / hr));
             }
-            for (int j = 0; j <= hr; j++)
+            for (int j = c > 1e-5f ? 0 : 1; j <= hr; j++)
             {
                 float a = Mathf.PI * 0.5f * j / hr;
-                l.Add(new Vector3(Mathf.Cos(a) * 0.5f, 0.5f + Mathf.Sin(a) * 0.5f, 0.75f + 0.25f * j / hr));
+                l.Add(new Vector3(Mathf.Cos(a) * r, c + Mathf.Sin(a) * r, 0.75f + 0.25f * j / hr));
             }
             return l;
         }
@@ -358,7 +374,7 @@ namespace Atlas
         // ------------------------------------------------------------------
         // Radial deformation, twist and size
 
-        static void Deform(List<Poly> polys, GeoParams g)
+        static void Deform(List<Poly> polys, GeoParams g, bool uniform)
         {
             int ax = Mathf.Clamp(g.axis, 0, 2);
             int a1 = (ax + 1) % 3, a2 = (ax + 2) % 3;
@@ -367,7 +383,7 @@ namespace Atlas
             float span = Mathf.Max(1e-5f, hi - lo);
             float amount = Mathf.Clamp01(g.deform) * 0.6f * (g.sink ? -1f : 1f);
             float twist = g.twist * Mathf.Deg2Rad;
-            float size = Mathf.Clamp(g.radius, 0.05f, 20f);
+            float size = uniform ? Mathf.Clamp(g.radius, 0.02f, 40f) : 1f;
             int waves = Mathf.Clamp(g.waves, 1, 64);
             foreach (var f in polys)
                 for (int k = 0; k < f.p.Length; k++)
