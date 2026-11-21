@@ -1313,6 +1313,7 @@ function toolUp(e) {
   }
   const c = ctx2d(cv);
   if (s.tool !== 'eraser') {
+    if (aliasOff) binarize(strokeCv, box);
     const lay = P.layers.find(l => l.id === s.layerId);
     c.globalCompositeOperation = lay && lay.alphaLock ? 'source-atop' : 'source-over'; c.globalAlpha = s.opacity;
     c.drawImage(strokeCv, box.x, box.y, box.w, box.h, box.x, box.y, box.w, box.h);
@@ -1388,7 +1389,15 @@ function doFill(p) {
   const W = P.w, H = P.h, N = W * H;
   // imagen de referencia
   let src;
-  if (fillAll && !fullLayerMatrix(P.layers[cur.layer], cur.frame)) {
+  const refs = refLayers().filter(l => l !== P.layers[cur.layer]);
+  if (refs.length) {
+    // la línea de referencia + lo que ya hay en esta capa
+    const t = resetCtx(ctx2d(workCv, { willReadFrequently: true }));
+    t.clearRect(0, 0, W, H);
+    const list = P.layers.filter(l => refs.includes(l) || l === P.layers[cur.layer]);
+    composeList(t, list, cur.frame, W, H, getCellSync, false, 0);
+    src = t.getImageData(0, 0, W, H).data;
+  } else if (fillAll && !fullLayerMatrix(P.layers[cur.layer], cur.frame)) {
     // la guía es exactamente lo que se ve: fusión, recortes y transformaciones incluidas
     const t = resetCtx(ctx2d(workCv, { willReadFrequently: true }));
     t.clearRect(0, 0, W, H);
@@ -1418,6 +1427,11 @@ function doFill(p) {
   if (bar[seed]) { toast('Toca dentro de un área cerrada'); if (c.created) { P.layers[cur.layer].cells[cur.frame] = null; cache.delete(c.id); } return; }
   let mask = floodMask(bar, W, H, x, y);
   if (bar !== barrier) mask = dilate(mask, W, H, gap + 1);
+  // Rellenar por debajo de la línea: el color entra unos píxeles bajo el trazo (sin bordes blancos)
+  if (fillUnder > 0 && seedTransparent) {
+    const dm = dilate(mask, W, H, fillUnder);
+    for (let i = 0; i < N; i++) if (dm[i] && barrier[i]) mask[i] = 1;
+  }
   const n = parseInt(color.slice(1), 16), fr = n >> 16, fg = (n >> 8) & 255, fb = n & 255;
   const fa = toolSettings.brush.opacity / 100;
   // copia "antes" (sólo se recorta al final)
@@ -2430,6 +2444,227 @@ function drawStringGuide(c) {
   c.beginPath(); c.arc(a.x, a.y, stringLen / view.z, 0, Math.PI * 2); c.stroke();
   c.restore();
 }
+/* ---------- 62-color.js ---------- */
+/* =========================================================
+   Tinta y color de anime (shiage):
+   · capa de línea de referencia para el relleno
+   · rellenar por debajo de la línea (sin bordes blancos)
+   · línea sin suavizado (binaria) para rellenar sin huecos
+   · colores con nombre: cambiar uno recolorea toda la escena
+   · línea de color: la línea toma el color del relleno de al lado
+   · capas de sombra y brillo (recortadas al color), vacías o automáticas
+   ========================================================= */
+let fillUnder = 2, aliasOff = false;
+try {
+  const pr = JSON.parse(localStorage.getItem('trazo_color2') || '{}');
+  if (typeof pr.fillUnder === 'number') fillUnder = pr.fillUnder;
+  if (typeof pr.aliasOff === 'boolean') aliasOff = pr.aliasOff;
+} catch (e) { }
+function bindColorPrefs() {
+  const fu = $('fillUnder'), ao = $('aliasOff');
+  if (fu) { fu.value = fillUnder; $('fillUnderV').textContent = fillUnder; fu.oninput = e => { fillUnder = +e.target.value; $('fillUnderV').textContent = fillUnder; saveColorPrefs(); }; }
+  if (ao) { ao.checked = aliasOff; ao.onchange = e => { aliasOff = e.target.checked; saveColorPrefs(); }; }
+}
+bindColorPrefs();
+const saveColorPrefs = () => { try { localStorage.setItem('trazo_color2', JSON.stringify({ fillUnder, aliasOff })); } catch (e) { } };
+
+// Capas marcadas como «línea de referencia» (el relleno solo mira esas y la actual)
+const refLayers = () => P.layers.filter(L => L.ref && !isGroup(L) && L.visible);
+
+// Línea binaria: cada píxel del trazo es del todo opaco o del todo transparente
+function binarize(cv, box) {
+  const t = ctx2d(cv, { willReadFrequently: true });
+  const img = t.getImageData(box.x, box.y, box.w, box.h), d = img.data;
+  for (let k = 3; k < d.length; k += 4) d[k] = d[k] >= 110 ? 255 : 0;
+  t.putImageData(img, box.x, box.y);
+}
+
+const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+const rgbHex = (r, g, b) => '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+function allDrawingIds(onlyLayer) {
+  const s = new Set();
+  for (const L of P.layers) if (!isGroup(L) && (!onlyLayer || L === onlyLayer)) for (const id of L.cells) if (id) s.add(id);
+  return [...s];
+}
+
+/* ----- colores con nombre ----- */
+const COLOR_SET = [['Línea', '#1f1b16'], ['Piel', '#f6d2b8'], ['Piel sombra', '#d9a58f'], ['Pelo', '#2c2a3a'], ['Pelo brillo', '#6a6c8f'], ['Ropa', '#e56b2c'], ['Ropa sombra', '#b54a1c'], ['Ojos', '#3a5fd6']];
+async function recolorScene(fromHex, toHex) {
+  const [r0, g0, b0] = hexRgb(fromHex), [r1, g1, b1] = hexRgb(toHex);
+  const ids = allDrawingIds();
+  let changed = 0;
+  toast('Cambiando el color en ' + ids.length + ' dibujos…', 4000);
+  for (const id of ids) {
+    const cv = await loadCell(id); if (!cv) continue;
+    const t = ctx2d(cv, { willReadFrequently: true });
+    const img = t.getImageData(0, 0, P.w, P.h), d = img.data;
+    let hit = false;
+    for (let k = 0; k < d.length; k += 4) {
+      if (!d[k + 3]) continue;
+      if (Math.abs(d[k] - r0) + Math.abs(d[k + 1] - g0) + Math.abs(d[k + 2] - b0) <= 9) { d[k] = r1; d[k + 1] = g1; d[k + 2] = b1; hit = true; }
+    }
+    if (hit) { t.putImageData(img, 0, 0); markCellDirty(id); invalidateCellFrames(id); changed++; }
+  }
+  sceneDirty = true; requestRender(); requestTimeline();
+  toast(changed ? 'Color cambiado en ' + changed + ' dibujos' : 'Ningún dibujo usa ese color exacto');
+}
+async function namedColorsDialog() {
+  if (!P.named) P.named = [];
+  const list = el('div', { class: 'form' });
+  const render = () => {
+    list.innerHTML = '';
+    if (!P.named.length) list.appendChild(el('p', { class: 'note', text: 'Aún no hay colores. Añade el color actual o el juego básico de anime.' }));
+    P.named.forEach((c, i) => {
+      const sw = el('button', { class: 'tb', style: 'width:40px;height:34px;padding:0;flex:none;background:' + c.hex + ';border:2px solid #444', title: 'Usar este color' });
+      sw.onclick = () => { setColor(c.hex); toast('Color «' + c.name + '»'); };
+      const name = el('input', { type: 'text', value: c.name, maxlength: 24, style: 'flex:1;min-width:0;width:auto' });
+      name.onchange = () => { c.name = name.value.trim().slice(0, 24) || c.name; scheduleSave(); };
+      const pick = el('input', { type: 'color', value: c.hex, style: 'width:46px;height:34px;flex:none;padding:0', title: 'Cambiar este color en toda la escena' });
+      pick.onchange = async () => {
+        const old = c.hex, nu = pick.value.toLowerCase();
+        if (old === nu) return;
+        if (!(await confirmDlg('Cambiar «' + c.name + '»', 'Todo lo pintado con ' + old + ' pasará a ' + nu + ' en todos los dibujos. Para volver atrás, cámbialo de nuevo al color anterior.', 'Cambiar'))) { pick.value = old; return; }
+        c.hex = nu; scheduleSave(); await recolorScene(old, nu); render();
+      };
+      const del = el('button', { class: 'tb', text: '✕', style: 'flex:none', title: 'Quitar de la lista' });
+      del.onclick = () => { P.named.splice(i, 1); scheduleSave(); render(); };
+      list.appendChild(el('div', { style: 'display:flex;flex-wrap:nowrap;gap:6px;align-items:center' }, [sw, name, pick, del]));
+    });
+  };
+  render();
+  const addCur = el('button', { class: 'tb', text: '+ Color actual' });
+  addCur.onclick = () => { P.named.push({ name: 'Color ' + (P.named.length + 1), hex: color }); scheduleSave(); render(); };
+  const addSet = el('button', { class: 'tb', text: '+ Juego básico de anime' });
+  addSet.onclick = () => { for (const [n, h] of COLOR_SET) if (!P.named.some(c => c.name === n)) P.named.push({ name: n, hex: h }); scheduleSave(); render(); };
+  const body = el('div', { class: 'form' }, [
+    el('p', { class: 'note', text: 'Como las paletas de los estudios: cada color tiene nombre. Toca el cuadrado para pintar con él; cambia el selector de la derecha para recolorear ese color en TODOS los dibujos (día, noche, otra ropa…).' }),
+    list, el('div', { class: 'drow', style: 'gap:6px' }, [addCur, addSet]),
+  ]);
+  await dialog({ title: 'Colores con nombre', body, buttons: [{ label: 'Cerrar', value: null }] });
+}
+
+/* ----- línea de color: la línea toma el color del relleno que tiene debajo ----- */
+async function colorLines(scope, dark) {
+  const L = P.layers[cur.layer];
+  if (!L || isGroup(L)) { toast('Elige la capa de la línea'); return; }
+  const below = P.layers.filter((x, i) => i < cur.layer && !isGroup(x) && x.visible && (x.parent || null) === (L.parent || null));
+  if (!below.length) { toast('Pon los colores en una capa debajo de la línea'); return; }
+  const frames = [];
+  const seen = new Set();
+  for (let f = 0; f < P.frames; f++) {
+    const id = L.cells[f];
+    if (!id || seen.has(id)) continue;
+    if (scope === 'frame' && f !== cur.frame) continue;
+    seen.add(id); frames.push([f, id]);
+  }
+  const W = P.w, H = P.h;
+  const work = mkCanvas(W, H), wt = ctx2d(work, { willReadFrequently: true });
+  let n = 0;
+  for (const [f, id] of frames) {
+    for (const B of below) { const b = B.cells[f]; if (b) await loadCell(b); }
+    const cv = await loadCell(id); if (!cv) continue;
+    resetCtx(wt); wt.clearRect(0, 0, W, H);
+    composeList(wt, below, f, W, H, getCellSync, false, 0);
+    const bd = wt.getImageData(0, 0, W, H).data;
+    const t = ctx2d(cv, { willReadFrequently: true });
+    const img = t.getImageData(0, 0, W, H), d = img.data;
+    const before = new ImageData(new Uint8ClampedArray(d), W, H);
+    let hit = false;
+    for (let k = 0; k < d.length; k += 4) {
+      if (!d[k + 3] || bd[k + 3] < 200) continue;
+      d[k] = bd[k] * dark; d[k + 1] = bd[k + 1] * dark; d[k + 2] = bd[k + 2] * dark; hit = true;
+    }
+    if (!hit) continue;
+    t.putImageData(img, 0, 0);
+    pushUndo({ label: 'Línea de color', cellId: id, layerId: L.id, frame: f, created: false, x: 0, y: 0, before, after: t.getImageData(0, 0, W, H) });
+    afterEdit(id); n++;
+  }
+  toast(n ? 'Línea de color en ' + n + ' dibujos' : 'No hay relleno debajo de la línea (rellena antes la capa de color)');
+}
+
+/* ----- capas de sombra y brillo ----- */
+function addToneLayer(kind) {
+  const C = P.layers[cur.layer];
+  if (!C || isGroup(C)) { toast('Elige la capa de color'); return null; }
+  const L = { id: uid(), name: kind === 'shadow' ? 'Sombra' : 'Brillo', visible: true, locked: false, opacity: kind === 'shadow' ? 0.85 : 0.9,
+    blend: kind === 'shadow' ? 'multiply' : 'screen', clip: true, parent: C.parent || null, cells: new Array(P.frames).fill(null) };
+  P.layers.splice(cur.layer + 1, 0, L);
+  reorderLayers(); cur.layer = P.layers.indexOf(L);
+  return L;
+}
+async function autoToneLayer(kind, dist, lightDeg, col, soft) {
+  const C = P.layers[cur.layer];
+  if (!C || isGroup(C)) { toast('Elige la capa de color (la que tiene los rellenos)'); return; }
+  const base = C;
+  const map = new Map();
+  for (const id of base.cells) if (id && !map.has(id)) map.set(id, null);
+  if (!map.size) { toast('La capa «' + base.name + '» no tiene dibujos'); return; }
+  toast('Creando ' + (kind === 'shadow' ? 'sombras' : 'brillos') + ' en ' + map.size + ' dibujos…', 3000);
+  const a = lightDeg * Math.PI / 180, lx = Math.cos(a), ly = Math.sin(a);
+  const dx = (kind === 'shadow' ? lx : -lx) * dist, dy = (kind === 'shadow' ? ly : -ly) * dist;
+  for (const id of map.keys()) {
+    const src = await loadCell(id); if (!src) continue;
+    const band = shiftedBand(src, P.w, P.h, dx, dy, col, soft, 'tone');
+    const nid = createCell();
+    ctx2d(getCellSync(nid)).drawImage(band, 0, 0);
+    markCellDirty(nid);
+    map.set(id, nid);
+  }
+  const L = addToneLayer(kind);
+  if (!L) return;
+  L.cells = base.cells.map(id => id ? map.get(id) : null);
+  L.blend = kind === 'shadow' ? 'multiply' : 'screen';
+  structural(kind === 'shadow' ? 'Sombras automáticas' : 'Brillos automáticos');
+  toast('Capa «' + L.name + '» creada y recortada al color: retócala con el pincel o el borrador como cualquier dibujo', 4000);
+}
+
+/* ----- diálogo «Tinta y color» ----- */
+async function inkPaintDialog() {
+  const L = P.layers[cur.layer];
+  const mk = (v, t, s) => el('button', { html: escapeHtml(t) + (s ? '<small>' + escapeHtml(s) + '</small>' : ''), onclick: () => closeDialog(v) });
+  const isRef = L && L.ref;
+  const r = await dialog({ title: 'Tinta y color', body: el('div', { class: 'menu' }, [
+    mk('ref', isRef ? 'Dejar de usar «' + L.name + '» como línea' : 'Usar «' + (L ? L.name : '') + '» como línea de referencia', 'El relleno de las otras capas se detiene en esta línea (línea en una capa, color en otra)'),
+    mk('named', 'Colores con nombre…', 'Piel, piel sombra, pelo…: cambia uno y cambia en todos los dibujos'),
+    mk('lineF', 'Línea de color (este dibujo)', 'La línea toma el color del relleno que tiene debajo, más oscuro'),
+    mk('lineL', 'Línea de color (toda la capa)', 'Lo mismo en todos los dibujos de la capa'),
+    mk('autoS', 'Sombras automáticas → capa nueva', 'Sombra de anime de dos tonos en todos los dibujos, editable'),
+    mk('autoH', 'Brillos automáticos → capa nueva', 'Brillo en el borde que mira a la luz, editable'),
+    mk('newS', 'Capa de sombra vacía', 'Recortada al color y en Multiplicar: pinta las sombras a mano'),
+    mk('newH', 'Capa de brillo vacía', 'Recortada al color y en Trama: pinta los brillos a mano'),
+  ]), buttons: [{ label: 'Cerrar', value: null }] });
+  if (!r) return;
+  if (r === 'ref') {
+    if (!L || isGroup(L)) { toast('Elige una capa de dibujo'); return; }
+    L.ref = !L.ref; structural(L.ref ? 'Capa de línea' : 'Quitar capa de línea');
+    toast(L.ref ? '«' + L.name + '» es la línea: al rellenar en otra capa, el color se detiene en ella' : '«' + L.name + '» ya no es la línea de referencia');
+  } else if (r === 'named') namedColorsDialog();
+  else if (r === 'lineF' || r === 'lineL') {
+    const dk = await toneParams('Línea de color', [['dark', 'Oscuridad de la línea', 20, 100, 55, '%']]);
+    if (dk) await colorLines(r === 'lineF' ? 'frame' : 'layer', dk.dark / 100);
+  } else if (r === 'autoS' || r === 'autoH') {
+    const sh = r === 'autoS';
+    const p = await toneParams(sh ? 'Sombras automáticas' : 'Brillos automáticos', [
+      ['dist', 'Tamaño', 2, 120, sh ? 22 : 8, ' px'], ['ang', 'Dirección de la luz', -180, 180, -45, '°'], ['soft', 'Suavidad', 0, 20, 0, ' px'],
+    ], sh ? '#b8a6d6' : '#ffffff');
+    if (p) await autoToneLayer(sh ? 'shadow' : 'light', p.dist, p.ang, p.col, p.soft);
+  } else if (r === 'newS' || r === 'newH') {
+    if (addToneLayer(r === 'newS' ? 'shadow' : 'light')) { structural(r === 'newS' ? 'Capa de sombra' : 'Capa de brillo'); toast('Pinta aquí: solo se verá dentro del color de la capa de abajo'); }
+  }
+}
+async function toneParams(title, fields, col) {
+  const x = {};
+  const rows = fields.map(([k, label, min, max, v, unit]) => {
+    x[k] = v;
+    const out = el('output', { text: v + unit });
+    const r = el('input', { type: 'range', min: String(min), max: String(max), value: String(v) });
+    r.oninput = () => { x[k] = parseFloat(r.value); out.textContent = r.value + unit; };
+    return el('label', {}, [el('span', {}, [label + ' ', out]), r]);
+  });
+  if (col) { x.col = col; const c = el('input', { type: 'color', value: col }); c.oninput = () => { x.col = c.value; }; rows.push(el('label', {}, ['Color', c])); }
+  const ok = await dialog({ title, body: el('div', { class: 'form' }, rows), buttons: [{ label: 'Cancelar', value: false }, { label: 'Hacer', value: true, primary: true }] });
+  return ok ? x : null;
+}
 /* ---------- 65-reproduccion.js ---------- */
 /* =========================================================
    Reproducción
@@ -2824,6 +3059,7 @@ async function showHelp() {
     ['Personajes por piezas', 'Panel Animar → «Punto de giro» en cada articulación y «Pegada a» la pieza de arriba (mano → antebrazo → brazo → cuerpo). Al girar el brazo, la mano va con él. «Estirar ancho / alto» sirve para aplastar y estirar.'],
     ['Sustitución y labios', 'Menú → «Cambiar dibujo» pone cualquier dibujo de la capa en el cuadro actual. «Labios automáticos» elige la boca de cada cuadro según la voz del audio.'],
     ['Efectos', 'Menú → «Efectos de la capa»: sombra proyectada, resplandor, desenfoque, brillo, contraste, saturación, tono y teñido.'],
+    ['Tinta y color', 'Menú → «Tinta y color»: marca la capa de la línea como referencia y rellena en otra capa debajo; el color entra bajo la línea (ajuste «Bajo la línea» del bote). «Colores con nombre» recolorea un color en todos los dibujos. «Línea de color» tiñe la línea con el relleno. «Sombras / brillos automáticos» crean capas recortadas que puedes retocar.'],
     ['Tiempo de anime', 'Menú del cuadro → «Duración del dibujo» (a 1s, 2s, 3s) y «Marcar: clave / extremo / intermedio». Menú → «Hoja de tiempos» muestra todo como la hoja de un estudio. Mantén pulsado el botón del papel cebolla para sus ajustes: hasta 8 dibujos, colores, solo claves, ayuda para intercalar y mesa de luz.'],
     ['Línea limpia', 'Toca dos veces el pincel → «Cuerda»: el trazo solo avanza cuando el lápiz se aleja, para líneas limpias de anime. Tres dedos = rehacer.'],
     ['Anime', 'Menú → «Efectos de anime»: aura de energía que se mueve sola, luz de contorno, sombra de dos tonos y destellos, con estilos listos (Ultra instinto, aura dorada…). «Efectos de escena»: líneas de velocidad, temblor, resplandor, aberración cromática, destello y grano entre los cuadros que elijas.'],
@@ -2842,6 +3078,7 @@ $('btnMenu').onclick = async () => {
     mk('swap', 'Cambiar dibujo de este cuadro', 'Sustitución: elige cualquier dibujo de la capa (bocas, manos, ojos…)'),
     mk('lips', 'Labios automáticos', 'La boca se mueve sola siguiendo la voz del audio'),
     mk('fx', 'Efectos de la capa', 'Sombra, resplandor, desenfoque, brillo, color'),
+    mk('ink', '🖌️ Tinta y color', 'Línea de referencia, colores con nombre, línea de color, sombras y brillos'),
     mk('xsheet', '📋 Hoja de tiempos', 'Cuadros y dibujos como en un estudio; ritmo a 1s, 2s, 3s'),
     mk('onion', '🧅 Papel cebolla y mesa de luz', 'Cuántos dibujos, colores, opacidad, ayuda para intercalar'),
     mk('anime', '⚡ Efectos de anime', 'Aura de energía, luz de contorno, sombra de anime, destellos'),
@@ -2865,6 +3102,7 @@ $('btnMenu').onclick = async () => {
   else if (r === 'fx') layerFxDialog();
   else if (r === 'anime') animeFxDialog();
   else if (r === 'xsheet') xsheetDialog();
+  else if (r === 'ink') inkPaintDialog();
   else if (r === 'onion') onionDialog();
   else if (r === 'scene') sceneFxDialog();
   else if (r === 'image') $('imageFile').click();

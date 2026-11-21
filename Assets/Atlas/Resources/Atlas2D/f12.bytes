@@ -188,12 +188,15 @@
     <label class="sl"><span>Estabilizador</span><input type="range" id="smooth" min="0" max="90" value="35"><output id="smoothV">35</output></label>
     <p class="note">Suaviza el temblor de la mano. Más alto = líneas más limpias pero con algo de retraso.</p>
     <label class="sl"><span>Cuerda</span><input type="range" id="stringLen" min="0" max="80" value="0"><output id="stringLenV">0</output></label>
+    <label class="chk"><input type="checkbox" id="aliasOff"> Línea sin suavizado (para rellenar sin huecos)</label>
     <p class="note">Línea limpia de anime: el trazo solo avanza cuando el lápiz se aleja esa distancia (como Harmony y TVPaint). 0 = apagado.</p>
   </div>
   <div id="optFill" class="form" hidden>
     <label class="sl"><span>Cerrar huecos</span><input type="range" id="gap" min="0" max="6" value="2"><output id="gapV">2</output></label>
     <label class="sl"><span>Tolerancia</span><input type="range" id="tol" min="0" max="100" value="30"><output id="tolV">30</output></label>
     <label class="chk"><input type="checkbox" id="fillAll" checked> Usar todas las capas como guía</label>
+    <label class="sl"><span>Bajo la línea</span><input type="range" id="fillUnder" min="0" max="6" value="2"><output id="fillUnderV">2</output></label>
+    <p class="note">El color entra unos píxeles por debajo de la línea: sin bordes blancos entre línea y color, como en los estudios de anime.</p>
   </div>
   <div id="optShape" class="form" hidden>
     <div class="lbl">Forma</div>
