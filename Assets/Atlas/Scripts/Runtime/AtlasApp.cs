@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.25.1";
+        public const string Version = "1.26.0";
 
         Camera cam;
         Light sunLight;
@@ -615,7 +615,9 @@ namespace Atlas
                 // Pictures are seen from both sides.
                 // Modelled shapes too: an extruded edge or a deleted face leaves
                 // open surfaces, which looked invisible from behind.
-                if (m.HasProperty("_Cull")) m.SetFloat("_Cull", it.kind == "image" || it.kind == "flag" || !string.IsNullOrEmpty(it.meshFile) || it.edit != null ? 0f : 2f);
+                // Modelled shapes carry their own inside faces (EditMesh.ToMesh),
+                // so only flat pictures need both sides drawn.
+                if (m.HasProperty("_Cull")) m.SetFloat("_Cull", it.kind == "image" || it.kind == "flag" ? 0f : 2f);
             }
             foreach (var r in it.GetComponentsInChildren<Renderer>(true))
                 if (!(r is LineRenderer) && r.gameObject.name != "Volumen") r.sharedMaterial = m;
@@ -1673,6 +1675,28 @@ namespace Atlas
                 MeshDragEnd();
                 moved = -1f;
                 return;
+            }
+            if (draggingGizmo && !poseMode && meshMode == "")
+            {
+                // A tap (no drag) that landed on the manipulator's rings over
+                // ANOTHER object picks that object: the rings covered nearby
+                // objects, so «varios» could not add them.
+                float tol0 = Mathf.Max(14f, (Screen.dpi > 0f ? Screen.dpi : 320f) * 0.09f);
+                if ((pos - downPos).magnitude < tol0 && moved < tol0 * 2.2f)
+                {
+                    var under = PickItem(pos);
+                    if (under != null && under != selected)
+                    {
+                        gizmo.End();
+                        draggingGizmo = false;
+                        GroupDragEnd();
+                        moved = -1f;
+                        orbiting = false;
+                        CloseMenus();
+                        SelectTap(under);
+                        return;
+                    }
+                }
             }
             if (draggingGizmo)
             {

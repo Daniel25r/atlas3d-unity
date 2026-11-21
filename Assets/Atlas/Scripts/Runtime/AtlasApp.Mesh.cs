@@ -137,7 +137,14 @@ namespace Atlas
         {
             if (it.edit != null) return;
             var mf = it.GetComponent<MeshFilter>();
-            it.edit = EditMesh.FromMesh(mf.sharedMesh);
+            // Shapes start from their real faces (quads, one-face lids).
+            EditMesh fresh = null;
+            if (string.IsNullOrEmpty(it.meshFile) && ShapeGen.Supports(it.kind))
+            {
+                try { fresh = ShapeGen.Editable(it.kind, it.geo != null && it.geo.on ? it.geo : new GeoParams()); }
+                catch (System.Exception e) { Debug.LogWarning("ATLAS: forma editable: " + e.Message); }
+            }
+            it.edit = fresh != null && fresh.faces.Count > 0 ? fresh : EditMesh.FromMesh(mf.sharedMesh);
             if (it.editMesh == null) it.editMesh = new Mesh { name = "Malla editable" };
             it.edit.ToMesh(it.editMesh);
             mf.sharedMesh = it.editMesh;

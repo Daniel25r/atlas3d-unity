@@ -198,6 +198,15 @@ namespace Atlas
                 }
                 for (int k = 1; k < f.Length - 1; k++) { tri.Add(b); tri.Add(b + k); tri.Add(b + k + 1); }
             }
+            // An open shape (deleted faces, a single extruded edge): its
+            // inside is drawn too, with its own light, so a hole shows the
+            // inner wall instead of seeing through it.
+            if (HasOpenEdges())
+            {
+                int n0 = pos.Count, t0 = tri.Count;
+                for (int i = 0; i < n0; i++) { pos.Add(pos[i]); nor.Add(-nor[i]); uv.Add(uv[i]); }
+                for (int i = 0; i < t0; i += 3) { tri.Add(tri[i] + n0); tri.Add(tri[i + 2] + n0); tri.Add(tri[i + 1] + n0); }
+            }
             m.Clear();
             m.indexFormat = pos.Count > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16;
             m.SetVertices(pos);
@@ -210,6 +219,20 @@ namespace Atlas
 
         // ------------------------------------------------------------------
         // Topology helpers
+
+        /// True when some edge belongs to only one face (the surface has a hole or a border).
+        public bool HasOpenEdges()
+        {
+            var count = new Dictionary<long, int>();
+            foreach (var f in faces)
+                for (int k = 0; k < f.Length; k++)
+                {
+                    long e = EdgeKey(f[k], f[(k + 1) % f.Length]);
+                    int c; count.TryGetValue(e, out c); count[e] = c + 1;
+                }
+            foreach (var c in count.Values) if (c == 1) return true;
+            return false;
+        }
 
         public List<int>[] Neighbors()
         {

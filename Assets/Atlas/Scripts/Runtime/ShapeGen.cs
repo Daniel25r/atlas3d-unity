@@ -112,6 +112,30 @@ namespace Atlas
         public static bool Arrays(string kind, GeoParams g, out List<Vector3> verts, out List<Vector3> norms, out List<Vector2> uvs, out List<int> tris)
         {
             verts = norms = null; uvs = null; tris = null;
+            var polys = Polys(kind, g);
+            if (polys == null) return false;
+            ToArrays(polys, g.holes, out verts, out norms, out uvs, out tris);
+            return true;
+        }
+
+        /// The shape as faces (quads, n-gon lids) for Modelar: clean like
+        /// Blender's, instead of rebuilding faces from loose triangles.
+        public static EditMesh Editable(string kind, GeoParams g)
+        {
+            var polys = Polys(kind, g);
+            if (polys == null) return null;
+            var v = new List<Vector3>(); var uv = new List<Vector2>(); var faces = new List<int[]>();
+            foreach (var f in polys)
+            {
+                var idx = new int[f.p.Length];
+                for (int k = 0; k < idx.Length; k++) { idx[k] = v.Count; v.Add(f.p[k]); uv.Add(f.uv[k]); }
+                faces.Add(idx);
+            }
+            return EditMesh.FromPolys(v.ToArray(), uv.ToArray(), faces);
+        }
+
+        static List<Poly> Polys(string kind, GeoParams g)
+        {
             int seg = g.seg > 0 ? g.seg : DefaultSeg(kind);
             int rings = g.rings > 0 ? g.rings : DefaultRings(kind);
             var polys = new List<Poly>();
@@ -146,7 +170,7 @@ namespace Atlas
                     CubeShape(polys, Mathf.Max(1, seg), g.topo == 2 ? Mathf.Clamp(g.round, 0.01f, 0.5f) : 0f, false);
                     if (tri) polys = Split(polys, true);
                     break;
-                default: return false;
+                default: return null;
             }
             if (g.holes)
             {
@@ -155,8 +179,7 @@ namespace Atlas
                 polys = kept;
             }
             Deform(polys, g, !HasHeight(kind));
-            ToArrays(polys, g.holes, out verts, out norms, out uvs, out tris);
-            return true;
+            return polys;
         }
 
         // A checker of holes, by the face's place in its grid.
@@ -225,6 +248,24 @@ namespace Atlas
                     int cell = i + j;
                     bool bottom = p0.x < 1e-6f, top = p1.x < 1e-6f;
                     if (bottom && top) continue;
+                    // A flat lid (cylinder, cone base): ONE face with all the
+                    // rim, like Blender, not a star of thin triangles.
+                    bool flat = Mathf.Abs(p0.y - p1.y) < 1e-6f;
+                    if (flat && (bottom || top))
+                    {
+                        if (i > 0) continue;
+                        var ring = new Vector3[seg]; var ru = new Vector2[seg];
+                        Vector3 rp = bottom ? p1 : p0; float ro = bottom ? o1 : o0;
+                        float rr = Mathf.Max(1e-5f, rp.x);
+                        for (int k = 0; k < seg; k++)
+                        {
+                            int q = bottom ? seg - 1 - k : k;
+                            ring[k] = Ring(rp, (q + ro) / seg, a0);
+                            ru[k] = new Vector2(0.5f + ring[k].x / (2f * rr), 0.5f + ring[k].z / (2f * rr));
+                        }
+                        Add(polys, 0, ring, ru);
+                        continue;
+                    }
                     if (bottom) Add(polys, cell, new[] { A, C, D }, new[] { uA, uC, uD });
                     else if (top) Add(polys, cell, new[] { A, B, C }, new[] { uA, uB, uC });
                     else if (tri)
