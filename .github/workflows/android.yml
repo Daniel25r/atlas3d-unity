@@ -12,6 +12,8 @@ concurrency:
 jobs:
   android:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 120
     steps:
       - name: Free disk space
@@ -61,3 +63,16 @@ jobs:
           name: ATLAS3D-Android
           path: build/Android
           retention-days: 14
+
+      # Public download: a GitHub Release per version (the website's
+      # «Descargar para Android» always points to the newest one).
+      - name: Publish release (Android)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          V=$(grep -oP 'Version = "\K[^"]+' Assets/Atlas/Scripts/Runtime/AtlasApp.cs)
+          APK=$(ls build/Android/*.apk | head -1)
+          cp "$APK" ATLAS5D-Android.apk
+          gh release view "v$V" >/dev/null 2>&1 || gh release create "v$V" --title "ATLAS 5D $V" --notes "ATLAS 5D $V · Android (APK) y Windows (ZIP)." --latest || true
+          gh release upload "v$V" ATLAS5D-Android.apk --clobber

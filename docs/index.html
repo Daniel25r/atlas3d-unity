@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ATLAS 5D · Animación 3D y 2D en tu móvil y PC</title>
+<meta name="description" content="ATLAS 5D: anima en 3D y en 2D desde el móvil o el PC. Huesos, modelado, materiales, estilos de imagen, render y vídeo MP4. Gratis para Android y Windows.">
+<meta property="og:title" content="ATLAS 5D">
+<meta property="og:description" content="Animación 3D y 2D en un solo programa, para Android y Windows.">
+<meta property="og:image" content="icon.png">
+<link rel="icon" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0a10; --bg2:#121019; --card:#17141f; --card2:#1d1928; --line:#2a2438;
+    --text:#f2eff8; --dim:#a9a2bb; --faint:#6f6884;
+    --accent:#b05cff; --accent2:#8b3dff; --glow:rgba(176,92,255,.35); --ok:#4ade80;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 20px}
+  /* Top bar */
+  header{position:sticky;top:0;z-index:10;background:rgba(11,10,16,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  .bar{display:flex;align-items:center;gap:16px;height:68px}
+  .brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:800 22px Sora,sans-serif;letter-spacing:-.02em}
+  .brand img{width:38px;height:38px;border-radius:10px}
+  .brand b{color:var(--accent)}
+  nav{margin-left:auto;display:flex;gap:4px}
+  nav a{text-decoration:none;color:var(--dim);font-weight:600;padding:9px 14px;border-radius:10px;font-size:15px}
+  nav a:hover{color:var(--text);background:var(--card)}
+  nav a.on{color:var(--text);background:var(--card2)}
+  /* Hero */
+  .hero{position:relative;overflow:hidden;padding:72px 0 56px;text-align:center}
+  .hero:before{content:"";position:absolute;inset:-40% -20% auto;height:640px;background:radial-gradient(closest-side,var(--glow),transparent 70%);pointer-events:none}
+  .logo{position:relative;width:132px;height:132px;margin:0 auto 22px;filter:drop-shadow(0 0 28px var(--glow))}
+  h1{position:relative;font:800 clamp(40px,7vw,76px)/1.02 Sora,sans-serif;letter-spacing:-.035em;margin:0 0 16px}
+  h1 span{background:linear-gradient(90deg,#d6a6ff,var(--accent) 55%,#7c3aed);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{position:relative;max-width:720px;margin:0 auto 30px;color:var(--dim);font-size:clamp(17px,2.2vw,20px)}
+  .dl{position:relative;display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+  .btn{display:inline-flex;align-items:center;gap:10px;text-decoration:none;font:700 17px Sora,sans-serif;padding:16px 26px;border-radius:16px;background:linear-gradient(180deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 10px 30px -10px var(--glow),inset 0 1px 0 rgba(255,255,255,.25);transition:transform .15s}
+  .btn:hover{transform:translateY(-2px)}
+  .btn.ghost{background:var(--card2);box-shadow:none;border:1px solid var(--line)}
+  .btn svg{width:22px;height:22px;fill:currentColor}
+  .ver{position:relative;margin-top:16px;color:var(--faint);font-size:14px}
+  .ver b{color:var(--ok);font-weight:600}
+  /* Sections */
+  section{padding:56px 0}
+  h2{font:800 clamp(28px,4vw,42px)/1.1 Sora,sans-serif;letter-spacing:-.025em;margin:0 0 10px}
+  .sub{color:var(--dim);margin:0 0 30px;max-width:720px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;position:relative;overflow:hidden}
+  .card:hover{border-color:#3b3150}
+  .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--card2);margin-bottom:14px;font-size:22px}
+  .card h3{font:700 19px Sora,sans-serif;margin:0 0 8px;letter-spacing:-.01em}
+  .card p{margin:0;color:var(--dim);font-size:15px}
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .tag{font-size:12.5px;color:var(--dim);background:var(--bg2);border:1px solid var(--line);padding:3px 9px;border-radius:99px}
+  /* 5D band */
+  .five{background:linear-gradient(135deg,#1b1229,#120e1b);border:1px solid #3a2a55;border-radius:28px;padding:40px;display:grid;grid-template-columns:1.2fr 1fr;gap:28px;align-items:center}
+  .five .big{font:800 clamp(60px,10vw,120px)/1 Sora,sans-serif;letter-spacing:-.05em;text-align:center;background:linear-gradient(135deg,#e9d5ff,var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .five ul{margin:14px 0 0;padding-left:20px;color:var(--dim)}
+  /* Download section */
+  .dlbox{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+  .plat{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:28px}
+  .plat h3{display:flex;align-items:center;gap:10px;font:700 22px Sora,sans-serif;margin:0 0 6px}
+  .plat h3 svg{width:26px;height:26px;fill:var(--accent)}
+  .plat ol{color:var(--dim);padding-left:20px;margin:12px 0 20px}
+  .note{color:var(--faint);font-size:14px;margin-top:14px}
+  /* Changelog */
+  .log{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:8px 24px}
+  .log details{border-bottom:1px solid var(--line);padding:14px 0}
+  .log details:last-child{border-bottom:0}
+  .log summary{cursor:pointer;font:700 17px Sora,sans-serif;list-style:none;display:flex;justify-content:space-between}
+  .log summary:after{content:"+";color:var(--accent)}
+  .log details[open] summary:after{content:"–"}
+  .log ul{color:var(--dim);margin:10px 0 0;padding-left:20px}
+  footer{border-top:1px solid var(--line);padding:30px 0 40px;color:var(--faint);font-size:14px}
+  footer .wrap{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:center}
+  footer a{color:var(--dim)}
+  @media (max-width:760px){
+    nav a:not(.on){display:none}
+    .five{grid-template-columns:1fr;padding:28px}
+    .hero{padding-top:48px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap bar">
+    <a class="brand" href="#"><img src="icon.png" alt="">ATLAS <b>5D</b></a>
+    <nav>
+      <a class="on" href="#">Inicio</a>
+      <a href="#funciones">Funciones</a>
+      <a href="#descargar">Descargar</a>
+      <a href="#novedades">Novedades</a>
+      <a href="https://daniel25r.github.io/atlas3d-workshop/">Workshop</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <img class="logo" src="logo.png" alt="Logo de ATLAS 5D">
+      <h1>Anima en <span>3D y 2D</span><br>desde tu móvil.</h1>
+      <p class="lead">ATLAS 5D es un programa de animación completo para Android y Windows: personajes con huesos, modelado, materiales, estilos de imagen, render de cine y vídeo MP4. Gratis.</p>
+      <div class="dl">
+        <a class="btn" href="https://github.com/Daniel25r/atlas3d-unity/releases/latest/download/ATLAS5D-Android.apk">
+          <svg viewBox="0 0 24 24"><path d="M17.6 9.48 19.44 6.3a.38.38 0 1 0-.66-.38l-1.86 3.22a11.4 11.4 0 0 0-9.84 0L5.22 5.92a.38.38 0 1 0-.66.38L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/></svg>
+          Descargar para Android</a>
+        <a class="btn" href="https://github.com/Daniel25r/atlas3d-unity/releases/latest/download/ATLAS5D-Windows.zip">
+          <svg viewBox="0 0 24 24"><path d="M3 5.1 10.4 4v7.2H3V5.1zm0 13.8 7.4 1.1v-7.1H3v6zm8.3 1.2L21 21.5v-8.6h-9.7v7.2zm0-16.2v7.3H21V2.5l-9.7 1.4z"/></svg>
+          Descargar para Windows</a>
+      </div>
+      <p class="ver" id="ver">Última versión: cargando…</p>
+    </div>
+  </div>
+
+  <section id="funciones">
+    <div class="wrap">
+      <h2>Todo para animar, en un solo programa.</h2>
+      <p class="sub">Pensado para la pantalla táctil y también para ratón y teclado en el PC, con interfaz de escritorio.</p>
+      <div class="grid">
+        <div class="card"><div class="ic">🎬</div><h3>Animar</h3><p>Fotogramas clave con línea de tiempo, editor de curvas con tiradores, estirar claves en el tiempo, bucles, copiar y pegar claves y animar los efectos de imagen.</p><div class="tags"><span class="tag">Curvas</span><span class="tag">Rebote</span><span class="tag">Muelle</span></div></div>
+        <div class="card"><div class="ic">🦴</div><h3>Personajes con huesos</h3><p>Modo pose con línea de tiempo por hueso, cinemática inversa (IK), modo espejo, expresiones guardadas, labios con la voz, huesos con rebote y copiar animaciones entre personajes.</p><div class="tags"><span class="tag">IK</span><span class="tag">Pintar pesos</span><span class="tag">Mirar a</span></div></div>
+        <div class="card"><div class="ic">🧊</div><h3>Modelar y esculpir</h3><p>Vértices, aristas y caras: extruir, bisel, cuchillo, corte en bucle, puente, rellenar agujeros, dar grosor, subdividir, espejo, curvas con grosor y editor UV.</p><div class="tags"><span class="tag">Puente</span><span class="tag">Curvas</span><span class="tag">UV</span></div></div>
+        <div class="card"><div class="ic">🎨</div><h3>Materiales y shading</h3><p>Editor de materiales con vista previa, normal maps, emisión, texturas generadas (madera, mármol, ladrillos, nubes…), mezclas con máscara y biblioteca «Mis materiales».</p><div class="tags"><span class="tag">PBR</span><span class="tag">Patrones</span><span class="tag">Copiar/pegar</span></div></div>
+        <div class="card"><div class="ic">✨</div><h3>Estilos de imagen</h3><p>Spider-Verse, anime, cómic, contorno de tinta, póster, pintura, boceto, retro y VHS. Encima: lente sucia, polvo, película antigua, pixelado, gran angular y etalonaje de cine.</p><div class="tags"><span class="tag">Aspecto realista</span><span class="tag">Toon</span></div></div>
+        <div class="card"><div class="ic">💡</div><h3>Escenas y luz</h3><p>Ambientes listos, cielo con hora del día o tu propia imagen 360°, luces y focos con volumen, agua, terreno, clima animado, partículas y física con gravedad.</p><div class="tags"><span class="tag">Cielo 360°</span><span class="tag">Partículas</span></div></div>
+        <div class="card"><div class="ic">🎥</div><h3>Render y vídeo</h3><p>Render «Cine» con desenfoque de lente y de movimiento, renderizado progresivo, vídeo MP4 con todos los sonidos, GIF, secuencias PNG y cortes entre cámaras.</p><div class="tags"><span class="tag">MP4</span><span class="tag">GIF</span><span class="tag">4K</span></div></div>
+        <div class="card"><div class="ic">📦</div><h3>Importa de todo</h3><p>GLB/glTF, FBX, OBJ, 3DS, BLEND, STL, PLY, modelos de Source (MDL, PCF, GMA), Prisma3D y Minecraft (Blockbench y Bedrock). Exporta a GLB, OBJ, STL y más.</p><div class="tags"><span class="tag">Source</span><span class="tag">Prisma3D</span><span class="tag">Minecraft</span></div></div>
+        <div class="card"><div class="ic">📱</div><h3>Para cualquier móvil</h3><p>Resolución automática cuando el móvil va lento, ahorro de batería en reposo, texturas ajustadas a la memoria del teléfono y perfiles de calidad. Español, inglés y árabe.</p><div class="tags"><span class="tag">Gama baja</span><span class="tag">3 idiomas</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="five">
+        <div>
+          <h2>¿Por qué «5D»?</h2>
+          <p class="sub" style="margin-bottom:0">Porque son dos programas en uno: <b>ATLAS 3D</b> para animar en tres dimensiones y <b>Artlas 2D</b> para dibujar y animar a mano, en la misma app.</p>
+          <ul>
+            <li>Artlas 2D: capas, carpetas, papel cebolla, pinceles y relleno con cierre de huecos.</li>
+            <li>Rotoscopia: importa un vídeo y dibuja encima, cuadro a cuadro.</li>
+            <li>Personajes por piezas con punto de giro, efectos de capa y labios automáticos.</li>
+            <li>Exporta MP4 con audio, GIF o secuencia PNG transparente.</li>
+          </ul>
+        </div>
+        <div class="big">3D+2D</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="descargar">
+    <div class="wrap">
+      <h2>Descargar</h2>
+      <p class="sub">Siempre la versión más nueva. Gratis y sin cuenta.</p>
+      <div class="dlbox">
+        <div class="plat">
+          <h3><svg viewBox="0 0 24 24"><path d="M17.6 9.48 19.44 6.3a.38.38 0 1 0-.66-.38l-1.86 3.22a11.4 11.4 0 0 0-9.84 0L5.22 5.92a.38.38 0 1 0-.66.38L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52z"/></svg>Android</h3>
+          <ol>
+            <li>Descarga el archivo <b>ATLAS5D-Android.apk</b>.</li>
+            <li>Ábrelo. Si el teléfono lo pide, permite «instalar apps de origen desconocido».</li>
+            <li>Las versiones nuevas se instalan encima: no pierdes tus proyectos.</li>
+          </ol>
+          <a class="btn" href="https://github.com/Daniel25r/atlas3d-unity/releases/latest/download/ATLAS5D-Android.apk">Descargar APK</a>
+        </div>
+        <div class="plat">
+          <h3><svg viewBox="0 0 24 24"><path d="M3 5.1 10.4 4v7.2H3V5.1zm0 13.8 7.4 1.1v-7.1H3v6zm8.3 1.2L21 21.5v-8.6h-9.7v7.2zm0-16.2v7.3H21V2.5l-9.7 1.4z"/></svg>Windows</h3>
+          <ol>
+            <li>Descarga <b>ATLAS5D-Windows.zip</b> y descomprímelo en una carpeta.</li>
+            <li>Abre <b>ATLAS3D.exe</b>. Si Windows avisa, pulsa «Más información» → «Ejecutar de todas formas».</li>
+            <li>La carpeta <b>ffmpeg</b> que viene dentro sirve para crear los vídeos MP4: no la borres.</li>
+          </ol>
+          <a class="btn" href="https://github.com/Daniel25r/atlas3d-unity/releases/latest/download/ATLAS5D-Windows.zip">Descargar ZIP</a>
+        </div>
+      </div>
+      <p class="note">¿Versiones anteriores? Están todas en la <a href="https://github.com/Daniel25r/atlas3d-unity/releases">lista de versiones</a>. ¿Encontraste un error? Dentro de la app: menú → «Informar de un error».</p>
+    </div>
+  </section>
+
+  <section id="novedades">
+    <div class="wrap">
+      <h2>Novedades</h2>
+      <p class="sub">Lo último que ha llegado a ATLAS 5D.</p>
+      <div class="log">
+        <details open><summary>1.15</summary><ul><li>«Pasar a claves»: la animación de un modelo se convierte en claves editables.</li><li>«Aspecto realista» con un toque.</li></ul></details>
+        <details><summary>1.14</summary><ul><li>Nuevo objeto Curva: un tubo que pasa por puntos, con grosor, lados, aro y puntas finas.</li></ul></details>
+        <details><summary>1.13</summary><ul><li>Texturas generadas: madera, mármol, ladrillos, nubes, cuadros, rayas y más, sin cortes.</li><li>Mezclar texturas con máscara y copiar/pegar materiales.</li></ul></details>
+        <details><summary>1.12</summary><ul><li>Vídeo MP4 también en PC, con todos los sonidos.</li><li>Animar los efectos de imagen, quitar huesos y arreglos de normal maps y del render.</li></ul></details>
+        <details><summary>1.11</summary><ul><li>Estilos de imagen: Spider-Verse, anime, pintura, boceto y más.</li><li>Versiones anteriores del proyecto e informe de errores dentro de la app.</li></ul></details>
+        <details><summary>1.10</summary><ul><li>Editor de curvas, estirar claves, rellenar agujero, puente y grabar voz.</li></ul></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>ATLAS 5D</span>
+    <span><a href="https://daniel25r.github.io/atlas3d-workshop/">Workshop</a> · <a href="https://github.com/Daniel25r/atlas3d-unity/releases">Versiones</a></span>
+  </div>
+</footer>
+
+<script>
+  // The newest version's number, from the project's releases.
+  fetch("https://api.github.com/repos/Daniel25r/atlas3d-unity/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      var el = document.getElementById("ver");
+      if (!j || !j.tag_name) { el.textContent = "Android 6 o más nuevo · Windows 10/11 de 64 bits"; return; }
+      var d = j.published_at ? new Date(j.published_at).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" }) : "";
+      el.innerHTML = "Última versión: <b>" + j.tag_name.replace(/^v/, "") + "</b>" + (d ? " · " + d : "") + " · Android 6+ · Windows 10/11";
+    })
+    .catch(function () { document.getElementById("ver").textContent = "Android 6 o más nuevo · Windows 10/11 de 64 bits"; });
+</script>
+</body>
+</html>

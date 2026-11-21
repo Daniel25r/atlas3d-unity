@@ -12,6 +12,8 @@ concurrency:
 jobs:
   windows:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 120
     steps:
       - name: Free disk space
@@ -64,3 +66,16 @@ jobs:
           name: ATLAS3D-Windows
           path: build/StandaloneWindows64
           retention-days: 14
+
+      # Public download: a GitHub Release per version (the website's
+      # «Descargar para Windows» always points to the newest one).
+      - name: Publish release (Windows)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          V=$(grep -oP 'Version = "\K[^"]+' Assets/Atlas/Scripts/Runtime/AtlasApp.cs)
+          (cd build && sudo zip -qr ../ATLAS5D-Windows.zip StandaloneWindows64)
+          sudo chown "$(id -u)" ATLAS5D-Windows.zip
+          gh release view "v$V" >/dev/null 2>&1 || gh release create "v$V" --title "ATLAS 5D $V" --notes "ATLAS 5D $V · Android (APK) y Windows (ZIP)." --latest || true
+          gh release upload "v$V" ATLAS5D-Windows.zip --clobber
