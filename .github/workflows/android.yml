@@ -74,5 +74,9 @@ jobs:
           V=$(grep -oP 'Version = "\K[^"]+' Assets/Atlas/Scripts/Runtime/AtlasApp.cs)
           APK=$(ls build/Android/*.apk | head -1)
           cp "$APK" ATLAS5D-Android.apk
-          gh release view "v$V" >/dev/null 2>&1 || gh release create "v$V" --title "ATLAS 5D $V" --notes "ATLAS 5D $V · Android (APK) y Windows (ZIP)." --latest || true
+          gh release view "v$V" >/dev/null 2>&1 || gh release create "v$V" --title "ATLAS 5D $V" --notes "ATLAS 5D $V · Android (APK) y Windows (ZIP)." --prerelease --latest=false || true
           gh release upload "v$V" ATLAS5D-Android.apk --clobber
+          # The download buttons point to the newest full release: only
+          # make this one the newest once both the APK and the ZIP are in.
+          N=$(gh api "repos/${{ github.repository }}/releases/tags/v$V" -q '[.assets[].name|select(.=="ATLAS5D-Android.apk" or .=="ATLAS5D-Windows.zip")]|length')
+          if [ "$N" = "2" ]; then gh release edit "v$V" --prerelease=false --latest; fi

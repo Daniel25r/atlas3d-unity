@@ -404,6 +404,7 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• Arreglado: modelos de Source (Garry's Mod, SFM) con la cabeza o partes que se partían, se estiraban o parecían duplicadas al girar o mover un hueso. Ahora los huesos quedan justo donde está la piel del modelo.\n" +
             "• Arreglado: al elegir una parte de un modelo con muchas piezas (máquinas, robots) todo se veía dorado y transparente. Ahora la parte brilla un momento y se apaga sola, y en modelos con muchas piezas la selección es más fina.\n" +
             "• NUEVO · Animaciones del modelo «Pasar a claves»: la animación que trae un modelo se convierte en claves de los huesos para retocarla en modo pose, mezclarla con lo tuyo o cambiar su ritmo.\n" +
             "• NUEVO · «Aspecto realista» (Escena → Estilo de la imagen): con un toque, color de cine, sombras en rincones, sombras activadas, brillo natural de los modelos y sin estilo dibujo.\n" +

@@ -86,6 +86,14 @@ namespace Atlas.Import
                 world[i] = parent >= 0 && parent < i ? Mul(world[parent], local) : local;
             }
 
+            // The skin was made on the skeleton stored in each bone's
+            // poseToBone matrix. The bones' default pose (pos/quat) usually
+            // matches it, but not in many Garry's Mod / SFM characters
+            // («proportion trick», $definebone): their joints sit away from
+            // the mesh, so turning or moving a bone split and smeared the
+            // skin (heads that looked doubled). Rest on the real skeleton.
+            UseBindPose(b, boneIndex, BoneSize, numBones, model, boneNode, world);
+
             // --- Vertices (.vvd), LOD 0 with its fix-ups
             if (vvd.Length < 64 || Encoding.ASCII.GetString(vvd, 0, 4) != "IDSV") throw new Exception("el .vvd del modelo está dañado");
             int lod0Count = I32(vvd, 16);
@@ -354,6 +362,85 @@ namespace Atlas.Import
 
         // ------------------------------------------------------------------
         // Matrices (column-major, like glTF)
+        static void UseBindPose(byte[] b, int boneIndex, int boneSize, int numBones, MModel model, int[] boneNode, float[][] world)
+        {
+            if (numBones <= 0) return;
+            var bind = new float[numBones][];
+            bool differs = false;
+            for (int i = 0; i < numBones; i++)
+            {
+                int o = boneIndex + i * boneSize + 96;   // matrix3x4_t poseToBone, rows
+                var m = new float[12];
+                for (int k = 0; k < 12; k++)
+                {
+                    m[k] = F(b, o + k * 4);
+                    if (float.IsNaN(m[k]) || float.IsInfinity(m[k])) return;
+                }
+                // Rotation rows must be unit and at right angles (else: not stored).
+                for (int r = 0; r < 3; r++)
+                    for (int c = r; c < 3; c++)
+                    {
+                        float d = m[r * 4] * m[c * 4] + m[r * 4 + 1] * m[c * 4 + 1] + m[r * 4 + 2] * m[c * 4 + 2];
+                        if (Math.Abs(d - (r == c ? 1f : 0f)) > 0.02f) return;
+                    }
+                // poseToBone: model → bone. Its inverse is the bone in the model:
+                // rotation Rᵀ, position -Rᵀ·t (Source axes).
+                var rot = new float[9];   // [row*3+col], bone → model
+                for (int r = 0; r < 3; r++)
+                    for (int c = 0; c < 3; c++) rot[r * 3 + c] = m[c * 4 + r];
+                var t = new float[3];
+                for (int r = 0; r < 3; r++) t[r] = -(rot[r * 3] * m[3] + rot[r * 3 + 1] * m[7] + rot[r * 3 + 2] * m[11]);
+                // To ATLAS axes: new = C·old, C maps (x, y, z) → (y, z, x).
+                int[] map = { 1, 2, 0 };   // new axis a reads old axis map[a]
+                var w = new float[16];
+                for (int a = 0; a < 3; a++)
+                    for (int c = 0; c < 3; c++) w[c * 4 + a] = rot[map[a] * 3 + map[c]];
+                for (int a = 0; a < 3; a++) w[12 + a] = t[map[a]] * Inch;
+                w[15] = 1f;
+                bind[i] = w;
+                for (int k = 0; k < 16 && !differs; k++)
+                    if (Math.Abs(w[k] - world[i][k]) > (k >= 12 ? 0.002f : 0.01f)) differs = true;
+            }
+            if (!differs) return;
+            for (int i = 0; i < numBones; i++)
+            {
+                int parent = I32(b, boneIndex + i * boneSize + 4);
+                var local = parent >= 0 && parent < i ? Mul(InverseRigid(bind[parent]), bind[i]) : bind[i];
+                var n = model.nodes[boneNode[i]];
+                n.t = new[] { local[12], local[13], local[14] };
+                n.r = Quat(local);
+                world[i] = bind[i];
+            }
+        }
+
+        static float[] Quat(float[] m)
+        {
+            float m00 = m[0], m11 = m[5], m22 = m[10];
+            float m01 = m[4], m02 = m[8], m10 = m[1], m12 = m[9], m20 = m[2], m21 = m[6];
+            float tr = m00 + m11 + m22, x, y, z, w;
+            if (tr > 0f)
+            {
+                float s = (float)Math.Sqrt(tr + 1f) * 2f;
+                w = 0.25f * s; x = (m21 - m12) / s; y = (m02 - m20) / s; z = (m10 - m01) / s;
+            }
+            else if (m00 > m11 && m00 > m22)
+            {
+                float s = (float)Math.Sqrt(1f + m00 - m11 - m22) * 2f;
+                w = (m21 - m12) / s; x = 0.25f * s; y = (m01 + m10) / s; z = (m02 + m20) / s;
+            }
+            else if (m11 > m22)
+            {
+                float s = (float)Math.Sqrt(1f + m11 - m00 - m22) * 2f;
+                w = (m02 - m20) / s; x = (m01 + m10) / s; y = 0.25f * s; z = (m12 + m21) / s;
+            }
+            else
+            {
+                float s = (float)Math.Sqrt(1f + m22 - m00 - m11) * 2f;
+                w = (m10 - m01) / s; x = (m02 + m20) / s; y = (m12 + m21) / s; z = 0.25f * s;
+            }
+            return new[] { x, y, z, w };
+        }
+
 
         static float[] Trs(float[] t, float[] q)
         {
