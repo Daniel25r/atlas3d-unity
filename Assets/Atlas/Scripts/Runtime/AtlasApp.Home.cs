@@ -404,6 +404,8 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• NUEVO · Animaciones del modelo «Pasar a claves»: la animación que trae un modelo se convierte en claves de los huesos para retocarla en modo pose, mezclarla con lo tuyo o cambiar su ritmo.\n" +
+            "• NUEVO · «Aspecto realista» (Escena → Estilo de la imagen): con un toque, color de cine, sombras en rincones, sombras activadas, brillo natural de los modelos y sin estilo dibujo.\n" +
             "• NUEVO · Curva (Añadir → Curva): un tubo que pasa suave por varios puntos. Mueve cada punto con el manipulador, añade o quita puntos y elige grosor, lados, cerrada (aro) y puntas finas. Para cables, colas, tubos, cuerdas o letras.\n" +
             "• NUEVO · Shading (editor de materiales → Texturas generadas): degradado, ruido, nubes, cuadros, rayas, puntos, madera, mármol, ladrillos y baldosas en los dos colores que elijas, sin cortes al repetirse. Se pueden usar como textura, como relieve o como brillo propio, y mezclar la textura con otra imagen usando el patrón de máscara.\n" +
             "• NUEVO · Copiar y pegar materiales entre objetos y piezas.\n" +

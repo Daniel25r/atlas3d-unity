@@ -492,6 +492,13 @@ namespace Atlas
                     }, it.clip == c);
                 }
                 Hint(box, "La animación elegida se reproduce con la línea de tiempo y sale en el render.");
+                if (!string.IsNullOrEmpty(it.clip))
+                {
+                    var bg = AtlasTheme.Grid(box, 2, InnerWidth, 40f, 4f);
+                    AtlasTheme.TextButton(bg, "key", "Pasar a claves (cada cuadro)", () => BakeClipToKeys(it, 1), true, 40f, 13);
+                    AtlasTheme.TextButton(bg, "key", "Pasar a claves (cada 2)", () => BakeClipToKeys(it, 2), false, 40f, 13);
+                    Hint(box, "«Pasar a claves» convierte la animación en claves de los huesos desde el fotograma actual: luego puedes retocarla en modo pose, mezclarla con lo tuyo o cambiar su ritmo.");
+                }
             }
             var gbox = Sec("Aspecto del modelo", "material");
             AtlasTheme.SliderRow(gbox, "Brillo", 0f, 1f, it.modelGloss < 0f ? 0.2f : it.modelGloss, "0.00", x => { it.modelGloss = x; ApplyLook(it); }, () => Commit(true));

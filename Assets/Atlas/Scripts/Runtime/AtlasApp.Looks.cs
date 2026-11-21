@@ -21,6 +21,7 @@ namespace Atlas
             bool any = env.style >= 0 || env.pixel > 0f || env.wideLens > 0f || env.dirtyLens > 0f || env.dust > 0f || env.vintage > 0f || !string.IsNullOrEmpty(env.grade) || env.tonemap >= 0;
             var box = Sec("Estilo de la imagen", "edit", any);
             Hint(box, "Toda la imagen con un estilo, en la vista y en el render. Se puede combinar con los efectos de abajo.");
+            AtlasTheme.TextButton(box, "sun", "Aspecto realista (un toque)", MakeRealistic, true, 44f, 15);
             var g = AtlasTheme.Grid(box, 3, InnerWidth, 36f, 4f);
             for (int i = 0; i < StyleNames.Length; i++)
             {
@@ -74,6 +75,42 @@ namespace Atlas
             }, false, 40f, 15);
         }
     
+        /// One tap towards a realistic picture: film colour (ACES), soft
+        /// shadows in corners, shadows on, a touch of bloom and vignette, no
+        /// drawing styles, and the models' own shine (their materials as
+        /// they were made). The «Cine» render then adds lens blur and smooth
+        /// edges.
+        void MakeRealistic()
+        {
+            env.style = 0;
+            env.styleAmount = 1f;
+            env.pixel = env.wideLens = env.dust = env.vintage = 0f;
+            env.dirtyLens = 0.08f;
+            env.grade = "";
+            env.tonemap = 2;
+            env.ao = true;
+            env.shadowsOff = false;
+            env.exposure = 0.15f;
+            env.contrast = 10f;
+            env.saturation = 4f;
+            env.bloom = 0.2f;
+            env.vignette = 0.18f;
+            env.grain = 0.05f;
+            env.chroma = 0f;
+            int models = 0;
+            foreach (var it in items)
+            {
+                if (it == null) continue;
+                if (it.toon) { it.toon = false; ApplyLook(it); }
+                if (it.kind == "model") { it.modelGloss = -1f; ApplyLook(it); models++; }
+            }
+            if (!Prefs.viewShadows) { Prefs.viewShadows = true; Prefs.Save(); ApplyPrefs(); }
+            ApplyEnv();
+            Commit(true);
+            RefreshProps();
+            Toast("Aspecto realista puesto. Para la imagen final usa Render → calidad «Cine» (desenfoque de lente y bordes suaves)");
+        }
+
         // ------------------------------------------------------------------
         // Keys of the image effects: exposure, colour, bloom, blur, style
         // strength, pixelated… change along the animation.

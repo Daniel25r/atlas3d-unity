@@ -144,6 +144,15 @@ namespace Atlas
             return list;
         }
 
+        /// Length in seconds of one of the model's animations (0: none).
+        public float ClipLength(string name)
+        {
+            var a = ModelAnimation;
+            if (a == null || string.IsNullOrEmpty(name)) return 0f;
+            var st = a[name];
+            return st != null ? st.length : 0f;
+        }
+
         /// Poses the model's own animation at `seconds` (looping).
         public void SampleClip(float seconds)
         {
