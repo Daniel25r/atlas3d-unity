@@ -128,16 +128,18 @@ const toolSettings = {
   eraser: { size: 30, opacity: 100 },
   shape: { size: 6, opacity: 100 },
 };
+let stringLen = 0;
 let color = '#1f1b16', smoothing = 0.35, fillGap = 2, fillTol = 30, fillAll = true;
 let penOnly = false;
 let recents = [];
 const prefs = (() => { try { return JSON.parse(localStorage.getItem('trazo_prefs') || '{}'); } catch (e) { return {}; } })();
 function savePrefs() {
-  try { localStorage.setItem('trazo_prefs', JSON.stringify({ toolSettings, color, smoothing, fillGap, fillTol, fillAll, penOnly, recents, brushType, symmetry, shapeType, shapeFill, perfMode, selMode, wandTol })); } catch (e) { /* sin almacenamiento */ }
+  try { localStorage.setItem('trazo_prefs', JSON.stringify({ toolSettings, color, smoothing, stringLen, fillGap, fillTol, fillAll, penOnly, recents, brushType, symmetry, shapeType, shapeFill, perfMode, selMode, wandTol })); } catch (e) { /* sin almacenamiento */ }
 }
 if (prefs.toolSettings) for (const k of Object.keys(toolSettings)) Object.assign(toolSettings[k], prefs.toolSettings[k] || {});
 if (prefs.color) color = prefs.color;
 if (typeof prefs.smoothing === 'number') smoothing = prefs.smoothing;
+if (typeof prefs.stringLen === 'number') stringLen = prefs.stringLen;
 if (typeof prefs.fillGap === 'number') fillGap = prefs.fillGap;
 if (typeof prefs.fillTol === 'number') fillTol = prefs.fillTol;
 if (typeof prefs.fillAll === 'boolean') fillAll = prefs.fillAll;
@@ -336,23 +338,30 @@ async function compositeFrameAsync(c, f, w, h, bg, useCamera) {
   if (useCamera && sceneFxOn(f)) applySceneFx(c.canvas, f, w, h);
 }
 function onionFrames() {
-  if (!P || !P.onion.on) return { prev: [], next: [] };
+  const none = { prev: [], next: [], light: [], ibPrev: null, ibNext: null };
+  if (!P) return none;
+  const o = onionOpts();
+  const light = o.light && P.light ? P.light.slice() : [];
   const L = P.layers[cur.layer];
-  if (!L || !L.visible) return { prev: [], next: [] };
+  if (!L || !L.visible) return Object.assign(none, { light });
   const curId = L.cells[cur.frame];
   const seen = new Set(curId ? [curId] : []);
-  const collect = (dir, count) => {
+  const isKey = id => { const m = markOf(id); return m === 'K' || m === 'B'; };
+  const collect = (dir, count, onlyKeys) => {
     const out = []; let f = cur.frame + dir;
     while (out.length < count && f >= 0 && f < P.frames) {
       const id = L.cells[f];
-      if (id && !seen.has(id)) { seen.add(id); out.push(id); }
+      if (id && !seen.has(id) && (!onlyKeys || isKey(id))) { seen.add(id); out.push(id); }
       f += dir;
     }
     return out;
   };
-  return { prev: collect(-1, P.onion.prev), next: collect(1, P.onion.next) };
+  const r = { prev: [], next: [], light, ibPrev: null, ibNext: null };
+  if (o.ib) { r.ibPrev = collect(-1, 1, true)[0] || null; r.ibNext = collect(1, 1, true)[0] || null; }
+  if (P.onion.on) { r.prev = collect(-1, o.prev, o.keys); r.next = collect(1, o.next, o.keys); }
+  return r;
 }
-function onionIds() { const o = onionFrames(); return o.prev.concat(o.next); }
+function onionIds() { const o = onionFrames(); const a = o.prev.concat(o.next, o.light); if (o.ibPrev) a.push(o.ibPrev); if (o.ibNext) a.push(o.ibNext); return a; }
 
 let sceneDirty = true, sceneLoading = false;
 function rebuildScene() {
@@ -594,8 +603,13 @@ function drawOnionInto(b) {
     t.globalCompositeOperation = 'source-over';
     b.globalAlpha = alpha; b.drawImage(tintCv, 0, 0);
   };
-  on.prev.forEach((id, k) => tint(id, '#e8473c', 0.32 * Math.pow(0.6, k)));
-  on.next.forEach((id, k) => tint(id, '#2fae5b', 0.30 * Math.pow(0.6, k)));
+  const o = onionOpts();
+  const op = (k, n) => (n <= 1 ? o.near : o.near + (o.far - o.near) * k / (n - 1)) / 100;
+  on.light.forEach(id => tint(id, '#3a7bd5', 0.30));
+  on.prev.forEach((id, k) => tint(id, o.colPrev, op(k, on.prev.length)));
+  on.next.forEach((id, k) => tint(id, o.colNext, op(k, on.next.length)));
+  if (on.ibPrev && on.prev.indexOf(on.ibPrev) < 0) tint(on.ibPrev, '#ff7a1a', 0.38);
+  if (on.ibNext && on.next.indexOf(on.ibNext) < 0) tint(on.ibNext, '#1ab8ff', 0.38);
   b.globalAlpha = 1;
 }
 /* ---------- 16-movimiento.js ---------- */
@@ -740,6 +754,8 @@ function snapStructure() {
     frames: P.frames,
     layers: P.layers.map(L => ({ ...L, cells: L.cells.slice(), keys: clone(L.keys) })),
     camera: clone(P.camera),
+    marks: clone(P.marks || {}),
+    light: (P.light || []).slice(),
   };
 }
 function resetStructSnap() { structSnap = P ? snapStructure() : null; }
@@ -747,6 +763,8 @@ function applyStructure(s) {
   P.frames = s.frames;
   P.layers = s.layers.map(L => ({ ...L, cells: L.cells.slice(), keys: clone(L.keys) }));
   if (s.camera !== undefined) P.camera = clone(s.camera);
+  if (s.marks !== undefined) P.marks = clone(s.marks);
+  if (s.light !== undefined) P.light = s.light.slice();
   cur.layer = clamp(cur.layer, 0, P.layers.length - 1);
   cur.frame = clamp(cur.frame, 0, P.frames - 1);
   refreshAfterStructure();
@@ -949,6 +967,7 @@ function doRender() {
     drawCameraFrame(c);
     drawRigOverlay(c);
     drawSelOverlay(c);
+    drawStringGuide(c);
   }
   c.globalAlpha = 1;
   if (!presenting) { c.lineWidth = 1 / view.z; c.strokeStyle = 'rgba(0,0,0,.25)'; c.strokeRect(0, 0, P.w, P.h); }
@@ -1155,6 +1174,17 @@ function makeStroke(ctx, o) {
   }
   E.add = (x, y, pr, t, first, noSmooth) => {
     const last = E.pts[E.pts.length - 1];
+    // Estabilizador «cuerda»: el trazo solo avanza cuando el lápiz tira de él
+    E.raw = { x, y };
+    if (stringLen > 0) {
+      if (first || !E.anc) E.anc = { x, y };
+      else {
+        const R = stringLen / zoom, dx = x - E.anc.x, dy = y - E.anc.y, d = Math.hypot(dx, dy);
+        if (d > R) { E.anc.x = x - dx / d * R; E.anc.y = y - dy / d * R; }
+        else if (!noSmooth) return;
+        x = E.anc.x; y = E.anc.y;
+      }
+    }
     if (first || !E.sm) { E.sm = { x, y }; E.lastT = t; }
     else { const k = noSmooth ? 1 : 1 - smoothing; E.sm.x += (x - E.sm.x) * k; E.sm.y += (y - E.sm.y) * k; }
     if (last) {
@@ -1693,7 +1723,7 @@ stage.addEventListener('pointerdown', e => {
       twoTap = { t: performance.now(), moved: false };
       return;
     }
-    if (touches.length > 2) { if (twoTap) twoTap.moved = true; return; }
+    if (touches.length > 2) { if (twoTap) twoTap.n = Math.max(twoTap.n || 2, touches.length); return; }
     if (gestureLock) return;
     if (penOnly) { pan = { x: pos.x, y: pos.y, vx: view.x, vy: view.y, id: e.pointerId }; return; }
   }
@@ -1725,7 +1755,7 @@ function endPointer(e) {
   if (twoTap && touchesLeft === 0) {
     // toque rápido con dos dedos sin moverlos = deshacer
     const tap = twoTap; twoTap = null;
-    if (!tap.moved && performance.now() - tap.t < 400) undo();
+    if (!tap.moved && performance.now() - tap.t < 450) { if ((tap.n || 2) === 3) redo(); else if ((tap.n || 2) === 2) undo(); }
   }
   if (had.type === 'touch' && (G || gestureLock || twoTap)) { if (!ptrs.size) gestureLock = false; return; }
   if (!ptrs.size) gestureLock = false;
@@ -1794,6 +1824,8 @@ function setTool(t, keepSel) {
   requestRender();
 }
 for (const b of document.querySelectorAll('.tool')) b.onclick = () => { if (tool === b.dataset.tool) { $('toolPop').hidden ? openToolPop(b) : closeToolPop(); } else { closeToolPop(); setTool(b.dataset.tool); } };
+$('stringLen').value = stringLen; $('stringLenV').textContent = stringLen;
+$('stringLen').oninput = e => { stringLen = +e.target.value; $('stringLenV').textContent = e.target.value; savePrefs(); };
 $('smooth').oninput = e => { smoothing = e.target.value / 100; $('smoothV').textContent = e.target.value; savePrefs(); };
 $('gap').oninput = e => { fillGap = +e.target.value; $('gapV').textContent = fillGap; savePrefs(); };
 $('tol').oninput = e => { fillTol = +e.target.value; $('tolV').textContent = fillTol; savePrefs(); };
@@ -1964,7 +1996,11 @@ function drawTimeline() {
       c.fillStyle = col;
       const bx = x + (ps ? 0 : 3), bw2 = cw - (ps ? 0 : 3) - (ns ? 0 : 3);
       c.fillRect(bx, y + 7, bw2, TL.rh - 15);
-      if (!ps) { c.fillStyle = '#111113'; c.beginPath(); c.arc(x + cw / 2, y + TL.rh / 2 - 0.5, 3.2, 0, Math.PI * 2); c.fill(); }
+      if (!ps) {
+        const mk = markOf(id);
+        if (mk) { c.fillStyle = MARKS[mk][1]; c.fillRect(bx, y + 7, Math.min(bw2, 5), TL.rh - 15); }
+        c.fillStyle = '#111113'; c.beginPath(); c.arc(x + cw / 2, y + TL.rh / 2 - 0.5, 3.2, 0, Math.PI * 2); c.fill();
+      }
       c.globalAlpha = 1;
     }
   }
@@ -2172,7 +2208,228 @@ $('btnPrev').onclick = () => { stopPlayback(); setFrame(cur.frame - 1); };
 $('btnNext').onclick = () => { stopPlayback(); setFrame(cur.frame + 1); };
 addEventListener('keydown', e => { if (e.key === 'Home' && P && !$('editor').hidden && $('modal').hidden) { stopPlayback(); setFrame(0); } });
 $('btnLoop').onclick = () => { P.loop = !P.loop; updateFrameUI(); scheduleSave(); };
+$('btnOnion').oncontextmenu = e => { e.preventDefault(); if (P) onionDialog(); };
 $('btnOnion').onclick = () => { P.onion.on = !P.onion.on; sceneDirty = true; requestRender(); updateFrameUI(); scheduleSave(); };
+/* ---------- 61-exposicion.js ---------- */
+/* =========================================================
+   Tiempo profesional (como en los estudios de anime):
+   · duración de cada dibujo (a 1s, 2s, 3s…) y re-temporizar la capa
+   · marcas de dibujo: clave, extremo (breakdown) e intermedio
+   · hoja de tiempos (X-sheet): filas = cuadros, columnas = capas
+   · papel cebolla completo, mesa de luz y ayuda para intercalar
+   · estabilizador «cuerda» (el trazo solo avanza cuando el lápiz se aleja)
+   ========================================================= */
+
+const MARKS = { K: ['Clave', '#ff4d6d'], B: ['Extremo', '#ffb02e'], I: ['Intermedio', '#4cc9f0'] };
+const markOf = id => (id && P && P.marks && P.marks[id]) || '';
+
+// Tramo de cuadros seguidos con el mismo dibujo alrededor de f
+function runAt(L, f) {
+  const id = L.cells[f];
+  let s = f, e = f;
+  while (s > 0 && L.cells[s - 1] === id) s--;
+  while (e < P.frames - 1 && L.cells[e + 1] === id) e++;
+  return { s, e, id, len: e - s + 1 };
+}
+// Ajusta la longitud de la capa a P.frames; si se pasa con dibujos, alarga el proyecto
+function fitLayerLength(L) {
+  let last = L.cells.length - 1;
+  while (last >= P.frames && !L.cells[last]) last--;
+  if (last >= P.frames) {
+    const n = last + 1;
+    for (const o of P.layers) while (o.cells.length < n) o.cells.push(null);
+    P.frames = n;
+  }
+  L.cells.length = P.frames;
+  for (let i = 0; i < P.frames; i++) if (L.cells[i] === undefined) L.cells[i] = null;
+}
+function setHold(n) {
+  const L = P.layers[cur.layer];
+  if (!L || isGroup(L)) { toast('Elige una capa de dibujo'); return; }
+  if (!L.cells[cur.frame]) { toast('No hay dibujo en este cuadro'); return; }
+  const r = runAt(L, cur.frame);
+  if (n > r.len) L.cells.splice(r.e + 1, 0, ...new Array(n - r.len).fill(r.id));
+  else if (n < r.len) L.cells.splice(r.s + n, r.len - n);
+  fitLayerLength(L);
+  cur.frame = Math.min(r.s, P.frames - 1);
+  structural('Duración del dibujo');
+  toast('El dibujo dura ' + n + (n === 1 ? ' cuadro' : ' cuadros') + ' (los siguientes de esta capa se movieron)');
+}
+// Toda la capa «a 1s / 2s / 3s»: cada dibujo dura n cuadros; los huecos se conservan
+function retimeLayer(li, n) {
+  const L = P.layers[li];
+  if (!L || isGroup(L)) return;
+  const out = [];
+  for (let f = 0; f < P.frames;) {
+    const r = runAt(L, f);
+    if (r.id) for (let k = 0; k < n; k++) out.push(r.id);
+    else for (let k = 0; k < r.len; k++) out.push(null);
+    f = r.e + 1;
+  }
+  while (out.length && !out[out.length - 1] && out.length > P.frames) out.pop();
+  L.cells = out;
+  fitLayerLength(L);
+  structural('Capa a ' + n + 's');
+  toast('«' + L.name + '» animada a ' + n + 's: cada dibujo dura ' + n + ' cuadros');
+}
+async function holdDialog() {
+  const L = P.layers[cur.layer];
+  const has = L && !isGroup(L) && L.cells[cur.frame];
+  const now = has ? runAt(L, cur.frame).len : 0;
+  const mk = (v, t, s) => el('button', { html: escapeHtml(t) + (s ? '<small>' + escapeHtml(s) + '</small>' : ''), onclick: () => closeDialog(v) });
+  const grid = el('div', { class: 'drow', style: 'flex-wrap:wrap;gap:6px' });
+  if (has) for (let n = 1; n <= 8; n++) {
+    const b = el('button', { class: 'tb' + (n === now ? ' on' : ''), text: n + (n === 1 ? ' cuadro' : ' cuadros') });
+    b.onclick = () => closeDialog('h' + n);
+    grid.appendChild(b);
+  }
+  const body = el('div', { class: 'form' }, [
+    el('p', { class: 'note', text: has ? 'Cuánto dura este dibujo (ahora: ' + now + '). En anime se anima «a 2s» o «a 3s»: cada dibujo se ve 2 o 3 cuadros. Los dibujos siguientes de la capa se mueven.' : 'Este cuadro no tiene dibujo: puedes cambiar el ritmo de toda la capa.' }),
+    grid,
+    el('div', { class: 'menu' }, [mk('r1', 'Toda la capa a 1s', 'Un dibujo por cuadro (acción muy suave)'), mk('r2', 'Toda la capa a 2s', 'Cada dibujo dura 2 cuadros (lo más usado)'), mk('r3', 'Toda la capa a 3s', 'Cada dibujo dura 3 cuadros (anime de TV)')]),
+  ]);
+  const r = await dialog({ title: 'Duración · ' + (L ? L.name : ''), body, buttons: [{ label: 'Cerrar', value: null }] });
+  if (!r) return;
+  if (r[0] === 'h') setHold(parseInt(r.slice(1), 10));
+  else if (r[0] === 'r') retimeLayer(cur.layer, parseInt(r.slice(1), 10));
+}
+
+/* ----- marcas de dibujo ----- */
+async function markDialog() {
+  const L = P.layers[cur.layer], id = L && L.cells[cur.frame];
+  if (!id) { toast('No hay dibujo en este cuadro'); return; }
+  const mk = (v, t, s, c) => el('button', { html: '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;background:' + c + '"></span>' + escapeHtml(t) + '<small>' + escapeHtml(s) + '</small>', onclick: () => closeDialog(v) });
+  const r = await dialog({ title: 'Marcar dibujo', body: el('div', { class: 'menu' }, [
+    mk('K', 'Clave', 'Las poses principales del movimiento', MARKS.K[1]),
+    mk('B', 'Extremo (breakdown)', 'La pose que decide el camino entre dos claves', MARKS.B[1]),
+    mk('I', 'Intermedio', 'Los dibujos que van entre medias', MARKS.I[1]),
+    mk('-', 'Sin marca', 'Quitar la marca', '#555'),
+  ]), buttons: [{ label: 'Cerrar', value: null }] });
+  if (!r) return;
+  if (!P.marks) P.marks = {};
+  if (r === '-') delete P.marks[id]; else P.marks[id] = r;
+  structural('Marcar dibujo');
+}
+
+/* ----- mesa de luz ----- */
+function toggleLightTable() {
+  const L = P.layers[cur.layer], id = L && L.cells[cur.frame];
+  if (!id) { toast('No hay dibujo en este cuadro'); return; }
+  if (!P.light) P.light = [];
+  const i = P.light.indexOf(id);
+  if (i >= 0) { P.light.splice(i, 1); toast('Quitado de la mesa de luz'); }
+  else { P.light.push(id); if (P.light.length > 4) P.light.shift(); toast('En la mesa de luz: se verá en azul en todos los cuadros mientras dibujas'); }
+  structural('Mesa de luz');
+}
+
+/* ----- papel cebolla completo ----- */
+function onionOpts() {
+  const o = P.onion || {};
+  return {
+    prev: o.prev != null ? o.prev : 2, next: o.next != null ? o.next : 1,
+    colPrev: o.colPrev || '#e8473c', colNext: o.colNext || '#2fae5b',
+    near: o.near != null ? o.near : 32, far: o.far != null ? o.far : 8,
+    keys: !!o.keys, ib: !!o.ib, light: o.lightOn !== false,
+  };
+}
+async function onionDialog() {
+  const x = onionOpts();
+  const before = clone(P.onion);
+  const live = () => { Object.assign(P.onion, { prev: x.prev, next: x.next, colPrev: x.colPrev, colNext: x.colNext, near: x.near, far: x.far, keys: x.keys, ib: x.ib, lightOn: x.light }); sceneDirty = true; requestRender(); };
+  const slider = (label, key, min, max, unit) => {
+    const out = el('output', { text: x[key] + unit });
+    const r = el('input', { type: 'range', min: String(min), max: String(max), value: String(x[key]) });
+    r.oninput = () => { x[key] = parseFloat(r.value); out.textContent = r.value + unit; live(); };
+    return el('label', {}, [el('span', {}, [label + ' ', out]), r]);
+  };
+  const color = (label, key) => { const c = el('input', { type: 'color', value: x[key] }); c.oninput = () => { x[key] = c.value; live(); }; return el('label', {}, [label, c]); };
+  const chk = (label, key) => { const c = el('input', { type: 'checkbox' }); c.checked = !!x[key]; c.onchange = () => { x[key] = c.checked; live(); }; return el('label', { class: 'chk' }, [c, label]); };
+  const lightN = (P.light || []).length;
+  const clearLight = el('button', { class: 'tb', text: 'Vaciar mesa de luz (' + lightN + ')' });
+  clearLight.onclick = () => { P.light = []; structural('Vaciar mesa de luz'); clearLight.textContent = 'Vaciar mesa de luz (0)'; };
+  const body = el('div', { class: 'form' }, [
+    el('div', { class: 'row2' }, [slider('Dibujos antes', 'prev', 0, 8, ''), slider('Dibujos después', 'next', 0, 8, '')]),
+    el('div', { class: 'row2' }, [color('Color de los anteriores', 'colPrev'), color('Color de los siguientes', 'colNext')]),
+    el('div', { class: 'row2' }, [slider('Opacidad del más cercano', 'near', 5, 80, '%'), slider('Opacidad del más lejano', 'far', 2, 60, '%')]),
+    chk('Solo dibujos clave y extremos (para intercalar entre poses)', 'keys'),
+    chk('Ayuda para intercalar: siempre muestra la clave anterior y la siguiente', 'ib'),
+    chk('Mostrar la mesa de luz', 'light'),
+    el('p', { class: 'note', text: 'Mesa de luz: menú del cuadro → «Fijar en mesa de luz». El dibujo se ve en azul en todos los cuadros, como el papel de referencia de un animador.' }),
+    clearLight,
+  ]);
+  const r = await dialog({ title: 'Papel cebolla', body, buttons: [{ label: 'Cancelar', value: false }, { label: 'Listo', value: true, primary: true }] });
+  if (r) { P.onion.on = true; updateFrameUI(); scheduleSave(); }
+  else { P.onion = before; sceneDirty = true; requestRender(); }
+}
+
+/* ----- hoja de tiempos (X-sheet) ----- */
+async function xsheetDialog() {
+  stopPlayback(); commitSel();
+  const cols = [];
+  for (let i = 0; i < P.layers.length; i++) if (!isGroup(P.layers[i])) cols.push(i);
+  // número de cada dibujo dentro de su capa, por orden de aparición
+  const num = cols.map(li => { const m = new Map(); for (const id of P.layers[li].cells) if (id && !m.has(id)) m.set(id, m.size + 1); return m; });
+  const camKeys = P.camera && P.camera.keys ? P.camera.keys : null;
+  const camAt = f => camKeys && Object.values(camKeys).some(a => Array.isArray(a) && a.some(k => k.f === f));
+  let h = '<table class="xs"><thead><tr><th>#</th>';
+  cols.forEach((li, c) => {
+    const L = P.layers[li];
+    h += '<th>' + escapeHtml(L.name.slice(0, 14)) + '<div class="xsr">' + [1, 2, 3].map(n => '<button data-rt="' + li + ':' + n + '">' + n + 's</button>').join('') + '</div></th>';
+  });
+  if (camKeys) h += '<th>Cámara</th>';
+  h += '</tr></thead><tbody>';
+  for (let f = 0; f < P.frames; f++) {
+    const sec = (f % P.fps) === P.fps - 1;
+    h += '<tr' + (f === cur.frame ? ' class="cur"' : '') + (sec ? ' style="border-bottom:2px solid #555"' : '') + '><td class="xn">' + (f + 1) + '</td>';
+    cols.forEach((li, c) => {
+      const L = P.layers[li], id = L.cells[f], prevSame = f > 0 && L.cells[f - 1] === id;
+      let t = '', st = '';
+      if (id && !prevSame) {
+        const mk = markOf(id);
+        t = String(num[c].get(id));
+        if (mk) st = 'color:' + MARKS[mk][1] + ';font-weight:800';
+      } else if (id) t = '│';
+      else if (f > 0 && L.cells[f - 1]) t = '×';
+      h += '<td data-f="' + f + '" data-l="' + li + '"' + (li === cur.layer && f === cur.frame ? ' class="sel"' : '') + (st ? ' style="' + st + '"' : '') + '>' + t + '</td>';
+    });
+    if (camKeys) h += '<td>' + (camAt(f) ? '◆' : '') + '</td>';
+    h += '</tr>';
+  }
+  h += '</tbody></table>';
+  const wrap = el('div', { class: 'xswrap', html: h });
+  wrap.onclick = e => {
+    const rt = e.target.closest('[data-rt]');
+    if (rt) { const [li, n] = rt.dataset.rt.split(':').map(Number); closeDialog(null); retimeLayer(li, n); return; }
+    const td = e.target.closest('td[data-f]');
+    if (td) { setLayer(+td.dataset.l); setFrame(+td.dataset.f); closeDialog(null); }
+  };
+  const legend = el('p', { class: 'note', html: 'Cada número es un dibujo; <b>│</b> = el mismo dibujo sigue; <b>×</b> = vacío. Colores: <b style="color:' + MARKS.K[1] + '">clave</b>, <b style="color:' + MARKS.B[1] + '">extremo</b>, <b style="color:' + MARKS.I[1] + '">intermedio</b>. Toca una casilla para ir allí; «1s 2s 3s» cambian el ritmo de la columna.' });
+  setTimeout(() => { const r = wrap.querySelector('tr.cur'); if (r) r.scrollIntoView({ block: 'center' }); }, 30);
+  await dialog({ title: 'Hoja de tiempos', body: el('div', {}, [legend, wrap]), buttons: [{ label: 'Cerrar', value: null }] });
+}
+(() => {
+  const st = document.createElement('style');
+  st.textContent = '.xswrap{max-height:58vh;overflow:auto;border:1px solid var(--line2);border-radius:8px}' +
+    '.xs{border-collapse:collapse;font:600 13px system-ui,sans-serif;width:100%}' +
+    '.xs th{position:sticky;top:0;background:#26262c;color:var(--text);padding:4px 6px;font-size:12px;z-index:1;border-left:1px solid #333}' +
+    '.xs td{border-left:1px solid #333;border-bottom:1px solid #2a2a30;text-align:center;padding:3px 6px;min-width:44px;cursor:pointer;color:#ddd}' +
+    '.xs td.xn{color:#888;min-width:30px;cursor:default}.xs tr.cur td{background:rgba(157,92,255,.16)}.xs td.sel{outline:2px solid #9d5cff;outline-offset:-2px}' +
+    '.xsr{display:flex;gap:2px;justify-content:center;margin-top:3px}.xsr button{font:600 10px system-ui;padding:2px 5px;border-radius:5px;border:1px solid #444;background:#1c1c20;color:#ccc}';
+  document.head.appendChild(st);
+})();
+
+/* ----- dibujo del estabilizador «cuerda» sobre el lienzo ----- */
+function drawStringGuide(c) {
+  if (!S || !S.eng || !S.eng.anc || !S.eng.raw || !(stringLen > 0)) return;
+  const a = S.eng.anc, r = S.eng.raw;
+  c.save();
+  c.lineWidth = 1.5 / view.z; c.strokeStyle = 'rgba(157,92,255,.8)';
+  c.setLineDash([4 / view.z, 3 / view.z]);
+  c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(r.x, r.y); c.stroke();
+  c.setLineDash([]);
+  c.beginPath(); c.arc(a.x, a.y, stringLen / view.z, 0, Math.PI * 2); c.stroke();
+  c.restore();
+}
 /* ---------- 65-reproduccion.js ---------- */
 /* =========================================================
    Reproducción
@@ -2524,8 +2781,8 @@ async function projectSettings() {
   const name = el('input', { type: 'text', value: P.name, maxlength: 60, id: 'psName' });
   const fps = el('input', { type: 'number', min: 1, max: 60, value: P.fps, id: 'psFps' });
   const frames = el('input', { type: 'number', min: 1, max: 5000, value: P.frames, id: 'psFrames' });
-  const prev = el('input', { type: 'number', min: 0, max: 6, value: P.onion.prev, id: 'psOnPrev' });
-  const next = el('input', { type: 'number', min: 0, max: 6, value: P.onion.next, id: 'psOnNext' });
+  const prev = el('input', { type: 'number', min: 0, max: 8, value: P.onion.prev, id: 'psOnPrev' });
+  const next = el('input', { type: 'number', min: 0, max: 8, value: P.onion.next, id: 'psOnNext' });
   const paper = el('input', { type: 'color', value: P.paper, id: 'psPaper' });
   const body = el('div', { class: 'form' }, [
     el('label', {}, ['Nombre', name]),
@@ -2540,7 +2797,7 @@ async function projectSettings() {
   if (/^#[0-9a-f]{6}$/i.test(paper.value)) P.paper = paper.value.toLowerCase();
   const newFps = clamp(parseInt(fps.value, 10) || P.fps, 1, 60);
   const nf = clamp(parseInt(frames.value, 10) || P.frames, 1, 5000);
-  P.onion.prev = clamp(parseInt(prev.value, 10) || 0, 0, 6); P.onion.next = clamp(parseInt(next.value, 10) || 0, 0, 6);
+  P.onion.prev = clamp(parseInt(prev.value, 10) || 0, 0, 8); P.onion.next = clamp(parseInt(next.value, 10) || 0, 0, 8);
   if (nf < P.frames) {
     const lost = P.layers.some(L => L.cells.slice(nf).some(Boolean));
     if (lost && !(await confirmDlg('Reducir duración', 'Se borrarán los cuadros ' + (nf + 1) + ' a ' + P.frames + '.', 'Reducir', true))) { scheduleSave(); return; }
@@ -2567,6 +2824,8 @@ async function showHelp() {
     ['Personajes por piezas', 'Panel Animar → «Punto de giro» en cada articulación y «Pegada a» la pieza de arriba (mano → antebrazo → brazo → cuerpo). Al girar el brazo, la mano va con él. «Estirar ancho / alto» sirve para aplastar y estirar.'],
     ['Sustitución y labios', 'Menú → «Cambiar dibujo» pone cualquier dibujo de la capa en el cuadro actual. «Labios automáticos» elige la boca de cada cuadro según la voz del audio.'],
     ['Efectos', 'Menú → «Efectos de la capa»: sombra proyectada, resplandor, desenfoque, brillo, contraste, saturación, tono y teñido.'],
+    ['Tiempo de anime', 'Menú del cuadro → «Duración del dibujo» (a 1s, 2s, 3s) y «Marcar: clave / extremo / intermedio». Menú → «Hoja de tiempos» muestra todo como la hoja de un estudio. Mantén pulsado el botón del papel cebolla para sus ajustes: hasta 8 dibujos, colores, solo claves, ayuda para intercalar y mesa de luz.'],
+    ['Línea limpia', 'Toca dos veces el pincel → «Cuerda»: el trazo solo avanza cuando el lápiz se aleja, para líneas limpias de anime. Tres dedos = rehacer.'],
     ['Anime', 'Menú → «Efectos de anime»: aura de energía que se mueve sola, luz de contorno, sombra de dos tonos y destellos, con estilos listos (Ultra instinto, aura dorada…). «Efectos de escena»: líneas de velocidad, temblor, resplandor, aberración cromática, destello y grano entre los cuadros que elijas.'],
     ['Teclado', 'B pincel · P lápiz · E borrador · F relleno · S formas · L lazo · I cuentagotas · Espacio reproducir · , y . cuadros · Ctrl+Z/Y/C/V'],
   ];
@@ -2583,6 +2842,8 @@ $('btnMenu').onclick = async () => {
     mk('swap', 'Cambiar dibujo de este cuadro', 'Sustitución: elige cualquier dibujo de la capa (bocas, manos, ojos…)'),
     mk('lips', 'Labios automáticos', 'La boca se mueve sola siguiendo la voz del audio'),
     mk('fx', 'Efectos de la capa', 'Sombra, resplandor, desenfoque, brillo, color'),
+    mk('xsheet', '📋 Hoja de tiempos', 'Cuadros y dibujos como en un estudio; ritmo a 1s, 2s, 3s'),
+    mk('onion', '🧅 Papel cebolla y mesa de luz', 'Cuántos dibujos, colores, opacidad, ayuda para intercalar'),
     mk('anime', '⚡ Efectos de anime', 'Aura de energía, luz de contorno, sombra de anime, destellos'),
     mk('scene', '🎬 Efectos de escena', 'Líneas de velocidad, temblor, resplandor, aberración, grano'),
     mk('image', 'Importar imagen', 'Fondo o referencia en una capa nueva'),
@@ -2603,6 +2864,8 @@ $('btnMenu').onclick = async () => {
   else if (r === 'lips') lipSyncDialog();
   else if (r === 'fx') layerFxDialog();
   else if (r === 'anime') animeFxDialog();
+  else if (r === 'xsheet') xsheetDialog();
+  else if (r === 'onion') onionDialog();
   else if (r === 'scene') sceneFxDialog();
   else if (r === 'image') $('imageFile').click();
   else if (r === 'videoref') $('videoFile').click();
@@ -2959,13 +3222,16 @@ async function frameMenu() {
   const mk = (v, t, s, cls) => el('button', { class: cls || '', html: escapeHtml(t) + (s ? '<small>' + escapeHtml(s) + '</small>' : ''), onclick: () => closeDialog(v) });
   const items = [mk('dup', 'Duplicar cuadro', 'Copia independiente'), mk('add', 'Insertar vacío', 'Después de este'), mk('extend', 'Extender →', 'Mantener el dibujo un cuadro más')];
   if (id && isShared(cur.layer, cur.frame)) items.push(mk('split', 'Separar', 'Hacerlo un dibujo independiente'));
+  items.push(mk('hold', 'Duración del dibujo…', id ? 'Ahora: ' + runAt(L, cur.frame).len + ' cuadros · a 1s, 2s, 3s' : 'Ritmo de toda la capa'));
+  if (id) items.push(mk('mark', 'Marcar: clave / extremo / intermedio', markOf(id) ? 'Ahora: ' + MARKS[markOf(id)][0] : 'Sin marca'));
+  if (id) items.push(mk('light', (P.light || []).indexOf(id) >= 0 ? 'Quitar de la mesa de luz' : 'Fijar en mesa de luz', 'Verlo en azul mientras dibujas otros cuadros'));
   items.push(mk('copy', 'Copiar dibujo', 'De la capa «' + L.name + '»'), mk('paste', 'Pegar', clipboard ? 'Como selección movible' : 'Primero copia algo'));
   if (id) items.push(mk('clear', 'Borrar dibujo', 'Solo en la capa «' + L.name + '»', 'danger'));
   if (cur.frame > 0) items.push(mk('left', '← Mover antes', 'Intercambia con el cuadro ' + cur.frame));
   if (cur.frame < P.frames - 1) items.push(mk('right', 'Mover después →', 'Intercambia con el cuadro ' + (cur.frame + 2)));
   if (P.frames > 1) items.push(mk('del', 'Eliminar cuadro', 'En todas las capas', 'danger'));
   const r = await dialog({ title: 'Cuadro ' + (cur.frame + 1), body: el('div', { class: 'menu' }, items), buttons: [{ label: 'Cerrar', value: null }] });
-  const act = { dup: duplicateFrame, add: insertFrame, extend: extendExposure, split: splitCell, del: deleteFrame, clear: clearCell, copy: copyCell, paste: pasteClip, left: () => moveFrame(-1), right: () => moveFrame(1) }[r];
+  const act = { hold: holdDialog, mark: markDialog, light: toggleLightTable, dup: duplicateFrame, add: insertFrame, extend: extendExposure, split: splitCell, del: deleteFrame, clear: clearCell, copy: copyCell, paste: pasteClip, left: () => moveFrame(-1), right: () => moveFrame(1) }[r];
   if (act) guard(act)();
 }
 /* ---------- 86b-varita.js ---------- */

@@ -404,6 +404,7 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• NUEVO · Atlas 2D con tiempo de estudio: duración de cada dibujo (a 1s, 2s, 3s) y toda una capa «a 2s» de un toque; marcar dibujos como clave, extremo o intermedio; «Hoja de tiempos» como la de los estudios de anime; papel cebolla completo (hasta 8 dibujos, colores, opacidad, solo claves, ayuda para intercalar); mesa de luz; estabilizador «cuerda» para líneas limpias y tres dedos para rehacer.\n" +
             "• NUEVO · Atlas 2D nivel anime: menú → «Efectos de anime» con aura de energía que se mueve sola, luz de contorno, sombra de anime de dos tonos y destellos, con estilos listos (Ultra instinto, aura dorada, aura oscura, fuego). Y «Efectos de escena»: líneas de velocidad, temblor de cámara, resplandor, aberración cromática, destello y grano entre los cuadros que elijas. Atlas 2D estrena el logo de ATLAS 5D.\n" +
             "• Arreglado: al importar modelos faltaban huesos: los que no deforman la piel sino que llevan piezas rígidas (mandíbula, ojos, orejas, piezas de robots y animatrónicos) o que solo usan las animaciones. Ahora aparecen y se pueden posar.\n" +
             "• NUEVO · «Configuración de geometría» flotante: al elegir una figura aparece un panel sobre la vista con sus números (profundidad, vértices, radio de abajo y de arriba para hacer conos truncados, anillos), la deformación radial y la topología. Escribe el valor y la figura cambia al momento.\n" +
