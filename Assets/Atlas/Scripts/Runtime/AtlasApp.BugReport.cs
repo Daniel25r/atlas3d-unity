@@ -31,7 +31,10 @@ namespace Atlas
             bugShot = null;
             try
             {
-                var tex = ScreenCapture.CaptureScreenshotAsTexture();
+                // Read straight from the screen (the ScreenCapture module is not in the build).
+                var tex = new Texture2D(Screen.width, Screen.height, TextureFormat.RGB24, false);
+                tex.ReadPixels(new Rect(0, 0, Screen.width, Screen.height), 0, 0);
+                tex.Apply();
                 if (tex != null)
                 {
                     string dir = Path.Combine(Application.temporaryCachePath, "informe");
