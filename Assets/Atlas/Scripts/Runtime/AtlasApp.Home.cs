@@ -404,6 +404,7 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• NUEVO · Atlas 2D nivel anime: menú → «Efectos de anime» con aura de energía que se mueve sola, luz de contorno, sombra de anime de dos tonos y destellos, con estilos listos (Ultra instinto, aura dorada, aura oscura, fuego). Y «Efectos de escena»: líneas de velocidad, temblor de cámara, resplandor, aberración cromática, destello y grano entre los cuadros que elijas. Atlas 2D estrena el logo de ATLAS 5D.\n" +
             "• Arreglado: al importar modelos faltaban huesos: los que no deforman la piel sino que llevan piezas rígidas (mandíbula, ojos, orejas, piezas de robots y animatrónicos) o que solo usan las animaciones. Ahora aparecen y se pueden posar.\n" +
             "• NUEVO · «Configuración de geometría» flotante: al elegir una figura aparece un panel sobre la vista con sus números (profundidad, vértices, radio de abajo y de arriba para hacer conos truncados, anillos), la deformación radial y la topología. Escribe el valor y la figura cambia al momento.\n" +
             "• Arreglado de verdad: los mapas normales (relieve) no se veían en el móvil ni en PC, ni en modelos ni en figuras. La versión del sombreado que dibuja el relieve se quedaba fuera de la app al compilarla; ahora va incluida.\n" +
