@@ -3593,6 +3593,7 @@ async function importVideo(file) {
   stepSel.value = P.fps >= 20 ? '2' : '1';
   const opIn = el('input', { type: 'range', min: '10', max: '100', value: '45' });
   const extend = el('input', { type: 'checkbox', checked: true });
+  const qualSel = el('select', {}, [el('option', { value: 'hi', text: 'Alta (más nítida)' }), el('option', { value: 'lo', text: 'Normal (ocupa menos)' })]);
   const lab = (t, input) => el('label', { class: 'field' }, [el('span', { text: t }), input]);
   const body = el('div', { class: 'form' }, [
     el('p', { class: 'note', text: 'El vídeo dura ' + dur.toFixed(1) + ' s. Entrará desde el cuadro actual (' + (cur.frame + 1) + ') en una capa nueva, bloqueada y semitransparente, para dibujar encima en otra capa.' }),
@@ -3600,6 +3601,7 @@ async function importVideo(file) {
     lab('Cuántos segundos', lenIn),
     lab('Fotogramas', stepSel),
     lab('Transparencia de la referencia', opIn),
+    lab('Calidad de la imagen', qualSel),
     el('label', { class: 'chk' }, [extend, el('span', { text: ' Alargar la animación si el vídeo no cabe' })]),
   ]);
   const ok = await dialog({ title: 'Importar vídeo (rotoscopia)', body, buttons: [{ label: 'Cancelar', value: false }, { label: 'Importar', value: true, primary: true }] });
@@ -3626,27 +3628,94 @@ async function importVideo(file) {
   const x = Math.round((P.w - w) / 2), y = Math.round((P.h - h) / 2);
   busyCancel = false;
   busy(true, 'Importando vídeo…', 0);
-  let made = 0;
+  // Cuadros que hay que sacar del vídeo (cada `step` cuadros un dibujo)
+  const targets = [];
+  for (let i = 0; i < count; i += step) targets.push(i);
+  const hq = qualSel.value === 'hi';
+  const ids = new Array(targets.length).fill(null);
+  let made = 0, done = 0;
+  // Cada fotograma se dibuja en un lienzo libre, se comprime en WebP (rápido y ligero)
+  // y se guarda directamente, sin llenar la memoria del móvil.
+  const pool = [mkCanvas(P.w, P.h), mkCanvas(P.w, P.h), mkCanvas(P.w, P.h), mkCanvas(P.w, P.h)];
+  const free = pool.slice();
+  const waiters = [];
+  const inflight = new Set();
+  const grab = () => {
+    const c = free.pop();
+    const t = ctx2d(c); resetCtx(t);
+    t.clearRect(0, 0, P.w, P.h);
+    t.imageSmoothingEnabled = true; t.imageSmoothingQuality = 'high';
+    t.drawImage(v, x, y, w, h);
+    return c;
+  };
+  const store = (c, k) => {
+    const id = newCellId();
+    ids[k] = id; made++;
+    const job = canvasToBlob(c, 'image/webp', hq ? 0.92 : 0.8)
+      .then(blob => DB.put('cells', blob, id))
+      .finally(() => {
+        free.push(c); inflight.delete(job); done++;
+        busy(true, 'Importando vídeo… ' + done + ' / ' + targets.length, done / targets.length);
+        const wtr = waiters.shift(); if (wtr) wtr();
+      });
+    inflight.add(job);
+  };
+  const waitFree = () => free.length ? Promise.resolve() : new Promise(r => waiters.push(r));
+  const fps = P.fps;
+  let fast = false, abortFast = false;
   try {
-    for (let i = 0; i < count && !busyCancel; i += step) {
-      await videoSeek(v, Math.min(start + i / P.fps, dur - 0.01));
-      const id = createCell();
-      ctx2d(getCellSync(id)).drawImage(v, x, y, w, h);
-      markCellDirty(id);
-      // Un mismo dibujo dura los cuadros del paso (exposición).
-      for (let k = 0; k < step && i + k < count; k++) L.cells[first + i + k] = id;
-      made++;
-      busy(true, 'Importando vídeo… ' + Math.min(count, i + step) + ' / ' + count, (i + step) / count);
-      // Guarda a menudo para no llenar la memoria del móvil.
-      if (made % 8 === 0) await saveAndTrim();
+    // 1) Rápido: el vídeo se reproduce acelerado y se captura cada fotograma al pasar
+    if (v.requestVideoFrameCallback) {
+      await videoSeek(v, start);
+      v.playbackRate = Math.min(4, 1.5 * step + 1);
+      let k = 0, pausedForSpace = false, finished = false;
+      await new Promise((resolve, reject) => {
+        const end = () => { if (finished) return; finished = true; v.pause(); resolve(); };
+        const onFrame = async (now, meta) => {
+          if (finished || abortFast) return;
+          if (busyCancel) { end(); return; }
+          const mt = meta.mediaTime;
+          while (k < targets.length && mt + 0.5 / fps >= start + targets[k] / fps) {
+            if (!free.length) { v.pause(); pausedForSpace = true; await waitFree(); }
+            store(grab(), k); k++;
+          }
+          if (k >= targets.length) { end(); return; }
+          if (pausedForSpace) { pausedForSpace = false; v.play().catch(reject); }
+          v.requestVideoFrameCallback(onFrame);
+        };
+        v.onended = () => {
+          // lo que falte se completa con el último fotograma
+          (async () => { while (k < targets.length) { await waitFree(); store(grab(), k); k++; } end(); })();
+        };
+        v.requestVideoFrameCallback(onFrame);
+        v.play().then(() => { fast = true; }).catch(reject);
+        setTimeout(() => { if (!fast && !finished) reject(new Error('sin reproducción')); }, 5000);
+      });
     }
+  } catch (e) {
+    abortFast = true; v.pause();
+    console.warn('vídeo: modo rápido no disponible', e);
+  }
+  try {
+    // 2) Seguro: saltar a cada fotograma (si el modo rápido no se pudo usar)
+    for (let k = 0; k < targets.length && !busyCancel; k++) {
+      if (ids[k]) continue;
+      await videoSeek(v, Math.min(start + targets[k] / fps, dur - 0.01));
+      await waitFree();
+      store(grab(), k);
+    }
+    await Promise.all([...inflight]);
   } catch (e) {
     console.error(e);
     toast('Se paró la importación: ' + (e && e.message || e), 4000);
   } finally {
+    await Promise.allSettled([...inflight]);
     busy(false);
+    v.pause();
     URL.revokeObjectURL(url);
   }
+  // Un mismo dibujo dura los cuadros del paso (exposición).
+  targets.forEach((i, k) => { const id = ids[k]; if (!id) return; for (let j = 0; j < step && i + j < count; j++) L.cells[first + i + j] = id; });
   L.locked = true;
   structural('Importar vídeo');
   await saveAndTrim();
