@@ -240,7 +240,7 @@ namespace Atlas
         {
             var bg = AtlasTheme.Box(viewArea, "Ejes", new Color(AtlasTheme.Panel.r, AtlasTheme.Panel.g, AtlasTheme.Panel.b, 0.6f), 60);
             nav = bg.rectTransform;
-            navRot = new Quaternion(9f, 9f, 9f, 9f);   // placed on the next frame
+            navPlaced = false;   // placed on the next frame
             AtlasTheme.Pin(nav, 1f, 1f, new Vector2(-24f, -86f), new Vector2(120f, 120f));
             string[] labels = { "X", "Y", "Z", "", "", "" };
             Color[] cols = { AtlasTheme.AxisX, AtlasTheme.AxisY, AtlasTheme.AxisZ, AtlasTheme.AxisX * 0.6f, AtlasTheme.AxisY * 0.6f, AtlasTheme.AxisZ * 0.6f };
@@ -277,14 +277,19 @@ namespace Atlas
 
         readonly List<int> navOrder = new List<int> { 0, 1, 2, 3, 4, 5 };
 
-        Quaternion navRot = new Quaternion(9f, 9f, 9f, 9f);
+        Quaternion navRot = Quaternion.identity;
+        // Not «a rotation nobody has»: Unity compares rotations by how close
+        // they are, and (9, 9, 9, 9) counted as equal to most camera angles,
+        // so the X/Y/Z balls were never placed and all sat in the middle.
+        bool navPlaced;
 
         void UpdateNav()
         {
             if (nav == null) return;
             // Only when the view turned: moving and re-ordering these every
             // frame made the whole interface redraw all the time.
-            if (cam.transform.rotation == navRot) return;
+            if (navPlaced && Quaternion.Dot(cam.transform.rotation, navRot) > 0.9999999f) return;
+            navPlaced = true;
             navRot = cam.transform.rotation;
             Quaternion inv = Quaternion.Inverse(cam.transform.rotation);
             for (int i = 0; i < 6; i++)
