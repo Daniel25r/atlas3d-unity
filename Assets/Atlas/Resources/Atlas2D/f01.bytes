@@ -336,7 +336,6 @@ async function compositeFrameAsync(c, f, w, h, bg, useCamera) {
   if (useCamera && cameraActive()) { const m = cameraMatrix(f, w, h); c.transform(m.a, m.b, m.c, m.d, m.e, m.f); composeLayers(c, f, P.w, P.h, id => local.get(id), false); }
   else composeLayers(c, f, w, h, id => local.get(id), false);
   c.restore();
-  if (useCamera && sceneFxOn(f)) applySceneFx(c.canvas, f, w, h);
 }
 function onionFrames() {
   const none = { prev: [], next: [], light: [], ibPrev: null, ibNext: null };
@@ -390,6 +389,9 @@ function rebuildScene() {
   }
   b.globalCompositeOperation = 'source-over';
   drawOnionInto(b);
+  // capas de encima ya juntas (con trazos en curso solo se pintan dos imágenes)
+  const at = resetCtx(ctx2d(aboveCv)); at.clearRect(0, 0, P.w, P.h);
+  drawAboveLayers(at);
   return true;
 }
 /* ---------- 12-rendimiento.js ---------- */
@@ -479,7 +481,7 @@ function drawLiveCell(t, L) {
 // L.fx = {blur, bright, contrast, sat, hue, tint, tintA, shadow, shX, shY, shBlur, shColor, shA, glow, glowColor}
 function fxActive(L) {
   const x = L && L.fx;
-  return !!x && !!(animeFxOn(x) || x.blur || x.shadow || x.glow || (x.tint && x.tintA) || (x.bright && x.bright !== 100) || (x.contrast && x.contrast !== 100) || (x.sat != null && x.sat !== 100) || x.hue);
+  return !!x && !!(x.blur || x.shadow || x.glow || (x.tint && x.tintA) || (x.bright && x.bright !== 100) || (x.contrast && x.contrast !== 100) || (x.sat != null && x.sat !== 100) || x.hue);
 }
 const anyFx = () => !!P && P.layers.some(L => L.visible && fxActive(L));
 function rgba(hex, a) {
@@ -505,7 +507,7 @@ function applyFx(L, src, w, h, f) {
     at.fillStyle = x.tint; at.fillRect(0, 0, w, h);
     at.globalCompositeOperation = 'source-over'; at.globalAlpha = 1;
   }
-  if (!x.shadow && !x.glow) return animeFxOn(x) ? applyAnimeFx(L, a, a, w, h, f || 0) : a;
+  if (!x.shadow && !x.glow) return a;
   const o = tmpCanvas('fxo', w, h), ot = resetCtx(ctx2d(o));
   ot.clearRect(0, 0, w, h);
   const OFF = w * 3 + 100;
@@ -517,7 +519,7 @@ function applyFx(L, src, w, h, f) {
   if (x.shadow) shadowOnly(rgba(x.shColor || '#000000', (x.shA != null ? x.shA : 50) / 100), (x.shBlur || 0) * k, (x.shX || 0) * k, (x.shY || 0) * k);
   if (x.glow) { const c = rgba(x.glowColor || '#ffe680', 1); shadowOnly(c, x.glow * k, 0, 0); shadowOnly(c, x.glow * k * 0.5, 0, 0); }
   ot.drawImage(a, 0, 0);
-  return animeFxOn(x) ? applyAnimeFx(L, o, a, w, h, f || 0) : o;
+  return o;
 }
 function drawLayerContent(t, L, f, w, h, getCv, live) {
   if (fxActive(L)) {
@@ -892,7 +894,7 @@ function toggleCollapse(G) {
 /* =========================================================
    Vista (zoom, desplazamiento, rotación)
    ========================================================= */
-const stage = $('stage'), sctx = stage.getContext('2d');
+const stage = $('stage'), sctx = stage.getContext('2d', { desynchronized: true, alpha: false }) || stage.getContext('2d');
 let SW = 0, SH = 0, DPR = 1;
 const view = { x: 0, y: 0, z: 1, r: 0 };
 const viewMatrix = () => new DOMMatrix().translate(view.x, view.y).rotate(view.r * 180 / Math.PI).scale(view.z);
@@ -973,15 +975,11 @@ function doRender() {
     // Sin edición en curso se compone en la imagen guardada; con un trazo en curso, directo a la pantalla
     const out = live ? c : resetCtx(ctx2d(vc));
     if (!live) { out.fillStyle = P.paper; out.fillRect(0, 0, P.w, P.h); }
-    if (hasClipping() || anyMotion() || hasGroups() || anyFx() || sceneFxOn(cur.frame)) {
+    if (hasClipping() || anyMotion() || hasGroups() || anyFx()) {
       // con máscaras de recorte se compone el cuadro completo
       const cc = tmpCanvas('comp', P.w, P.h), t = resetCtx(ctx2d(cc));
       t.clearRect(0, 0, P.w, P.h);
       if (ready) { drawOnionInto(t); composeLayers(t, cur.frame, P.w, P.h, getCellSync, true); }
-      if (ready && sceneFxOn(cur.frame)) {
-        t.globalCompositeOperation = 'destination-over'; t.fillStyle = P.paper || '#ffffff'; t.fillRect(0, 0, P.w, P.h);
-        resetCtx(t); applySceneFx(cc, cur.frame, P.w, P.h);
-      }
       out.drawImage(cc, 0, 0);
     } else {
       out.drawImage(belowCv, 0, 0);
@@ -991,7 +989,8 @@ function doRender() {
         drawLiveCell(out, L);
         out.globalAlpha = 1; out.globalCompositeOperation = 'source-over';
       }
-      drawAboveLayers(out);
+      if (P.layers.slice(cur.layer + 1).every(l => !l.visible || (l.blend || 'source-over') === 'source-over')) out.drawImage(aboveCv, 0, 0);
+      else drawAboveLayers(out);
     }
     if (!live) { halfOk = false; viewCvRef = vc; drawViewImage(c, vc); }
     viewStale = live || !ready;
@@ -1119,6 +1118,7 @@ function currentCellForEdit(createIfMissing) {
 }
 function pressureOf(e) { return e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 1; }
 const brushDef = () => allBrushes().find(b => b.id === brushType) || BRUSHES[0];
+const brushDefFor = tool => tool === 'brush' ? brushDef() : { kind: 'path' };
 
 /* ----- puntas de pincel con textura ----- */
 const TIPS = {};
@@ -1174,6 +1174,44 @@ function mirrorFns() {
 }
 
 /* ----- motor de trazo: sirve para dibujar y para las vistas previas ----- */
+/* ----- Trazo de tinta con forma: un contorno continuo de grosor variable ----- */
+// En vez de unir trocitos de línea (que dejan uniones y bolitas al cambiar el grosor),
+// el trazo entero es una sola figura: lados suaves, puntas redondas o afiladas.
+function strokeOutline(pts, widths, capSeg) {
+  const n = pts.length;
+  if (n === 1) {
+    const r = widths[0] / 2, out = [];
+    for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; out.push({ x: pts[0].x + Math.cos(a) * r, y: pts[0].y + Math.sin(a) * r }); }
+    return out;
+  }
+  const L = [], R = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+    let tx = b.x - a.x, ty = b.y - a.y; const d = Math.hypot(tx, ty) || 1; tx /= d; ty /= d;
+    const r = widths[i] / 2, p = pts[i];
+    L.push({ x: p.x - ty * r, y: p.y + tx * r }); R.push({ x: p.x + ty * r, y: p.y - tx * r });
+  }
+  const cap = (c, from, r, steps) => {
+    // media vuelta alrededor de c empezando en `from`
+    const a0 = Math.atan2(from.y - c.y, from.x - c.x), out = [];
+    for (let k = 1; k < steps; k++) { const a = a0 - Math.PI * k / steps; out.push({ x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r }); }
+    return out;
+  };
+  const steps = capSeg || 8;
+  return L.concat(cap(pts[n - 1], L[n - 1], widths[n - 1] / 2, steps), R.reverse(), cap(pts[0], R[R.length - 1], widths[0] / 2, steps));
+}
+function fillOutline(ctx, poly) {
+  const n = poly.length; if (n < 3) return;
+  ctx.beginPath();
+  // curvas por los puntos medios: bordes suaves sin esquinas
+  let m = { x: (poly[n - 1].x + poly[0].x) / 2, y: (poly[n - 1].y + poly[0].y) / 2 };
+  ctx.moveTo(m.x, m.y);
+  for (let i = 0; i < n; i++) {
+    const a = poly[i], b = poly[(i + 1) % n];
+    ctx.quadraticCurveTo(a.x, a.y, (a.x + b.x) / 2, (a.y + b.y) / 2);
+  }
+  ctx.closePath(); ctx.fill('nonzero');
+}
 function makeStroke(ctx, o) {
   const E = { pts: [], box: { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity }, sm: null, rem: 0, lastT: 0, lastPr: 1, speed: 0 };
   const M = o.mirrors || [p => p];
@@ -1188,7 +1226,7 @@ function makeStroke(ctx, o) {
     let w = o.size;
     if (o.pressure) w *= 0.18 + 0.82 * Math.pow(pr, 0.85);
     if (o.speed) w *= clamp(1.25 - E.speed * 0.55, 0.3, 1.25);
-    if (o.taper) w *= Math.min(1, 0.25 + E.pts.length * 0.15);
+    if (o.taper && !o.outline) w *= Math.min(1, 0.25 + E.pts.length * 0.15);
     return Math.max(0.6, w) * (o.sizeMul || 1);
   };
   const rotMode = o.rotation || (o.jitter ? 'random' : 'none');
@@ -1239,12 +1277,40 @@ function makeStroke(ctx, o) {
       E.rem = d - (s - sp);
       return;
     }
+    if (o.outline) { E.redraw(false); return; }
     const n = E.pts.length;
     if (n === 1) { for (const f of M) { const q = f(pt); ctx.beginPath(); ctx.arc(q.x, q.y, pt.w / 2, 0, Math.PI * 2); ctx.fill(); } return; }
     const a = n >= 3 ? E.pts[n - 3] : E.pts[n - 2], m = E.pts[n - 2];
     const s0 = n >= 3 ? { x: (a.x + m.x) / 2, y: (a.y + m.y) / 2 } : a, s1 = { x: (m.x + pt.x) / 2, y: (m.y + pt.y) / 2 };
     ctx.lineWidth = (m.w + pt.w) / 2;
     for (const f of M) { const A = f(s0), B = f(m), C = f(s1); ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.quadraticCurveTo(B.x, B.y, C.x, C.y); ctx.stroke(); }
+  };
+  // Vuelve a dibujar el trazo entero como una sola figura (en el lienzo del trazo, que solo tiene este)
+  E.redraw = final => {
+    const pts = E.pts, n = pts.length; if (!n) return;
+    // grosor: suavizado a lo largo del trazo (la presión del lápiz tiembla)
+    const w = new Array(n);
+    for (let i = 0; i < n; i++) {
+      let s = 0, c = 0;
+      for (let k = -2; k <= 2; k++) { const j = i + k; if (j >= 0 && j < n) { s += pts[j].w; c++; } }
+      w[i] = s / c;
+    }
+    // puntas: el trazo empieza afilado; al soltar, también termina afilado (tinta)
+    const taperLen = Math.max(4, o.size * (o.taper ? 3 : 1.2));
+    const len = [0]; for (let i = 1; i < n; i++) len.push(len[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+    const total = len[n - 1];
+    const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+    const minF = o.taper ? 0.08 : 0.45;
+    for (let i = 0; i < n; i++) {
+      let f = minF + (1 - minF) * ease(len[i] / taperLen);
+      if (final && (o.taper || o.pressure)) f = Math.min(f, (o.taper ? 0.08 : 0.55) + (o.taper ? 0.92 : 0.45) * ease((total - len[i]) / taperLen));
+      if (n < 3 || total < taperLen * 0.5) f = Math.max(f, 0.7);
+      w[i] = Math.max(0.6, w[i] * f);
+    }
+    const b = E.box;
+    if (b.x1 > b.x0) ctx.clearRect(Math.floor(b.x0) - 2, Math.floor(b.y0) - 2, Math.ceil(b.x1 - b.x0) + 4, Math.ceil(b.y1 - b.y0) + 4);
+    ctx.globalAlpha = 1; ctx.fillStyle = o.color;
+    for (const f of M) fillOutline(ctx, strokeOutline(pts.map(f), w, w[0] > 6 ? 10 : 6));
   };
   return E;
 }
@@ -1312,7 +1378,7 @@ function toolDown(e) {
   S.ctx = t;
   S.label = erase ? 'Borrador' : tool === 'shape' ? ({ line: 'Línea', rect: 'Rectángulo', ellipse: 'Elipse' }[shapeType] || 'Forma') : tool === 'pencil' ? 'Lápiz' : (def.name || 'Pincel');
   if (tool === 'shape') { S.shape = shapeType; drawShape(p, e.shiftKey); requestRender(); return; }
-  S.eng = makeStroke(t, { ...def, size: ts.size, color: erase ? '#000000' : color, mirrors: mirrorFns(), zoom: view.z });
+  S.eng = makeStroke(t, { ...def, size: ts.size, color: erase ? '#000000' : color, mirrors: mirrorFns(), zoom: view.z, outline: !erase && def.kind === 'path' });
   S.box = S.eng.box;
   S.eng.add(p.x, p.y, pressureOf(e), e.timeStamp || performance.now(), true);
   requestRender();
@@ -1335,6 +1401,7 @@ function toolUp(e) {
   if (!S) return;
   const p = e ? screenToCell(e.offsetX, e.offsetY) : null;
   if (p && S.eng) S.eng.add(p.x, p.y, S.eng.lastPr, (e.timeStamp || performance.now()), false, true);
+  if (S.eng && S.eng.redraw && S.tool !== 'eraser' && S.tool !== 'shape') { const d = brushDefFor(S.tool); if (d.kind === 'path') S.eng.redraw(true); }
   if (p && S.tool === 'shape') drawShape(p, e.shiftKey);
   const s = S; S = null;
   const cv = getCellSync(s.cellId);
@@ -2615,6 +2682,23 @@ async function colorLines(scope, dark) {
   toast(n ? 'Línea de color en ' + n + ' dibujos' : 'No hay relleno debajo de la línea (rellena antes la capa de color)');
 }
 
+// La silueta del dibujo desplazada, para luz y sombra de dos tonos
+function shiftedBand(a, w, h, dx, dy, color, soft, name) {
+  const b = tmpCanvas(name, w, h), t = resetCtx(ctx2d(b));
+  t.clearRect(0, 0, w, h);
+  t.drawImage(a, 0, 0);
+  t.globalCompositeOperation = 'destination-out'; t.drawImage(a, dx, dy);
+  t.globalCompositeOperation = 'source-in'; t.fillStyle = color; t.fillRect(0, 0, w, h);
+  t.globalCompositeOperation = 'source-over';
+  if (soft > 0) {
+    const s = tmpCanvas(name + 's', w, h), st = resetCtx(ctx2d(s));
+    st.clearRect(0, 0, w, h); st.filter = 'blur(' + soft.toFixed(2) + 'px)'; st.drawImage(b, 0, 0); st.filter = 'none';
+    st.globalCompositeOperation = 'destination-in'; st.drawImage(a, 0, 0); st.globalCompositeOperation = 'source-over';
+    return s;
+  }
+  return b;
+}
+
 /* ----- capas de sombra y brillo ----- */
 function addToneLayer(kind) {
   const C = P.layers[cur.layer];
@@ -3095,7 +3179,6 @@ async function showHelp() {
     ['Tinta y color', 'Menú → «Tinta y color»: marca la capa de la línea como referencia y rellena en otra capa debajo; el color entra bajo la línea (ajuste «Bajo la línea» del bote). «Colores con nombre» recolorea un color en todos los dibujos. «Línea de color» tiñe la línea con el relleno. «Sombras / brillos automáticos» crean capas recortadas que puedes retocar.'],
     ['Tiempo de anime', 'Menú del cuadro → «Duración del dibujo» (a 1s, 2s, 3s) y «Marcar: clave / extremo / intermedio». Menú → «Hoja de tiempos» muestra todo como la hoja de un estudio. Mantén pulsado el botón del papel cebolla para sus ajustes: hasta 8 dibujos, colores, solo claves, ayuda para intercalar y mesa de luz.'],
     ['Línea limpia', 'Toca dos veces el pincel → «Cuerda»: el trazo solo avanza cuando el lápiz se aleja, para líneas limpias de anime. Tres dedos = rehacer.'],
-    ['Anime', 'Menú → «Efectos de anime»: aura de energía que se mueve sola, luz de contorno, sombra de dos tonos y destellos, con estilos listos (Ultra instinto, aura dorada…). «Efectos de escena»: líneas de velocidad, temblor, resplandor, aberración cromática, destello y grano entre los cuadros que elijas.'],
     ['Teclado', 'B pincel · P lápiz · E borrador · F relleno · S formas · L lazo · I cuentagotas · Espacio reproducir · , y . cuadros · Ctrl+Z/Y/C/V'],
   ];
   const body = el('div', { class: 'form' }, items.map(([a, b]) => el('p', { class: 'note', html: '<b style="color:var(--text)">' + escapeHtml(a) + ':</b> ' + escapeHtml(b) })));
@@ -3114,8 +3197,6 @@ $('btnMenu').onclick = async () => {
     mk('ink', '🖌️ Tinta y color', 'Línea de referencia, colores con nombre, línea de color, sombras y brillos'),
     mk('xsheet', '📋 Hoja de tiempos', 'Cuadros y dibujos como en un estudio; ritmo a 1s, 2s, 3s'),
     mk('onion', '🧅 Papel cebolla y mesa de luz', 'Cuántos dibujos, colores, opacidad, ayuda para intercalar'),
-    mk('anime', '⚡ Efectos de anime', 'Aura de energía, luz de contorno, sombra de anime, destellos'),
-    mk('scene', '🎬 Efectos de escena', 'Líneas de velocidad, temblor, resplandor, aberración, grano'),
     mk('image', 'Importar imagen', 'Fondo o referencia en una capa nueva'),
     mk('videoref', 'Importar vídeo (rotoscopia)', 'Un fotograma por cuadro en una capa de referencia'),
     mk('audio', P.audio ? 'Audio: ' + P.audio.name : 'Añadir audio', 'Música, voces o efectos (MP3, WAV, M4A, OGG)'),
@@ -3133,11 +3214,9 @@ $('btnMenu').onclick = async () => {
   else if (r === 'swap') swapDrawingDialog();
   else if (r === 'lips') lipSyncDialog();
   else if (r === 'fx') layerFxDialog();
-  else if (r === 'anime') animeFxDialog();
   else if (r === 'xsheet') xsheetDialog();
   else if (r === 'ink') inkPaintDialog();
   else if (r === 'onion') onionDialog();
-  else if (r === 'scene') sceneFxDialog();
   else if (r === 'image') $('imageFile').click();
   else if (r === 'videoref') $('videoFile').click();
   else if (r === 'audio') audioMenu();
@@ -4270,9 +4349,7 @@ function renderRigRows() {
   box.appendChild(el('label', { class: 'sl' }, [el('span', { text: 'Pegada a' }), sel]));
   const fx = el('button', { class: 'tb', text: '✨ Efectos de la capa' + (fxActive(L) ? ' (activos)' : '') });
   fx.onclick = () => layerFxDialog();
-  const an = el('button', { class: 'tb', text: '⚡ Anime' + (animeFxOn(L.fx) ? ' (activo)' : '') });
-  an.onclick = () => animeFxDialog();
-  box.appendChild(el('div', { class: 'drow' }, [fx, an]));
+  box.appendChild(el('div', { class: 'drow' }, [fx]));
 }
 
 // Toque en el lienzo con «Punto de giro»: el punto del dibujo bajo el dedo
@@ -4468,501 +4545,6 @@ async function exportPngSequence() {
     const r = await saveBinary(base + '_png.zip', 'application/zip', zipBuild(files));
     busy(false); toast(r, 4000);
   } catch (e) { busy(false); toast('Error al exportar: ' + (e && e.message || e), 4000); }
-}
-/* ---------- 94-anime.js ---------- */
-/* =========================================================
-   Efectos de anime (nivel estudio):
-   · En la capa: luz de contorno (rim light), sombra cel de dos tonos,
-     aura de energía animada (ki) y destellos que parpadean.
-   · En la escena: líneas de velocidad, temblor de cámara, resplandor
-     (bloom), aberración cromática, grano de película, viñeta y destello.
-   Todo se ve igual en el lienzo, al reproducir y al exportar.
-   ========================================================= */
-
-// Números al azar que se repiten igual (cada cuadro dibuja lo mismo siempre)
-function seeded(seed) {
-  let s = (seed | 0) ^ 0x9e3779b9;
-  return () => {
-    s |= 0; s = s + 0x6d2b79f5 | 0;
-    let t = Math.imul(s ^ s >>> 15, 1 | s);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-const animeFxOn = x => !!x && !!(x.rim || x.cel || x.aura || x.spark || x.tko || x.paraA || x.mblur);
-
-// Silueta del dibujo vista a 1/8: bordes y caja que la contiene
-function silhouetteInfo(a, w, h) {
-  const s = 8, sw = Math.max(8, Math.ceil(w / s)), sh = Math.max(8, Math.ceil(h / s));
-  const c = tmpCanvas('silh', sw, sh), t = resetCtx(ctx2d(c));
-  t.clearRect(0, 0, sw, sh); t.drawImage(a, 0, 0, sw, sh);
-  const d = t.getImageData(0, 0, sw, sh).data;
-  const edges = []; let x0 = sw, y0 = sh, x1 = -1, y1 = -1;
-  const A = (x, y) => (x < 0 || y < 0 || x >= sw || y >= sh) ? 0 : d[(y * sw + x) * 4 + 3];
-  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
-    if (A(x, y) < 50) continue;
-    if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y;
-    if (A(x - 1, y) < 50 || A(x + 1, y) < 50 || A(x, y - 1) < 50 || A(x, y + 1) < 50) edges.push([(x + 0.5) * w / sw, (y + 0.5) * h / sh]);
-  }
-  if (x1 < 0) return null;
-  return { edges, box: [x0 * w / sw, y0 * h / sh, (x1 + 1) * w / sw, (y1 + 1) * h / sh] };
-}
-
-// La silueta del dibujo desplazada, para luz y sombra de dos tonos
-function shiftedBand(a, w, h, dx, dy, color, soft, name) {
-  const b = tmpCanvas(name, w, h), t = resetCtx(ctx2d(b));
-  t.clearRect(0, 0, w, h);
-  t.drawImage(a, 0, 0);
-  t.globalCompositeOperation = 'destination-out'; t.drawImage(a, dx, dy);
-  t.globalCompositeOperation = 'source-in'; t.fillStyle = color; t.fillRect(0, 0, w, h);
-  t.globalCompositeOperation = 'source-over';
-  if (soft > 0) {
-    const s = tmpCanvas(name + 's', w, h), st = resetCtx(ctx2d(s));
-    st.clearRect(0, 0, w, h); st.filter = 'blur(' + soft.toFixed(2) + 'px)'; st.drawImage(b, 0, 0); st.filter = 'none';
-    st.globalCompositeOperation = 'destination-in'; st.drawImage(a, 0, 0); st.globalCompositeOperation = 'source-over';
-    return s;
-  }
-  return b;
-}
-
-// Aplica los efectos de anime a `a` (el dibujo con sus efectos de color) en `o`.
-// Devuelve el lienzo final.
-function applyAnimeFx(L, full0, a, w, h, f) {
-  let full = full0;
-  const x = L.fx, k = w / P.w;
-  const o = tmpCanvas('anim', w, h), ot = resetCtx(ctx2d(o));
-  ot.clearRect(0, 0, w, h);
-  const info = (x.aura || x.spark) ? silhouetteInfo(a, w, h) : null;
-  const hold = Math.max(1, x.auraHold || 2);
-  // --- Aura de energía: lenguas de luz que suben desde el borde (detrás del dibujo)
-  if (x.aura && info && info.edges.length) {
-    const au = tmpCanvas('aura', w, h), t = resetCtx(ctx2d(au));
-    t.clearRect(0, 0, w, h);
-    const size = x.aura * k, cycle = Math.max(2, x.auraCycle || 4);
-    const R = seeded(1000 + (Math.floor(f / hold) % cycle) * 7919);
-    const dirA = ((x.auraDir != null ? x.auraDir : -90) * Math.PI) / 180;
-    const inner = x.auraColor2 || '#ffffff', outer = x.auraColor || '#7fd4ff';
-    // halo suave
-    t.save(); t.shadowColor = rgba(outer, 0.9); t.shadowBlur = size * 0.6; t.shadowOffsetX = w * 3 + 100;
-    t.drawImage(a, -(w * 3 + 100), 0); t.drawImage(a, -(w * 3 + 100), 0); t.restore();
-    t.globalCompositeOperation = 'lighter';
-    const n = Math.min(260, Math.round(30 + info.edges.length * 0.35 * (x.auraDensity || 1)));
-    for (let i = 0; i < n; i++) {
-      const p = info.edges[Math.floor(R() * info.edges.length)];
-      const len = size * (0.45 + R() * 1.1), wid = size * (0.10 + R() * 0.16);
-      const sway = (R() - 0.5) * 0.9;
-      const ang = dirA + sway;
-      const ux = Math.cos(ang), uy = Math.sin(ang), px = -uy, py = ux;
-      const tipx = p[0] + ux * len, tipy = p[1] + uy * len;
-      const bend = (R() - 0.5) * len * 0.5;
-      const g = t.createLinearGradient(p[0], p[1], tipx, tipy);
-      g.addColorStop(0, rgba(inner, 0.55)); g.addColorStop(0.35, rgba(outer, 0.45)); g.addColorStop(1, rgba(outer, 0));
-      t.fillStyle = g;
-      t.beginPath();
-      t.moveTo(p[0] - px * wid, p[1] - py * wid);
-      t.quadraticCurveTo(p[0] + ux * len * 0.55 + px * bend - px * wid * 0.6, p[1] + uy * len * 0.55 + py * bend - py * wid * 0.6, tipx + px * bend * 0.6, tipy + py * bend * 0.6);
-      t.quadraticCurveTo(p[0] + ux * len * 0.55 + px * bend + px * wid * 0.6, p[1] + uy * len * 0.55 + py * bend + py * wid * 0.6, p[0] + px * wid, p[1] + py * wid);
-      t.closePath(); t.fill();
-    }
-    t.globalCompositeOperation = 'source-over';
-    ot.globalAlpha = Math.min(1, (x.auraA != null ? x.auraA : 90) / 100);
-    ot.filter = 'blur(' + Math.max(0.5, size * 0.04).toFixed(2) + 'px)';
-    ot.drawImage(au, 0, 0);
-    ot.filter = 'none'; ot.globalAlpha = 1;
-  }
-  // --- Desenfoque de movimiento: el dibujo se estira en la dirección del golpe
-  if (x.mblur) {
-    const m = tmpCanvas('mblur', w, h), mt = resetCtx(ctx2d(m));
-    mt.clearRect(0, 0, w, h);
-    const ang = (x.mblurAng || 0) * Math.PI / 180, len = x.mblur * k, n = 10;
-    for (let i = 0; i < n; i++) {
-      const t = i / (n - 1) - (x.mblurTrail ? 1 : 0.5);
-      mt.globalAlpha = x.mblurTrail ? 0.05 + 0.3 * (i / (n - 1)) : 1.6 / n;
-      mt.drawImage(full, Math.cos(ang) * len * t, Math.sin(ang) * len * t);
-    }
-    mt.globalAlpha = 1;
-    if (x.mblurTrail) mt.drawImage(full, 0, 0);
-    full = m;
-  }
-  // --- El dibujo (con su sombra y resplandor)
-  ot.drawImage(full, 0, 0);
-  const lightA = (((x.lightDir != null ? x.lightDir : -45)) * Math.PI) / 180;
-  const lx = Math.cos(lightA), ly = Math.sin(lightA);
-  // --- Sombra cel (dos tonos, borde duro): la parte que no mira a la luz
-  if (x.cel) {
-    const d = x.cel * k;
-    const band = shiftedBand(a, w, h, lx * d, ly * d, x.celColor || '#3a2c6e', (x.celSoft || 0) * k, 'cel');
-    ot.globalAlpha = (x.celA != null ? x.celA : 55) / 100; ot.globalCompositeOperation = 'multiply';
-    ot.drawImage(band, 0, 0);
-    ot.globalAlpha = 1; ot.globalCompositeOperation = 'source-over';
-  }
-  // --- Luz de contorno: el borde que mira a la luz se ilumina
-  if (x.rim) {
-    const d = x.rim * k;
-    const band = shiftedBand(a, w, h, -lx * d, -ly * d, x.rimColor || '#bfe8ff', Math.max(0.5, d * 0.25), 'rim');
-    ot.globalAlpha = (x.rimA != null ? x.rimA : 90) / 100; ot.globalCompositeOperation = 'screen';
-    ot.drawImage(band, 0, 0);
-    ot.globalAlpha = 1; ot.globalCompositeOperation = 'source-over';
-  }
-  // --- Degradado «para»: color en degradado encima del dibujo (luz del ambiente)
-  if (x.paraA) {
-    const g = tmpCanvas('para', w, h), gt = resetCtx(ctx2d(g));
-    gt.clearRect(0, 0, w, h);
-    const pa = (x.paraAng != null ? x.paraAng : 90) * Math.PI / 180, cx = w / 2, cy = h / 2, R = Math.hypot(w, h) / 2;
-    const gr = gt.createLinearGradient(cx - Math.cos(pa) * R, cy - Math.sin(pa) * R, cx + Math.cos(pa) * R, cy + Math.sin(pa) * R);
-    gr.addColorStop(0, x.paraC1 || '#ffe2b0'); gr.addColorStop(1, x.paraC2 || '#4a3a9a');
-    gt.fillStyle = gr; gt.fillRect(0, 0, w, h);
-    gt.globalCompositeOperation = 'destination-in'; gt.drawImage(a, 0, 0);
-    ot.globalAlpha = x.paraA / 100; ot.globalCompositeOperation = x.paraBlend || 'overlay';
-    ot.drawImage(g, 0, 0);
-    ot.globalAlpha = 1; ot.globalCompositeOperation = 'source-over';
-  }
-  // --- Destellos: estrellas de cuatro puntas que aparecen y se apagan
-  if (x.spark && info) {
-    const b = info.box, pad = (x.aura || 20) * k;
-    const R = seeded(777 + (L.id ? String(L.id).length * 131 : 0));
-    const sz = (x.sparkSize || 10) * k, col = x.sparkColor || '#ffffff';
-    ot.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < x.spark; i++) {
-      const sx = b[0] - pad + R() * (b[2] - b[0] + pad * 2), sy = b[1] - pad + R() * (b[3] - b[1] + pad * 2);
-      const speed = 0.35 + R() * 0.5, ph = R() * 6.283;
-      const life = Math.sin(f * speed + ph);
-      if (life <= 0.05) continue;
-      const s = sz * (0.4 + R() * 0.8) * life;
-      const g = ot.createRadialGradient(sx, sy, 0, sx, sy, s * 1.2);
-      g.addColorStop(0, rgba(col, 0.9 * life)); g.addColorStop(1, rgba(col, 0));
-      ot.fillStyle = g; ot.beginPath(); ot.arc(sx, sy, s * 1.2, 0, 6.283); ot.fill();
-      ot.fillStyle = rgba(col, life);
-      ot.beginPath();
-      const th = s * 0.12;
-      ot.moveTo(sx, sy - s * 2); ot.lineTo(sx + th, sy - th); ot.lineTo(sx + s * 2, sy); ot.lineTo(sx + th, sy + th);
-      ot.lineTo(sx, sy + s * 2); ot.lineTo(sx - th, sy + th); ot.lineTo(sx - s * 2, sy); ot.lineTo(sx - th, sy - th);
-      ot.closePath(); ot.fill();
-    }
-    ot.globalCompositeOperation = 'source-over';
-  }
-  // --- Luz transmitida (T光): el dibujo brilla como luz que atraviesa (ventanas, rayos, energía)
-  if (x.tko) {
-    const size = (x.tkoSize || 30) * k;
-    const g = tmpCanvas('tko', w, h), gt = resetCtx(ctx2d(g));
-    gt.clearRect(0, 0, w, h); gt.drawImage(a, 0, 0);
-    if (x.tkoTint) { gt.globalCompositeOperation = 'source-atop'; gt.globalAlpha = x.tkoTint / 100; gt.fillStyle = x.tkoColor || '#9fd8ff'; gt.fillRect(0, 0, w, h); gt.globalAlpha = 1; gt.globalCompositeOperation = 'source-over'; }
-    ot.globalCompositeOperation = 'lighter';
-    for (const [r, al] of [[0.12, 0.55], [0.4, 0.45], [1, 0.35]]) {
-      ot.globalAlpha = Math.min(1, x.tko / 100 * al);
-      ot.filter = 'blur(' + Math.max(0.5, size * r).toFixed(2) + 'px)';
-      ot.drawImage(g, 0, 0);
-    }
-    ot.filter = 'none'; ot.globalAlpha = 1; ot.globalCompositeOperation = 'source-over';
-  }
-  return o;
-}
-
-/* ----- Estilos listos ----- */
-const ANIME_PRESETS = {
-  ultra: { name: 'Ultra instinto (plateado)', fx: { aura: 70, auraColor: '#8fd8ff', auraColor2: '#ffffff', auraA: 85, auraDir: -90, auraHold: 2, auraCycle: 4, rim: 10, rimColor: '#cfeeff', rimA: 95, lightDir: -60, cel: 0, spark: 26, sparkColor: '#ffffff', sparkSize: 9, glow: 18, glowColor: '#a9e4ff' } },
-  ssj: { name: 'Aura dorada', fx: { aura: 80, auraColor: '#ffcc33', auraColor2: '#fff7c2', auraA: 90, auraDir: -90, auraHold: 2, auraCycle: 4, rim: 8, rimColor: '#fff0a0', rimA: 90, lightDir: -90, spark: 14, sparkColor: '#fff4b0', sparkSize: 8, glow: 22, glowColor: '#ffd24a' } },
-  dark: { name: 'Aura oscura', fx: { aura: 75, auraColor: '#9b30ff', auraColor2: '#ff4fd8', auraA: 85, auraDir: -90, auraHold: 2, auraCycle: 3, rim: 7, rimColor: '#e0a0ff', rimA: 80, lightDir: -90, cel: 18, celColor: '#2a103f', celA: 60, spark: 8, sparkColor: '#ffb8ff', glow: 14, glowColor: '#b04cff' } },
-  fire: { name: 'Fuego', fx: { aura: 90, auraColor: '#ff5a1f', auraColor2: '#ffe066', auraA: 95, auraDir: -90, auraHold: 1, auraCycle: 5, rim: 9, rimColor: '#ffb066', lightDir: 90, glow: 20, glowColor: '#ff7a2a' } },
-  cel: { name: 'Sombra y luz de anime', fx: { cel: 22, celColor: '#4a3478', celA: 55, rim: 6, rimColor: '#ffffff', rimA: 70, lightDir: -45 } },
-};
-
-/* ----- Diálogo «Efectos de anime» de la capa ----- */
-async function animeFxDialog() {
-  const L = P.layers[cur.layer];
-  if (!L || isGroup(L)) { toast('Los efectos se ponen en capas de dibujo, no en carpetas'); return; }
-  const base = { rim: 0, rimColor: '#bfe8ff', rimA: 90, lightDir: -45, cel: 0, celColor: '#3a2c6e', celA: 55, celSoft: 0, aura: 0, auraColor: '#7fd4ff', auraColor2: '#ffffff', auraA: 90, auraDir: -90, auraHold: 2, auraCycle: 4, auraDensity: 1, spark: 0, sparkColor: '#ffffff', sparkSize: 10, tko: 0, tkoSize: 30, tkoColor: '#9fd8ff', tkoTint: 0, paraA: 0, paraC1: '#ffe2b0', paraC2: '#4a3a9a', paraAng: 90, paraBlend: 'overlay', mblur: 0, mblurAng: 0, mblurTrail: false };
-  const x = Object.assign({}, base, L.fx || {});
-  const before = clone(L.fx);
-  const live = () => { L.fx = Object.assign({}, L.fx || {}, x); invalidateAllFrames(); sceneDirty = true; requestRender(); };
-  const inputs = {};
-  const slider = (label, key, min, max, unit) => {
-    const out = el('output', { text: x[key] + unit });
-    const r = el('input', { type: 'range', min: String(min), max: String(max), value: String(x[key]) });
-    r.oninput = () => { x[key] = parseFloat(r.value); out.textContent = r.value + unit; live(); };
-    inputs[key] = v => { r.value = String(v); out.textContent = v + unit; };
-    return el('label', {}, [el('span', {}, [label + ' ', out]), r]);
-  };
-  const color = (label, key) => {
-    const c = el('input', { type: 'color', value: x[key] });
-    c.oninput = () => { x[key] = c.value; live(); };
-    inputs[key] = v => { c.value = v; };
-    return el('label', {}, [label, c]);
-  };
-  const head = t => el('p', { class: 'note', html: '<b style="color:var(--text)">' + escapeHtml(t) + '</b>' });
-  const blendSel = el('select', {}, [['overlay', 'Superponer'], ['soft-light', 'Luz suave'], ['multiply', 'Multiplicar (sombra)'], ['screen', 'Trama (luz)'], ['color', 'Color']].map(([v, n]) => el('option', { value: v, text: n, selected: x.paraBlend === v })));
-  blendSel.onchange = () => { x.paraBlend = blendSel.value; live(); };
-  const trailC = el('input', { type: 'checkbox' }); trailC.checked = !!x.mblurTrail;
-  trailC.onchange = () => { x.mblurTrail = trailC.checked; live(); };
-  const trailChk = el('label', { class: 'chk' }, [trailC, 'Estela detrás (el dibujo queda nítido delante)']);
-  const presets = el('div', { class: 'drow', style: 'flex-wrap:wrap;gap:6px' }, Object.keys(ANIME_PRESETS).map(id => {
-    const b = el('button', { class: 'tb', text: ANIME_PRESETS[id].name });
-    b.onclick = () => {
-      Object.assign(x, base, ANIME_PRESETS[id].fx);
-      for (const k in inputs) if (x[k] != null) inputs[k](x[k]);
-      // el resplandor es de «Efectos de la capa»: se copia tal cual
-      L.fx = Object.assign({}, L.fx || {}, x); invalidateAllFrames(); sceneDirty = true; requestRender();
-    };
-    return b;
-  }));
-  const body = el('div', { class: 'form' }, [
-    el('p', { class: 'note', text: 'Estilos listos (luego puedes ajustar cada cosa):' }),
-    presets,
-    head('Luz'),
-    slider('Dirección de la luz', 'lightDir', -180, 180, '°'),
-    head('Aura de energía (se mueve sola)'),
-    slider('Tamaño del aura', 'aura', 0, 200, ' px'),
-    el('div', { class: 'row2' }, [color('Color de fuera', 'auraColor'), color('Color de dentro', 'auraColor2')]),
-    el('div', { class: 'row2' }, [slider('Fuerza', 'auraA', 0, 100, '%'), slider('Hacia dónde sube', 'auraDir', -180, 180, '°')]),
-    el('div', { class: 'row2' }, [slider('Cuadros por dibujo', 'auraHold', 1, 4, ''), slider('Dibujos del ciclo', 'auraCycle', 2, 8, '')]),
-    slider('Densidad', 'auraDensity', 0.3, 3, '×'),
-    head('Luz de contorno (borde iluminado)'),
-    el('div', { class: 'row2' }, [slider('Ancho', 'rim', 0, 60, ' px'), slider('Fuerza', 'rimA', 0, 100, '%')]),
-    color('Color de la luz', 'rimColor'),
-    head('Sombra de anime (dos tonos, borde duro)'),
-    el('div', { class: 'row2' }, [slider('Tamaño', 'cel', 0, 120, ' px'), slider('Fuerza', 'celA', 0, 100, '%')]),
-    el('div', { class: 'row2' }, [color('Color de la sombra', 'celColor'), slider('Suavidad', 'celSoft', 0, 30, ' px')]),
-    head('Destellos'),
-    el('div', { class: 'row2' }, [slider('Cantidad', 'spark', 0, 120, ''), slider('Tamaño', 'sparkSize', 2, 40, ' px')]),
-    color('Color de los destellos', 'sparkColor'),
-    head('Luz transmitida (T光): brilla como luz que atraviesa'),
-    el('div', { class: 'row2' }, [slider('Fuerza', 'tko', 0, 200, '%'), slider('Tamaño del brillo', 'tkoSize', 2, 150, ' px')]),
-    el('div', { class: 'row2' }, [color('Color de la luz', 'tkoColor'), slider('Teñir', 'tkoTint', 0, 100, '%')]),
-    head('Degradado «para» (luz del ambiente sobre el personaje)'),
-    el('div', { class: 'row2' }, [slider('Fuerza', 'paraA', 0, 100, '%'), slider('Dirección', 'paraAng', -180, 180, '°')]),
-    el('div', { class: 'row2' }, [color('Color 1', 'paraC1'), color('Color 2', 'paraC2')]),
-    blendSel,
-    head('Desenfoque de movimiento'),
-    el('div', { class: 'row2' }, [slider('Largo', 'mblur', 0, 200, ' px'), slider('Dirección', 'mblurAng', -180, 180, '°')]),
-    trailChk,
-  ]);
-  const r = await dialog({ title: 'Efectos de anime · ' + L.name, body, buttons: [{ label: 'Quitar', value: 'clear', danger: true }, { label: 'Cancelar', value: false }, { label: 'Aplicar', value: true, primary: true }] });
-  if (r === true) { L.fx = Object.assign({}, L.fx || {}, x); structural('Efectos de anime'); }
-  else if (r === 'clear') {
-    const fx = Object.assign({}, L.fx || {});
-    for (const k of ['rim', 'cel', 'aura', 'spark', 'tko', 'paraA', 'mblur']) fx[k] = 0;
-    L.fx = fx; structural('Quitar efectos de anime');
-  } else { if (before) L.fx = before; else delete L.fx; invalidateAllFrames(); sceneDirty = true; requestRender(); }
-  if (animOpen()) renderAnimPanel();
-}
-
-/* =========================================================
-   Efectos de escena (sobre el cuadro entero, como la cámara de un anime)
-   P.scene = {from, to, speed, speedColor, speedX, speedY, shake, bloom, chroma, grain, vignette, flash, flashColor}
-   ========================================================= */
-function sceneFxOn(f) {
-  const s = P && P.scene;
-  if (!s) return false;
-  if (f != null && impactAt(f)) return true;
-  if (!(s.speed || s.shake || s.bloom || s.chroma || s.grain || s.vignette || s.flash || s.df)) return false;
-  const a = Math.max(1, s.from || 1) - 1, b = (s.to || P.frames) - 1;
-  return f == null || (f >= a && f <= b);
-}
-// «12, 14-16» → cuadros 12, 14, 15 y 16 (contando desde 1)
-function parseFrameList(txt) {
-  const set = new Set();
-  for (const part of String(txt || '').split(/[,; ]+/)) {
-    const m = part.match(/^(\d+)(?:-(\d+))?$/); if (!m) continue;
-    const a = +m[1], b = m[2] ? +m[2] : a;
-    for (let i = Math.min(a, b); i <= Math.max(a, b) && i - Math.min(a, b) < 2000; i++) set.add(i - 1);
-  }
-  return set;
-}
-let impactCache = { txt: null, set: new Set() };
-function impactAt(f) {
-  const s = P && P.scene; if (!s || !s.impact) return false;
-  if (impactCache.txt !== s.impact) impactCache = { txt: s.impact, set: parseFrameList(s.impact) };
-  return impactCache.set.has(f);
-}
-function applySceneFx(cv, f, w, h) {
-  const s = P.scene, k = w / P.w, t = ctx2d(cv);
-  resetCtx(t);
-  const a0 = Math.max(1, s.from || 1) - 1, b0 = (s.to || P.frames) - 1;
-  if (f < a0 || f > b0) { applyImpact(cv, f, w, h); return; }
-  // Temblor de cámara
-  if (s.shake) {
-    const R = seeded(31 * f + 5), m = s.shake * k;
-    const dx = (R() * 2 - 1) * m, dy = (R() * 2 - 1) * m, sc = 1 + (2 * m + 2) / Math.min(w, h);
-    const c = tmpCanvas('scShake', w, h), ct = resetCtx(ctx2d(c));
-    ct.clearRect(0, 0, w, h); ct.drawImage(cv, 0, 0);
-    t.clearRect(0, 0, w, h);
-    t.setTransform(sc, 0, 0, sc, w / 2 * (1 - sc) + dx, h / 2 * (1 - sc) + dy);
-    t.drawImage(c, 0, 0); resetCtx(t);
-  }
-  // Resplandor (las zonas claras brillan alrededor)
-  if (s.bloom) {
-    const c = tmpCanvas('scBloom', w, h), ct = resetCtx(ctx2d(c));
-    ct.clearRect(0, 0, w, h);
-    ct.filter = 'brightness(0.85) contrast(2.4) blur(' + Math.max(2, 14 * k).toFixed(1) + 'px)';
-    ct.drawImage(cv, 0, 0); ct.filter = 'none';
-    t.globalCompositeOperation = 'screen'; t.globalAlpha = Math.min(1, s.bloom / 100);
-    t.drawImage(c, 0, 0); resetCtx(t);
-  }
-  // Líneas de velocidad / concentración hacia un punto
-  if (s.speed) {
-    const R = seeded(97 * Math.floor(f / 2) + 13);
-    const cx = (s.speedX != null ? s.speedX : 50) / 100 * w, cy = (s.speedY != null ? s.speedY : 50) / 100 * h;
-    const far = Math.hypot(Math.max(cx, w - cx), Math.max(cy, h - cy)) * 1.05;
-    const n = Math.round(40 + s.speed * 1.6);
-    t.fillStyle = s.speedColor || '#ffffff';
-    for (let i = 0; i < n; i++) {
-      const a = R() * Math.PI * 2, wd = (0.004 + R() * 0.012) * (1 + s.speed / 100);
-      const r0 = far * (0.38 + R() * 0.35) * (1.15 - s.speed / 200);
-      t.globalAlpha = 0.35 + R() * 0.55;
-      t.beginPath();
-      t.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0);
-      t.lineTo(cx + Math.cos(a - wd) * far, cy + Math.sin(a - wd) * far);
-      t.lineTo(cx + Math.cos(a + wd) * far, cy + Math.sin(a + wd) * far);
-      t.closePath(); t.fill();
-    }
-    resetCtx(t);
-  }
-  // Aberración cromática: rojo y azul se separan hacia los bordes
-  if (s.chroma) {
-    const d = s.chroma * k;
-    const ch = (name, col) => {
-      const c = tmpCanvas(name, w, h), ct = resetCtx(ctx2d(c));
-      ct.clearRect(0, 0, w, h); ct.drawImage(cv, 0, 0);
-      ct.globalCompositeOperation = 'multiply'; ct.fillStyle = col; ct.fillRect(0, 0, w, h);
-      ct.globalCompositeOperation = 'destination-in'; ct.drawImage(cv, 0, 0);
-      return c;
-    };
-    const r = ch('scR', '#ff0000'), g = ch('scG', '#00ff00'), b = ch('scB', '#0000ff');
-    t.clearRect(0, 0, w, h);
-    t.globalCompositeOperation = 'lighter';
-    t.drawImage(r, -d, 0); t.drawImage(g, 0, 0); t.drawImage(b, d, 0);
-    resetCtx(t);
-  }
-  // Difusión (DF): las zonas claras se tiñen, se desenfocan y se suman (neblina suave del anime)
-  if (s.df) {
-    const th = (s.dfTh != null ? s.dfTh : 50) / 100;
-    const c = tmpCanvas('scDf', w, h), ct = resetCtx(ctx2d(c));
-    ct.clearRect(0, 0, w, h);
-    ct.filter = 'brightness(' + (1 - th * 0.55).toFixed(2) + ') contrast(' + (1 + th * 3).toFixed(2) + ') blur(' + Math.max(2, (s.dfSize || 24) * k).toFixed(1) + 'px)';
-    ct.drawImage(cv, 0, 0); ct.filter = 'none';
-    if (s.dfColor) { ct.globalCompositeOperation = 'multiply'; ct.fillStyle = s.dfColor; ct.fillRect(0, 0, w, h); ct.globalCompositeOperation = 'source-over'; }
-    t.globalCompositeOperation = 'screen'; t.globalAlpha = Math.min(1, s.df / 100);
-    t.drawImage(c, 0, 0); resetCtx(t);
-  }
-  // Destello de luz que llena la pantalla
-  if (s.flash) {
-    t.globalCompositeOperation = 'screen'; t.globalAlpha = Math.min(1, s.flash / 100);
-    t.fillStyle = s.flashColor || '#ffffff'; t.fillRect(0, 0, w, h); resetCtx(t);
-  }
-  // Viñeta
-  if (s.vignette) {
-    const g = t.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.hypot(w, h) * 0.55);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,' + Math.min(1, s.vignette / 100) + ')');
-    t.fillStyle = g; t.fillRect(0, 0, w, h);
-  }
-  // Grano de película (cambia en cada cuadro)
-  if (s.grain) {
-    const n = tmpCanvas('scNoise', 160, 160), nt = resetCtx(ctx2d(n));
-    const img = nt.createImageData(160, 160), d = img.data, R = seeded(f * 17 + 3);
-    for (let i = 0; i < d.length; i += 4) { const v = R() * 255 | 0; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
-    nt.putImageData(img, 0, 0);
-    t.globalCompositeOperation = 'overlay'; t.globalAlpha = Math.min(1, s.grain / 100) * 0.6;
-    t.fillStyle = t.createPattern(n, 'repeat'); t.fillRect(0, 0, w, h);
-    resetCtx(t);
-  }
-  applyImpact(cv, f, w, h);
-}
-
-// Cuadros de impacto: negativo, blanco y negro duro o rojo, en los cuadros elegidos
-function applyImpact(cv, f, w, h) {
-  if (!impactAt(f)) return;
-  const s = P.scene, t = ctx2d(cv); resetCtx(t);
-  const mode = s.impactMode || 'invert';
-  const c = tmpCanvas('scImp', w, h), ct = resetCtx(ctx2d(c));
-  ct.clearRect(0, 0, w, h);
-  if (mode === 'invert' || mode === 'red') {
-    ct.drawImage(cv, 0, 0);
-    ct.globalCompositeOperation = 'difference'; ct.fillStyle = '#ffffff'; ct.fillRect(0, 0, w, h);
-    ct.globalCompositeOperation = 'source-over';
-    if (mode === 'red') { ct.filter = 'none'; const d = tmpCanvas('scImp2', w, h), dt = resetCtx(ctx2d(d)); dt.filter = 'grayscale(1) contrast(3)'; dt.drawImage(c, 0, 0); dt.filter = 'none'; dt.globalCompositeOperation = 'multiply'; dt.fillStyle = s.impactColor || '#ff2a3a'; dt.fillRect(0, 0, w, h); ct.clearRect(0, 0, w, h); ct.drawImage(d, 0, 0); }
-  } else {
-    ct.filter = 'grayscale(1) contrast(' + (mode === 'ink' ? 8 : 3) + ')';
-    ct.drawImage(cv, 0, 0); ct.filter = 'none';
-  }
-  t.clearRect(0, 0, w, h); t.drawImage(c, 0, 0);
-}
-const LOOKS_KEY = 'trazo_looks';
-const readLooks = () => { try { return JSON.parse(localStorage.getItem(LOOKS_KEY) || '[]'); } catch (e) { return []; } };
-async function sceneFxDialog() {
-  if (!P.scene) P.scene = {};
-  const x = Object.assign({ df: 0, dfTh: 50, dfSize: 24, dfColor: '#ffe8f0', impact: '', impactMode: 'invert', impactColor: '#ff2a3a', from: 1, to: P.frames, speed: 0, speedColor: '#ffffff', speedX: 50, speedY: 50, shake: 0, bloom: 0, chroma: 0, grain: 0, vignette: 0, flash: 0, flashColor: '#ffffff' }, P.scene);
-  const before = clone(P.scene);
-  const live = () => { P.scene = Object.assign({}, x); invalidateAllFrames(); sceneDirty = true; requestRender(); };
-  const slider = (label, key, min, max, unit) => {
-    const out = el('output', { text: x[key] + unit });
-    const r = el('input', { type: 'range', min: String(min), max: String(max), value: String(x[key]) });
-    r.oninput = () => { x[key] = parseFloat(r.value); out.textContent = r.value + unit; live(); };
-    return el('label', {}, [el('span', {}, [label + ' ', out]), r]);
-  };
-  const num = (label, key) => {
-    const i = el('input', { type: 'number', min: '1', max: String(P.frames), value: String(x[key]) });
-    i.onchange = () => { x[key] = clamp(parseInt(i.value, 10) || 1, 1, P.frames); live(); };
-    return el('label', {}, [label, i]);
-  };
-  const color = (label, key) => {
-    const c = el('input', { type: 'color', value: x[key] });
-    c.oninput = () => { x[key] = c.value; live(); };
-    return el('label', {}, [label, c]);
-  };
-  const impactIn = el('input', { type: 'text', value: x.impact || '', placeholder: 'Cuadros: 24, 25, 30-31' });
-  impactIn.oninput = () => { x.impact = impactIn.value; live(); };
-  const impactSel = el('select', {}, [['invert', 'Negativo'], ['ink', 'Tinta (blanco y negro duro)'], ['bw', 'Blanco y negro'], ['red', 'Rojo de impacto']].map(([v, n]) => el('option', { value: v, text: n, selected: x.impactMode === v })));
-  impactSel.onchange = () => { x.impactMode = impactSel.value; live(); };
-  const saveLook = el('button', { class: 'tb', text: '💾 Guardar este look' });
-  saveLook.onclick = async () => {
-    const nameIn = el('input', { type: 'text', value: 'Mi look', maxlength: 40 });
-    const snap = Object.assign({}, x);
-    closeDialog('look');
-    const ok = await dialog({ title: 'Guardar look', body: el('div', { class: 'form' }, [el('label', {}, ['Nombre (sirve en todos tus proyectos)', nameIn])]), buttons: [{ label: 'Cancelar', value: false }, { label: 'Guardar', value: true, primary: true }] });
-    P.scene = snap; invalidateAllFrames(); sceneDirty = true; requestRender(); scheduleSave();
-    const name = ok ? nameIn.value.trim().slice(0, 40) : '';
-    if (!name) return;
-    const L = P.layers[cur.layer];
-    const looks = readLooks().filter(l => l.name !== name);
-    looks.push({ name, scene: snap, fx: L && L.fx ? clone(L.fx) : null });
-    try { localStorage.setItem(LOOKS_KEY, JSON.stringify(looks.slice(-30))); toast('Look «' + name + '» guardado'); } catch (e) { toast('No se pudo guardar'); }
-  };
-  const loadLook = el('button', { class: 'tb', text: '📂 Usar un look guardado' });
-  loadLook.onclick = async () => {
-    const looks = readLooks();
-    if (!looks.length) { toast('Aún no hay looks guardados'); return; }
-    closeDialog('look');
-    const pick = await dialog({ title: 'Looks guardados', body: el('div', { class: 'menu' }, looks.map((l, i) => el('button', { html: escapeHtml(l.name) + '<small>Escena' + (l.fx ? ' + efectos de capa' : '') + '</small>', onclick: () => closeDialog('l' + i) }))), buttons: [{ label: 'Cancelar', value: null }] });
-    if (!pick) return;
-    const l = looks[+pick.slice(1)];
-    P.scene = Object.assign({}, l.scene, { from: 1, to: P.frames });
-    const L = P.layers[cur.layer];
-    if (l.fx && L && !isGroup(L)) L.fx = clone(l.fx);
-    structural('Usar look'); toast('Look «' + l.name + '» aplicado (escena' + (l.fx ? ' y efectos en «' + L.name + '»' : '') + ')');
-  };
-  const body = el('div', { class: 'form' }, [
-    el('p', { class: 'note', text: 'Se aplican a la imagen entera entre esos cuadros: para golpes, transformaciones y ataques. Se ven al reproducir y al exportar.' }),
-    el('div', { class: 'row2' }, [num('Desde el cuadro', 'from'), num('Hasta el cuadro', 'to')]),
-    slider('Líneas de velocidad', 'speed', 0, 100, '%'),
-    el('div', { class: 'row2' }, [slider('Centro X', 'speedX', 0, 100, '%'), slider('Centro Y', 'speedY', 0, 100, '%')]),
-    color('Color de las líneas', 'speedColor'),
-    slider('Temblor de cámara', 'shake', 0, 60, ' px'),
-    slider('Resplandor (bloom)', 'bloom', 0, 100, '%'),
-    slider('Aberración cromática', 'chroma', 0, 20, ' px'),
-    el('div', { class: 'row2' }, [slider('Destello de luz', 'flash', 0, 100, '%'), color('Color del destello', 'flashColor')]),
-    el('div', { class: 'row2' }, [slider('Viñeta', 'vignette', 0, 100, '%'), slider('Grano de película', 'grain', 0, 100, '%')]),
-    el('p', { class: 'note', html: '<b style="color:var(--text)">Difusión (DF)</b>: neblina suave del anime moderno; las zonas claras brillan con un tono.' }),
-    el('div', { class: 'row2' }, [slider('Difusión', 'df', 0, 100, '%'), slider('Solo lo más claro', 'dfTh', 0, 100, '%')]),
-    el('div', { class: 'row2' }, [slider('Tamaño', 'dfSize', 2, 80, ' px'), color('Tono', 'dfColor')]),
-    el('p', { class: 'note', html: '<b style="color:var(--text)">Cuadros de impacto</b>: en los cuadros que escribas (por ejemplo «24, 25, 30-31») la imagen se vuelve negativo, tinta o roja, como en los golpes del anime. Valen fuera del rango de arriba.' }),
-    impactIn, impactSel, color('Color del impacto rojo', 'impactColor'),
-    el('div', { class: 'drow', style: 'gap:6px;flex-wrap:wrap' }, [saveLook, loadLook]),
-  ]);
-  const r = await dialog({ title: 'Efectos de escena', body, buttons: [{ label: 'Quitar todos', value: 'clear', danger: true }, { label: 'Cancelar', value: false }, { label: 'Aplicar', value: true, primary: true }] });
-  if (r === 'look') return;
-  if (r === true) { P.scene = Object.assign({}, x); structural('Efectos de escena'); }
-  else if (r === 'clear') { delete P.scene; structural('Quitar efectos de escena'); }
-  else { if (before) P.scene = before; else delete P.scene; invalidateAllFrames(); sceneDirty = true; requestRender(); }
 }
 /* ---------- 95-proyectos.js ---------- */
 /* =========================================================
