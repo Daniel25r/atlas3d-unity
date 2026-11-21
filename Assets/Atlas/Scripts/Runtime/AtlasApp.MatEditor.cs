@@ -340,6 +340,7 @@ namespace Atlas
             MapButtons(tg, "Mapa de emisión", s.emis, () => PickEditorImage("emission"), () => { ChangeMat(st => st.emis = ""); Commit(true); BuildMatEditor(); });
             if (!string.IsNullOrEmpty(s.normal))
                 AtlasTheme.SliderRow(c, "Fuerza del relieve", 0f, 3f, s.bump, "0.0", v => ChangeMat(st => st.bump = v), () => Commit(true));
+            BuildPatternControls(c);
             // Texture placement (animatable)
             var ul = AtlasTheme.Label(c, "COLOCACIÓN DE LA TEXTURA (ANIMABLE)", 14, AtlasTheme.TextDim, true);
             AtlasTheme.Le(ul.gameObject, 22f);

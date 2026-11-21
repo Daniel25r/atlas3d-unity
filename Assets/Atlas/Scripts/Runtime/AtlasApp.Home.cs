@@ -404,6 +404,8 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• NUEVO · Shading (editor de materiales → Texturas generadas): degradado, ruido, nubes, cuadros, rayas, puntos, madera, mármol, ladrillos y baldosas en los dos colores que elijas, sin cortes al repetirse. Se pueden usar como textura, como relieve o como brillo propio, y mezclar la textura con otra imagen usando el patrón de máscara.\n" +
+            "• NUEVO · Copiar y pegar materiales entre objetos y piezas.\n" +
             "• Arreglado: el render «Cine» a veces salía lleno de ruido de colores en algunos teléfonos (gráficos Mali). Ahora la imagen se lee de forma segura y una pasada corrupta se descarta.\n" +
             "• El desenfoque de movimiento solo se aplica en el render: en la vista del editor emborronaba todo al girar la cámara.\n" +
             "• NUEVO · Exportar MP4 también en PC, con todos los sonidos mezclados (antes daba un ZIP de imágenes).\n" +
