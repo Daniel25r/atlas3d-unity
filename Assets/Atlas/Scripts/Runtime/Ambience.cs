@@ -40,6 +40,12 @@ namespace Atlas
                 ambSky = C(0.55f, 0.58f, 0.66f), ambEquator = C(0.38f, 0.39f, 0.43f), ambGround = C(0.16f, 0.16f, 0.18f),
                 sun = C(1f, 0.97f, 0.92f), sunIntensity = 1.25f, bloom = 0.1f },
             // Frutiger Aero: bright optimistic sky, soft clouds, glossy glow.
+            // Clay / plaster study: dark room, one soft light from above to the side,
+            // deep soft shadows and dark corners (sculpture or still-life photo).
+            new AmbiencePreset { id = "sculpt", name = "Luz de estudio", background = C(0.11f, 0.11f, 0.115f), aces = true,
+                ambSky = C(0.16f, 0.16f, 0.17f), ambEquator = C(0.1f, 0.1f, 0.105f), ambGround = C(0.05f, 0.05f, 0.05f),
+                sun = K(5200f), sunIntensity = 2.1f, sunEuler = new Vector3(58f, 38f, 0f),
+                exposure = 0.1f, contrast = 18f, saturation = -20f, bloom = 0.05f, vignette = 0.42f, grain = 0.03f },
             new AmbiencePreset { id = "aero", name = "Frutiger Aero", sky = "clouds",
                 skyTop = C(0.12f, 0.42f, 0.95f), skyHorizon = C(0.78f, 0.92f, 1f), cloudCover = 0.55f, skyExposure = 1.1f,
                 ambSky = C(0.7f, 0.85f, 1f), ambEquator = C(0.55f, 0.68f, 0.82f), ambGround = C(0.3f, 0.42f, 0.38f),

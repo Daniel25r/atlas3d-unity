@@ -49,7 +49,10 @@ namespace Atlas
             return root;
         }
 
-        void Open2D()
+        void Open2D() { Open2D(null); }
+
+        /// `importId`: a 3D scene rendered for drawing over it (RenderFor2D).
+        void Open2D(string importId)
         {
             CloseMenus();
             string root;
@@ -65,6 +68,7 @@ namespace Atlas
                     string pkg = act.Call<string>("getPackageName");
                     intent.Call<AndroidJavaObject>("setClassName", pkg, "org.atlas3d.Atlas2DActivity").Dispose();
                     intent.Call<AndroidJavaObject>("putExtra", "root", root).Dispose();
+                    if (!string.IsNullOrEmpty(importId)) intent.Call<AndroidJavaObject>("putExtra", "import", importId).Dispose();
                     act.Call("startActivity", intent);
                 }
             }
@@ -73,7 +77,7 @@ namespace Atlas
             try
             {
                 int port = Start2DServer(root);
-                Application.OpenURL("http://localhost:" + port + "/index.html");
+                Application.OpenURL("http://localhost:" + port + "/index.html" + (string.IsNullOrEmpty(importId) ? "" : "?import=" + importId));
                 Toast("Animación 2D abierta en el navegador. Tus dibujos se guardan en este ordenador");
             }
             catch (System.Exception e) { Toast("No se pudo abrir el modo 2D: " + e.Message, true); }

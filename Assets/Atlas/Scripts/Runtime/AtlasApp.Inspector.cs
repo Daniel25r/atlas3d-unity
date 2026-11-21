@@ -600,6 +600,12 @@ namespace Atlas
                 AtlasTheme.Chip(g, p.name, () =>
                 {
                     Ambience.Reset(env, p.id);
+                    if (p.id == "sculpt")
+                    {
+                        // Soft shadows and dark corners are what make this light.
+                        env.ao = true; env.shadowsOff = false;
+                        if (!Prefs.viewShadows) { Prefs.viewShadows = true; Prefs.Save(); ApplyPrefs(); }
+                    }
                     ApplyEnv();
                     Commit(true);
                     RefreshProps();

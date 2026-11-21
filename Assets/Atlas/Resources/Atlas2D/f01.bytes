@@ -3343,6 +3343,45 @@ async function cameraDialog(mode) {
     if (stream) stream.getTracks().forEach(t => t.stop());
   }
 }
+/* ---------- 72-escena3d.js ---------- */
+/* =========================================================
+   Escena 3D de ATLAS como fondo: ATLAS renderiza el escenario y la cámara
+   cuadro a cuadro (Render → «Animar en 2D encima») y aquí se abre como un
+   proyecto nuevo con esa escena en una capa de fondo bloqueada y una capa
+   vacía encima para dibujar los personajes a mano.
+   ========================================================= */
+async function importScene3D(id) {
+  if (!/^[A-Za-z0-9_]{1,40}$/.test(id)) return;
+  let done = []; try { done = JSON.parse(localStorage.getItem('trazo_imported') || '[]'); } catch (e) { }
+  if (done.includes(id)) return;
+  const base = 'import/' + id + '/';
+  let m;
+  try { const r = await fetch(base + 'manifest.json', { cache: 'no-store' }); if (!r.ok) throw new Error('sin manifiesto'); m = await r.json(); }
+  catch (e) { toast('No se encontró la escena 3D que mandó ATLAS', 4000); return; }
+  const count = clamp(m.count | 0, 1, 5000), w = clamp(m.w | 0, 64, 4096), h = clamp(m.h | 0, 64, 4096);
+  const p = newProjectObject({ name: String(m.name || 'Escena 3D').slice(0, 60), w, h, fps: clamp(m.fps | 0 || 24, 1, 60), frames: count });
+  const draw = p.layers[0]; draw.name = 'Dibujo';
+  const bg = { id: uid(), name: 'Escena 3D (fondo)', visible: true, locked: true, opacity: 1, cells: new Array(count).fill(null) };
+  p.layers = [bg, draw];
+  busyCancel = false;
+  busy(true, 'Trayendo la escena 3D…', 0);
+  let got = 0;
+  try {
+    for (let i = 0; i < count && !busyCancel; i++) {
+      const r = await fetch(base + String(i).padStart(4, '0') + '.jpg', { cache: 'no-store' });
+      if (!r.ok) continue;
+      const cid = p.id + ':' + uid();
+      await DB.put('cells', await r.blob(), cid);
+      bg.cells[i] = cid; got++;
+      if (i % 6 === 0) busy(true, 'Trayendo la escena 3D… ' + (i + 1) + ' / ' + count, (i + 1) / count);
+    }
+    await DB.put('projects', p);
+    done.push(id); try { localStorage.setItem('trazo_imported', JSON.stringify(done.slice(-20))); } catch (e) { }
+  } finally { busy(false); }
+  await renderProjects();
+  await openProject(p.id);
+  toast(got + ' cuadros de la escena 3D en la capa de fondo (bloqueada). Dibuja en la capa «Dibujo».', 6000);
+}
 /* ---------- 75-exportar.js ---------- */
 /* =========================================================
    Exportar
@@ -5381,6 +5420,8 @@ $('btnMenu').onclick = async () => {
     await renderProjects();
     $('projects').hidden = false;
     hideSplash();
+    const imp = new URLSearchParams(location.search).get('import');
+    if (imp) await importScene3D(imp);
   } catch (e) {
     console.error(e);
     document.body.innerHTML = '<p style="padding:24px;color:#fff;font-family:sans-serif">No se pudo iniciar Artlas 2D: ' + escapeHtml(e.message || e) + '</p>';

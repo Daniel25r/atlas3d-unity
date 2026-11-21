@@ -105,6 +105,9 @@ namespace Atlas
             AtlasTheme.TextButton(more, "film", "GIF animado", () => StartCoroutine(RenderGif()), false, 46f, 16);
             AtlasTheme.TextButton(more, "image", "PNG (ZIP)", () => StartCoroutine(RenderFrames(true)), false, 46f, 16);
             AtlasTheme.TextButton(content, "film", "Animación (fotogramas en ZIP)", () => StartCoroutine(RenderFrames()), false, 50f, 17);
+            AtlasTheme.TextButton(content, "edit", "Animar en 2D encima (Atlas 2D)", () => StartCoroutine(RenderFor2D()), true, 50f, 17);
+            var h2d = AtlasTheme.Label(content, "Monta el escenario y la cámara en 3D y dibuja los personajes a mano encima: la escena entra en Atlas 2D como fondo, cuadro a cuadro.", 14, AtlasTheme.TextDim);
+            AtlasTheme.Le(h2d.gameObject, 40f);
             var hint = AtlasTheme.Label(content, "El MP4 se guarda en tu galería o donde elijas. Los fotogramas JPG (con el audio en el ZIP) sirven para editarlos en CapCut, VN o cualquier editor.", 14, AtlasTheme.TextDim);
             AtlasTheme.Le(hint.gameObject, 40f);
             renderPanel = menu.gameObject;

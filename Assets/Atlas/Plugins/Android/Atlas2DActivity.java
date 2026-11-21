@@ -94,7 +94,10 @@ public class Atlas2DActivity extends Activity {
         web.addJavascriptInterface(voice, "AtlasVoice");
 
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
-        else web.loadUrl("https://" + HOST + "/index.html");
+        else {
+            String imp = getIntent().getStringExtra("import");
+            web.loadUrl("https://" + HOST + "/index.html" + (imp != null && imp.matches("[A-Za-z0-9_]{1,40}") ? "?import=" + imp : ""));
+        }
         hideSystemBars();
     }
 

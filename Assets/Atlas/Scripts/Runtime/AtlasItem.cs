@@ -275,7 +275,14 @@ namespace Atlas
             if (t.GetComponents<Component>().Length != 1) return false;
             if (t.gameObject.layer == Gizmo.Layer) return false;
             var owner = t.GetComponentInParent<AtlasItem>(true);
-            return owner == this;
+            if (owner != this) return false;
+            // Only the ones that really carry a rigid piece of the model (a
+            // jaw, an eye, a loose part). Empty points with nothing on them
+            // (IK targets, attachment points, bone ends far from the body)
+            // showed as bones with very long lines to nowhere.
+            foreach (var mr in t.GetComponentsInChildren<MeshRenderer>(true))
+                if (mr.gameObject.layer != Gizmo.Layer && mr.GetComponentInParent<AtlasItem>(true) == this) return true;
+            return false;
         }
 
         /// IK controls behave like bones (posed, keyed, saved by path).
