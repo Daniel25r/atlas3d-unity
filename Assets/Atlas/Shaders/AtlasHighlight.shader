@@ -8,6 +8,7 @@ Shader "Atlas/Highlight"
         _Color ("Color", Color) = (0.94, 0.65, 0.25, 1)
         _Tint ("Tint", Range(0, 1)) = 0.10
         _Width ("Outline width (px)", Float) = 3
+        _OutlineAlpha ("Outline opacity", Range(0, 1)) = 0.95
     }
     SubShader
     {
@@ -20,6 +21,7 @@ Shader "Atlas/Highlight"
             half4 _Color;
             half _Tint;
             float _Width;
+            half _OutlineAlpha;
         CBUFFER_END
 
         struct Attributes
@@ -64,7 +66,7 @@ Shader "Atlas/Highlight"
             {
                 float facing = saturate(abs(dot(normalize(i.normalWS), normalize(i.viewWS))));
                 float rim = 1.0 - facing;
-                half a = saturate(_Tint + rim * rim * 0.6);
+                half a = saturate(_Tint + rim * rim * 0.6 * saturate(_Tint * 6.0));
                 return half4(_Color.rgb, a);
             }
             ENDHLSL
@@ -100,7 +102,7 @@ Shader "Atlas/Highlight"
 
             half4 frag(Varyings i) : SV_Target
             {
-                return half4(_Color.rgb, 0.95);
+                return half4(_Color.rgb, _OutlineAlpha);
             }
             ENDHLSL
         }

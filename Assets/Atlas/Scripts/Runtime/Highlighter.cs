@@ -11,8 +11,12 @@ namespace Atlas
     public class Highlighter : MonoBehaviour
     {
         public static readonly Color SelectionColor = new Color(0.94f, 0.65f, 0.25f, 1f);   // #f0a640
-        Material mat;
+        Material mat, partMat;
         AtlasItem target;
+        // A part of a model (material editing): a soft glow that fades out,
+        // no outlines (around hundreds of small pieces they covered the
+        // whole model in gold).
+        float partStart = -1f;
 
         class Copy
         {
@@ -35,6 +39,11 @@ namespace Atlas
             {
                 mat = new Material(tmpl);
                 mat.SetColor("_Color", SelectionColor);
+                partMat = new Material(tmpl);
+                partMat.SetColor("_Color", SelectionColor);
+                partMat.SetFloat("_OutlineAlpha", 0f);
+                partMat.SetFloat("_Width", 0f);
+                partMat.SetFloat("_Tint", 0.3f);
             }
             else
             {
@@ -57,7 +66,17 @@ namespace Atlas
             Clear();
             target = it;
             if (it == null || mat == null) return;
+            partStart = only != null && partMat != null ? Time.unscaledTime : -1f;
+            if (partMat != null) partMat.SetFloat("_Tint", 0.3f);
             AddCopies(it, only, original);
+            if (only == null && mat.HasProperty("_Width"))
+            {
+                // Many pieces (machines, robots): a thinner outline and a lighter tint.
+                bool busy = copies.Count > 12;
+                mat.SetFloat("_Width", busy ? 1.5f : 3f);
+                mat.SetFloat("_Tint", busy ? 0.05f : 0.10f);
+                mat.SetFloat("_OutlineAlpha", busy ? 0.7f : 0.95f);
+            }
         }
 
         /// One more object glowing with the selected one (multiple selection).
@@ -87,7 +106,7 @@ namespace Atlas
                 go.transform.SetParent(transform, false);
                 go.layer = Gizmo.Layer;
                 var mats = new Material[Mathf.Max(1, mesh.subMeshCount)];
-                for (int i = 0; i < mats.Length; i++) mats[i] = mat;
+                for (int i = 0; i < mats.Length; i++) mats[i] = only != null && partMat != null ? partMat : mat;
                 var c = new Copy { src = r };
                 if (skin != null)
                 {
@@ -137,6 +156,16 @@ namespace Atlas
             {
                 if (copies.Count > 0) Clear();
                 return;
+            }
+            // The chosen part glows for a moment, then fades away.
+            if (partStart >= 0f && partMat != null)
+            {
+                float t = Time.unscaledTime - partStart;
+                float tint = t < 0.6f ? 0.3f : Mathf.Lerp(0.3f, 0f, (t - 0.6f) / 0.9f);
+                partMat.SetFloat("_Tint", tint);
+                bool on = tint > 0.005f;
+                foreach (var c in copies) if (c.dst != null && c.dst.gameObject.activeSelf != on) c.dst.gameObject.SetActive(on);
+                if (!on) return;
             }
             foreach (var c in copies)
             {

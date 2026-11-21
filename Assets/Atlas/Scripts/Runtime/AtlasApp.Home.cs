@@ -404,6 +404,7 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• Arreglado: al elegir una parte de un modelo con muchas piezas (máquinas, robots) todo se veía dorado y transparente. Ahora la parte brilla un momento y se apaga sola, y en modelos con muchas piezas la selección es más fina.\n" +
             "• NUEVO · Animaciones del modelo «Pasar a claves»: la animación que trae un modelo se convierte en claves de los huesos para retocarla en modo pose, mezclarla con lo tuyo o cambiar su ritmo.\n" +
             "• NUEVO · «Aspecto realista» (Escena → Estilo de la imagen): con un toque, color de cine, sombras en rincones, sombras activadas, brillo natural de los modelos y sin estilo dibujo.\n" +
             "• NUEVO · Curva (Añadir → Curva): un tubo que pasa suave por varios puntos. Mueve cada punto con el manipulador, añade o quita puntos y elige grosor, lados, cerrada (aro) y puntas finas. Para cables, colas, tubos, cuerdas o letras.\n" +
