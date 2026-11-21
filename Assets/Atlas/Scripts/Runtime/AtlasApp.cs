@@ -17,7 +17,7 @@ namespace Atlas
 {
     public partial class AtlasApp : MonoBehaviour
     {
-        public const string Version = "1.15.2";
+        public const string Version = "1.16.0";
 
         Camera cam;
         Light sunLight;
@@ -393,6 +393,11 @@ namespace Atlas
                 selVerts.Clear();
                 selFaces.Clear();
             }
+            // Shape settings (Geometría): a new mesh when they change.
+            var geo = d.geo != null ? d.geo.Clone() : new GeoParams();
+            bool geoChanged = JsonUtility.ToJson(geo) != JsonUtility.ToJson(it.geo ?? new GeoParams());
+            it.geo = geo;
+            if (geoChanged && string.IsNullOrEmpty(it.meshFile) && it.GetComponent<MeshFilter>() != null && ShapeGen.Supports(it.kind)) LoadItemMesh(it);
             it.renderCam = d.renderCam;
             it.transform.position = d.position;
             it.transform.eulerAngles = d.rotation;

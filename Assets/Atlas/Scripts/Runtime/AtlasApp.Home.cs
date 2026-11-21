@@ -404,6 +404,7 @@ namespace Atlas
         }
 
         const string WhatsNew =
+            "• NUEVO · Geometría de las figuras (inspector → Geometría): segmentos, anillos y radio de esfera, cilindro, cono, cápsula, pirámide, toro, plano y cubo; deformación radial (hundir o extender con ondas, en el eje X, Y o Z, con espejo), torsión geométrica, huecos de rejilla y topología: cuadriláteros, triángulos o R-Cube (esfera hecha con un cubo / cubo redondeado).\n" +
             "• Arreglado: modelos de Source (Garry's Mod, SFM) con la cabeza o partes que se partían, se estiraban o parecían duplicadas al girar o mover un hueso. Ahora los huesos quedan justo donde está la piel del modelo.\n" +
             "• Arreglado: al elegir una parte de un modelo con muchas piezas (máquinas, robots) todo se veía dorado y transparente. Ahora la parte brilla un momento y se apaga sola, y en modelos con muchas piezas la selección es más fina.\n" +
             "• NUEVO · Animaciones del modelo «Pasar a claves»: la animación que trae un modelo se convierte en claves de los huesos para retocarla en modo pose, mezclarla con lo tuyo o cambiar su ritmo.\n" +

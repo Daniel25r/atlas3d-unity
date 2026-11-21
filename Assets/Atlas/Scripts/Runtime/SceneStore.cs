@@ -67,6 +67,7 @@ namespace Atlas
         public float curveRadius = 0.05f;
         public int curveSides = 8;
         public bool curveClosed, curveTaper;
+        public GeoParams geo = new GeoParams();
         public bool pixelated, pureEmit, loopKeys;
         public float reduce;
         public bool normalFlip;
@@ -397,6 +398,7 @@ namespace Atlas
                     hiddenBones = it.hiddenBones != null ? new List<string>(it.hiddenBones) : new List<string>(),
                     curvePts = it.curvePts != null ? new List<Vector3>(it.curvePts) : new List<Vector3>(),
                     curveRadius = it.curveRadius, curveSides = it.curveSides, curveClosed = it.curveClosed, curveTaper = it.curveTaper,
+                    geo = it.geo != null ? it.geo.Clone() : new GeoParams(),
                     pixelated = it.pixelated,
                     pureEmit = it.pureEmit,
                     loopKeys = it.loopKeys,

@@ -116,6 +116,23 @@ namespace Atlas
             return m;
         }
 
+        /// The shape as its Geometría settings make it (or Unity's own).
+        Mesh ShapeMesh(AtlasItem it)
+        {
+            Mesh m = null;
+            if (it.geo != null && it.geo.on && ShapeGen.Supports(it.kind))
+            {
+                try { m = ShapeGen.Build(it.kind, it.geo); }
+                catch (System.Exception e) { Debug.LogWarning("ATLAS: forma: " + e.Message); }
+            }
+            if (it.geoMesh != null && it.geoMesh != m) Destroy(it.geoMesh);
+            it.geoMesh = m;
+            if (m == null) m = OriginalMesh(it.kind);
+            var mc = it.GetComponent<MeshCollider>();
+            if (mc != null) mc.sharedMesh = m;
+            return m;
+        }
+
         void EnsureEditable(AtlasItem it)
         {
             if (it.edit != null) return;
@@ -135,7 +152,7 @@ namespace Atlas
             if (string.IsNullOrEmpty(it.meshFile) || store == null)
             {
                 it.edit = null;
-                mf.sharedMesh = OriginalMesh(it.kind);
+                mf.sharedMesh = ShapeMesh(it);
                 return;
             }
             try
@@ -149,7 +166,7 @@ namespace Atlas
             {
                 Debug.LogWarning("ATLAS: malla no cargada: " + e.Message);
                 it.edit = null;
-                mf.sharedMesh = OriginalMesh(it.kind);
+                mf.sharedMesh = ShapeMesh(it);
             }
         }
 

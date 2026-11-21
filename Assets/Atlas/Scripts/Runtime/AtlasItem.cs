@@ -70,6 +70,8 @@ namespace Atlas
         public float curveRadius = 0.05f;
         public int curveSides = 8;
         public bool curveClosed, curveTaper;
+        public GeoParams geo = new GeoParams();   // shapes: segments, rings, deformation…
+        public Mesh geoMesh;
         public bool pureEmit;            // «Emisión pura»
         public bool loopKeys;            // the keys repeat after the last one («En bucle»)
         public float reduce;             // «Reducir polígonos»: 0 original .. 0.95
@@ -852,6 +854,7 @@ namespace Atlas
         {
             if (material != null) Destroy(material);
             if (editMesh != null) Destroy(editMesh);
+            if (geoMesh != null) Destroy(geoMesh);
             if (importer != null)
             {
                 importer.Dispose();
