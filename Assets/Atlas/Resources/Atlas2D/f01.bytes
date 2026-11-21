@@ -4387,7 +4387,7 @@ function seeded(seed) {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }
-const animeFxOn = x => !!x && !!(x.rim || x.cel || x.aura || x.spark);
+const animeFxOn = x => !!x && !!(x.rim || x.cel || x.aura || x.spark || x.tko || x.paraA || x.mblur);
 
 // Silueta del dibujo vista a 1/8: bordes y caja que la contiene
 function silhouetteInfo(a, w, h) {
@@ -4425,7 +4425,8 @@ function shiftedBand(a, w, h, dx, dy, color, soft, name) {
 
 // Aplica los efectos de anime a `a` (el dibujo con sus efectos de color) en `o`.
 // Devuelve el lienzo final.
-function applyAnimeFx(L, full, a, w, h, f) {
+function applyAnimeFx(L, full0, a, w, h, f) {
+  let full = full0;
   const x = L.fx, k = w / P.w;
   const o = tmpCanvas('anim', w, h), ot = resetCtx(ctx2d(o));
   ot.clearRect(0, 0, w, h);
@@ -4467,6 +4468,20 @@ function applyAnimeFx(L, full, a, w, h, f) {
     ot.drawImage(au, 0, 0);
     ot.filter = 'none'; ot.globalAlpha = 1;
   }
+  // --- Desenfoque de movimiento: el dibujo se estira en la dirección del golpe
+  if (x.mblur) {
+    const m = tmpCanvas('mblur', w, h), mt = resetCtx(ctx2d(m));
+    mt.clearRect(0, 0, w, h);
+    const ang = (x.mblurAng || 0) * Math.PI / 180, len = x.mblur * k, n = 10;
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1) - (x.mblurTrail ? 1 : 0.5);
+      mt.globalAlpha = x.mblurTrail ? 0.05 + 0.3 * (i / (n - 1)) : 1.6 / n;
+      mt.drawImage(full, Math.cos(ang) * len * t, Math.sin(ang) * len * t);
+    }
+    mt.globalAlpha = 1;
+    if (x.mblurTrail) mt.drawImage(full, 0, 0);
+    full = m;
+  }
   // --- El dibujo (con su sombra y resplandor)
   ot.drawImage(full, 0, 0);
   const lightA = (((x.lightDir != null ? x.lightDir : -45)) * Math.PI) / 180;
@@ -4485,6 +4500,19 @@ function applyAnimeFx(L, full, a, w, h, f) {
     const band = shiftedBand(a, w, h, -lx * d, -ly * d, x.rimColor || '#bfe8ff', Math.max(0.5, d * 0.25), 'rim');
     ot.globalAlpha = (x.rimA != null ? x.rimA : 90) / 100; ot.globalCompositeOperation = 'screen';
     ot.drawImage(band, 0, 0);
+    ot.globalAlpha = 1; ot.globalCompositeOperation = 'source-over';
+  }
+  // --- Degradado «para»: color en degradado encima del dibujo (luz del ambiente)
+  if (x.paraA) {
+    const g = tmpCanvas('para', w, h), gt = resetCtx(ctx2d(g));
+    gt.clearRect(0, 0, w, h);
+    const pa = (x.paraAng != null ? x.paraAng : 90) * Math.PI / 180, cx = w / 2, cy = h / 2, R = Math.hypot(w, h) / 2;
+    const gr = gt.createLinearGradient(cx - Math.cos(pa) * R, cy - Math.sin(pa) * R, cx + Math.cos(pa) * R, cy + Math.sin(pa) * R);
+    gr.addColorStop(0, x.paraC1 || '#ffe2b0'); gr.addColorStop(1, x.paraC2 || '#4a3a9a');
+    gt.fillStyle = gr; gt.fillRect(0, 0, w, h);
+    gt.globalCompositeOperation = 'destination-in'; gt.drawImage(a, 0, 0);
+    ot.globalAlpha = x.paraA / 100; ot.globalCompositeOperation = x.paraBlend || 'overlay';
+    ot.drawImage(g, 0, 0);
     ot.globalAlpha = 1; ot.globalCompositeOperation = 'source-over';
   }
   // --- Destellos: estrellas de cuatro puntas que aparecen y se apagan
@@ -4511,6 +4539,20 @@ function applyAnimeFx(L, full, a, w, h, f) {
     }
     ot.globalCompositeOperation = 'source-over';
   }
+  // --- Luz transmitida (T光): el dibujo brilla como luz que atraviesa (ventanas, rayos, energía)
+  if (x.tko) {
+    const size = (x.tkoSize || 30) * k;
+    const g = tmpCanvas('tko', w, h), gt = resetCtx(ctx2d(g));
+    gt.clearRect(0, 0, w, h); gt.drawImage(a, 0, 0);
+    if (x.tkoTint) { gt.globalCompositeOperation = 'source-atop'; gt.globalAlpha = x.tkoTint / 100; gt.fillStyle = x.tkoColor || '#9fd8ff'; gt.fillRect(0, 0, w, h); gt.globalAlpha = 1; gt.globalCompositeOperation = 'source-over'; }
+    ot.globalCompositeOperation = 'lighter';
+    for (const [r, al] of [[0.12, 0.55], [0.4, 0.45], [1, 0.35]]) {
+      ot.globalAlpha = Math.min(1, x.tko / 100 * al);
+      ot.filter = 'blur(' + Math.max(0.5, size * r).toFixed(2) + 'px)';
+      ot.drawImage(g, 0, 0);
+    }
+    ot.filter = 'none'; ot.globalAlpha = 1; ot.globalCompositeOperation = 'source-over';
+  }
   return o;
 }
 
@@ -4527,7 +4569,7 @@ const ANIME_PRESETS = {
 async function animeFxDialog() {
   const L = P.layers[cur.layer];
   if (!L || isGroup(L)) { toast('Los efectos se ponen en capas de dibujo, no en carpetas'); return; }
-  const base = { rim: 0, rimColor: '#bfe8ff', rimA: 90, lightDir: -45, cel: 0, celColor: '#3a2c6e', celA: 55, celSoft: 0, aura: 0, auraColor: '#7fd4ff', auraColor2: '#ffffff', auraA: 90, auraDir: -90, auraHold: 2, auraCycle: 4, auraDensity: 1, spark: 0, sparkColor: '#ffffff', sparkSize: 10 };
+  const base = { rim: 0, rimColor: '#bfe8ff', rimA: 90, lightDir: -45, cel: 0, celColor: '#3a2c6e', celA: 55, celSoft: 0, aura: 0, auraColor: '#7fd4ff', auraColor2: '#ffffff', auraA: 90, auraDir: -90, auraHold: 2, auraCycle: 4, auraDensity: 1, spark: 0, sparkColor: '#ffffff', sparkSize: 10, tko: 0, tkoSize: 30, tkoColor: '#9fd8ff', tkoTint: 0, paraA: 0, paraC1: '#ffe2b0', paraC2: '#4a3a9a', paraAng: 90, paraBlend: 'overlay', mblur: 0, mblurAng: 0, mblurTrail: false };
   const x = Object.assign({}, base, L.fx || {});
   const before = clone(L.fx);
   const live = () => { L.fx = Object.assign({}, L.fx || {}, x); invalidateAllFrames(); sceneDirty = true; requestRender(); };
@@ -4546,6 +4588,11 @@ async function animeFxDialog() {
     return el('label', {}, [label, c]);
   };
   const head = t => el('p', { class: 'note', html: '<b style="color:var(--text)">' + escapeHtml(t) + '</b>' });
+  const blendSel = el('select', {}, [['overlay', 'Superponer'], ['soft-light', 'Luz suave'], ['multiply', 'Multiplicar (sombra)'], ['screen', 'Trama (luz)'], ['color', 'Color']].map(([v, n]) => el('option', { value: v, text: n, selected: x.paraBlend === v })));
+  blendSel.onchange = () => { x.paraBlend = blendSel.value; live(); };
+  const trailC = el('input', { type: 'checkbox' }); trailC.checked = !!x.mblurTrail;
+  trailC.onchange = () => { x.mblurTrail = trailC.checked; live(); };
+  const trailChk = el('label', { class: 'chk' }, [trailC, 'Estela detrás (el dibujo queda nítido delante)']);
   const presets = el('div', { class: 'drow', style: 'flex-wrap:wrap;gap:6px' }, Object.keys(ANIME_PRESETS).map(id => {
     const b = el('button', { class: 'tb', text: ANIME_PRESETS[id].name });
     b.onclick = () => {
@@ -4576,12 +4623,22 @@ async function animeFxDialog() {
     head('Destellos'),
     el('div', { class: 'row2' }, [slider('Cantidad', 'spark', 0, 120, ''), slider('Tamaño', 'sparkSize', 2, 40, ' px')]),
     color('Color de los destellos', 'sparkColor'),
+    head('Luz transmitida (T光): brilla como luz que atraviesa'),
+    el('div', { class: 'row2' }, [slider('Fuerza', 'tko', 0, 200, '%'), slider('Tamaño del brillo', 'tkoSize', 2, 150, ' px')]),
+    el('div', { class: 'row2' }, [color('Color de la luz', 'tkoColor'), slider('Teñir', 'tkoTint', 0, 100, '%')]),
+    head('Degradado «para» (luz del ambiente sobre el personaje)'),
+    el('div', { class: 'row2' }, [slider('Fuerza', 'paraA', 0, 100, '%'), slider('Dirección', 'paraAng', -180, 180, '°')]),
+    el('div', { class: 'row2' }, [color('Color 1', 'paraC1'), color('Color 2', 'paraC2')]),
+    blendSel,
+    head('Desenfoque de movimiento'),
+    el('div', { class: 'row2' }, [slider('Largo', 'mblur', 0, 200, ' px'), slider('Dirección', 'mblurAng', -180, 180, '°')]),
+    trailChk,
   ]);
   const r = await dialog({ title: 'Efectos de anime · ' + L.name, body, buttons: [{ label: 'Quitar', value: 'clear', danger: true }, { label: 'Cancelar', value: false }, { label: 'Aplicar', value: true, primary: true }] });
   if (r === true) { L.fx = Object.assign({}, L.fx || {}, x); structural('Efectos de anime'); }
   else if (r === 'clear') {
     const fx = Object.assign({}, L.fx || {});
-    for (const k of ['rim', 'cel', 'aura', 'spark']) fx[k] = 0;
+    for (const k of ['rim', 'cel', 'aura', 'spark', 'tko', 'paraA', 'mblur']) fx[k] = 0;
     L.fx = fx; structural('Quitar efectos de anime');
   } else { if (before) L.fx = before; else delete L.fx; invalidateAllFrames(); sceneDirty = true; requestRender(); }
   if (animOpen()) renderAnimPanel();
@@ -4594,13 +4651,32 @@ async function animeFxDialog() {
 function sceneFxOn(f) {
   const s = P && P.scene;
   if (!s) return false;
-  if (!(s.speed || s.shake || s.bloom || s.chroma || s.grain || s.vignette || s.flash)) return false;
+  if (f != null && impactAt(f)) return true;
+  if (!(s.speed || s.shake || s.bloom || s.chroma || s.grain || s.vignette || s.flash || s.df)) return false;
   const a = Math.max(1, s.from || 1) - 1, b = (s.to || P.frames) - 1;
   return f == null || (f >= a && f <= b);
+}
+// «12, 14-16» → cuadros 12, 14, 15 y 16 (contando desde 1)
+function parseFrameList(txt) {
+  const set = new Set();
+  for (const part of String(txt || '').split(/[,; ]+/)) {
+    const m = part.match(/^(\d+)(?:-(\d+))?$/); if (!m) continue;
+    const a = +m[1], b = m[2] ? +m[2] : a;
+    for (let i = Math.min(a, b); i <= Math.max(a, b) && i - Math.min(a, b) < 2000; i++) set.add(i - 1);
+  }
+  return set;
+}
+let impactCache = { txt: null, set: new Set() };
+function impactAt(f) {
+  const s = P && P.scene; if (!s || !s.impact) return false;
+  if (impactCache.txt !== s.impact) impactCache = { txt: s.impact, set: parseFrameList(s.impact) };
+  return impactCache.set.has(f);
 }
 function applySceneFx(cv, f, w, h) {
   const s = P.scene, k = w / P.w, t = ctx2d(cv);
   resetCtx(t);
+  const a0 = Math.max(1, s.from || 1) - 1, b0 = (s.to || P.frames) - 1;
+  if (f < a0 || f > b0) { applyImpact(cv, f, w, h); return; }
   // Temblor de cámara
   if (s.shake) {
     const R = seeded(31 * f + 5), m = s.shake * k;
@@ -4655,6 +4731,17 @@ function applySceneFx(cv, f, w, h) {
     t.drawImage(r, -d, 0); t.drawImage(g, 0, 0); t.drawImage(b, d, 0);
     resetCtx(t);
   }
+  // Difusión (DF): las zonas claras se tiñen, se desenfocan y se suman (neblina suave del anime)
+  if (s.df) {
+    const th = (s.dfTh != null ? s.dfTh : 50) / 100;
+    const c = tmpCanvas('scDf', w, h), ct = resetCtx(ctx2d(c));
+    ct.clearRect(0, 0, w, h);
+    ct.filter = 'brightness(' + (1 - th * 0.55).toFixed(2) + ') contrast(' + (1 + th * 3).toFixed(2) + ') blur(' + Math.max(2, (s.dfSize || 24) * k).toFixed(1) + 'px)';
+    ct.drawImage(cv, 0, 0); ct.filter = 'none';
+    if (s.dfColor) { ct.globalCompositeOperation = 'multiply'; ct.fillStyle = s.dfColor; ct.fillRect(0, 0, w, h); ct.globalCompositeOperation = 'source-over'; }
+    t.globalCompositeOperation = 'screen'; t.globalAlpha = Math.min(1, s.df / 100);
+    t.drawImage(c, 0, 0); resetCtx(t);
+  }
   // Destello de luz que llena la pantalla
   if (s.flash) {
     t.globalCompositeOperation = 'screen'; t.globalAlpha = Math.min(1, s.flash / 100);
@@ -4676,11 +4763,32 @@ function applySceneFx(cv, f, w, h) {
     t.fillStyle = t.createPattern(n, 'repeat'); t.fillRect(0, 0, w, h);
     resetCtx(t);
   }
+  applyImpact(cv, f, w, h);
 }
 
+// Cuadros de impacto: negativo, blanco y negro duro o rojo, en los cuadros elegidos
+function applyImpact(cv, f, w, h) {
+  if (!impactAt(f)) return;
+  const s = P.scene, t = ctx2d(cv); resetCtx(t);
+  const mode = s.impactMode || 'invert';
+  const c = tmpCanvas('scImp', w, h), ct = resetCtx(ctx2d(c));
+  ct.clearRect(0, 0, w, h);
+  if (mode === 'invert' || mode === 'red') {
+    ct.drawImage(cv, 0, 0);
+    ct.globalCompositeOperation = 'difference'; ct.fillStyle = '#ffffff'; ct.fillRect(0, 0, w, h);
+    ct.globalCompositeOperation = 'source-over';
+    if (mode === 'red') { ct.filter = 'none'; const d = tmpCanvas('scImp2', w, h), dt = resetCtx(ctx2d(d)); dt.filter = 'grayscale(1) contrast(3)'; dt.drawImage(c, 0, 0); dt.filter = 'none'; dt.globalCompositeOperation = 'multiply'; dt.fillStyle = s.impactColor || '#ff2a3a'; dt.fillRect(0, 0, w, h); ct.clearRect(0, 0, w, h); ct.drawImage(d, 0, 0); }
+  } else {
+    ct.filter = 'grayscale(1) contrast(' + (mode === 'ink' ? 8 : 3) + ')';
+    ct.drawImage(cv, 0, 0); ct.filter = 'none';
+  }
+  t.clearRect(0, 0, w, h); t.drawImage(c, 0, 0);
+}
+const LOOKS_KEY = 'trazo_looks';
+const readLooks = () => { try { return JSON.parse(localStorage.getItem(LOOKS_KEY) || '[]'); } catch (e) { return []; } };
 async function sceneFxDialog() {
   if (!P.scene) P.scene = {};
-  const x = Object.assign({ from: 1, to: P.frames, speed: 0, speedColor: '#ffffff', speedX: 50, speedY: 50, shake: 0, bloom: 0, chroma: 0, grain: 0, vignette: 0, flash: 0, flashColor: '#ffffff' }, P.scene);
+  const x = Object.assign({ df: 0, dfTh: 50, dfSize: 24, dfColor: '#ffe8f0', impact: '', impactMode: 'invert', impactColor: '#ff2a3a', from: 1, to: P.frames, speed: 0, speedColor: '#ffffff', speedX: 50, speedY: 50, shake: 0, bloom: 0, chroma: 0, grain: 0, vignette: 0, flash: 0, flashColor: '#ffffff' }, P.scene);
   const before = clone(P.scene);
   const live = () => { P.scene = Object.assign({}, x); invalidateAllFrames(); sceneDirty = true; requestRender(); };
   const slider = (label, key, min, max, unit) => {
@@ -4699,6 +4807,37 @@ async function sceneFxDialog() {
     c.oninput = () => { x[key] = c.value; live(); };
     return el('label', {}, [label, c]);
   };
+  const impactIn = el('input', { type: 'text', value: x.impact || '', placeholder: 'Cuadros: 24, 25, 30-31' });
+  impactIn.oninput = () => { x.impact = impactIn.value; live(); };
+  const impactSel = el('select', {}, [['invert', 'Negativo'], ['ink', 'Tinta (blanco y negro duro)'], ['bw', 'Blanco y negro'], ['red', 'Rojo de impacto']].map(([v, n]) => el('option', { value: v, text: n, selected: x.impactMode === v })));
+  impactSel.onchange = () => { x.impactMode = impactSel.value; live(); };
+  const saveLook = el('button', { class: 'tb', text: '💾 Guardar este look' });
+  saveLook.onclick = async () => {
+    const nameIn = el('input', { type: 'text', value: 'Mi look', maxlength: 40 });
+    const snap = Object.assign({}, x);
+    closeDialog('look');
+    const ok = await dialog({ title: 'Guardar look', body: el('div', { class: 'form' }, [el('label', {}, ['Nombre (sirve en todos tus proyectos)', nameIn])]), buttons: [{ label: 'Cancelar', value: false }, { label: 'Guardar', value: true, primary: true }] });
+    P.scene = snap; invalidateAllFrames(); sceneDirty = true; requestRender(); scheduleSave();
+    const name = ok ? nameIn.value.trim().slice(0, 40) : '';
+    if (!name) return;
+    const L = P.layers[cur.layer];
+    const looks = readLooks().filter(l => l.name !== name);
+    looks.push({ name, scene: snap, fx: L && L.fx ? clone(L.fx) : null });
+    try { localStorage.setItem(LOOKS_KEY, JSON.stringify(looks.slice(-30))); toast('Look «' + name + '» guardado'); } catch (e) { toast('No se pudo guardar'); }
+  };
+  const loadLook = el('button', { class: 'tb', text: '📂 Usar un look guardado' });
+  loadLook.onclick = async () => {
+    const looks = readLooks();
+    if (!looks.length) { toast('Aún no hay looks guardados'); return; }
+    closeDialog('look');
+    const pick = await dialog({ title: 'Looks guardados', body: el('div', { class: 'menu' }, looks.map((l, i) => el('button', { html: escapeHtml(l.name) + '<small>Escena' + (l.fx ? ' + efectos de capa' : '') + '</small>', onclick: () => closeDialog('l' + i) }))), buttons: [{ label: 'Cancelar', value: null }] });
+    if (!pick) return;
+    const l = looks[+pick.slice(1)];
+    P.scene = Object.assign({}, l.scene, { from: 1, to: P.frames });
+    const L = P.layers[cur.layer];
+    if (l.fx && L && !isGroup(L)) L.fx = clone(l.fx);
+    structural('Usar look'); toast('Look «' + l.name + '» aplicado (escena' + (l.fx ? ' y efectos en «' + L.name + '»' : '') + ')');
+  };
   const body = el('div', { class: 'form' }, [
     el('p', { class: 'note', text: 'Se aplican a la imagen entera entre esos cuadros: para golpes, transformaciones y ataques. Se ven al reproducir y al exportar.' }),
     el('div', { class: 'row2' }, [num('Desde el cuadro', 'from'), num('Hasta el cuadro', 'to')]),
@@ -4710,8 +4849,15 @@ async function sceneFxDialog() {
     slider('Aberración cromática', 'chroma', 0, 20, ' px'),
     el('div', { class: 'row2' }, [slider('Destello de luz', 'flash', 0, 100, '%'), color('Color del destello', 'flashColor')]),
     el('div', { class: 'row2' }, [slider('Viñeta', 'vignette', 0, 100, '%'), slider('Grano de película', 'grain', 0, 100, '%')]),
+    el('p', { class: 'note', html: '<b style="color:var(--text)">Difusión (DF)</b>: neblina suave del anime moderno; las zonas claras brillan con un tono.' }),
+    el('div', { class: 'row2' }, [slider('Difusión', 'df', 0, 100, '%'), slider('Solo lo más claro', 'dfTh', 0, 100, '%')]),
+    el('div', { class: 'row2' }, [slider('Tamaño', 'dfSize', 2, 80, ' px'), color('Tono', 'dfColor')]),
+    el('p', { class: 'note', html: '<b style="color:var(--text)">Cuadros de impacto</b>: en los cuadros que escribas (por ejemplo «24, 25, 30-31») la imagen se vuelve negativo, tinta o roja, como en los golpes del anime. Valen fuera del rango de arriba.' }),
+    impactIn, impactSel, color('Color del impacto rojo', 'impactColor'),
+    el('div', { class: 'drow', style: 'gap:6px;flex-wrap:wrap' }, [saveLook, loadLook]),
   ]);
   const r = await dialog({ title: 'Efectos de escena', body, buttons: [{ label: 'Quitar todos', value: 'clear', danger: true }, { label: 'Cancelar', value: false }, { label: 'Aplicar', value: true, primary: true }] });
+  if (r === 'look') return;
   if (r === true) { P.scene = Object.assign({}, x); structural('Efectos de escena'); }
   else if (r === 'clear') { delete P.scene; structural('Quitar efectos de escena'); }
   else { if (before) P.scene = before; else delete P.scene; invalidateAllFrames(); sceneDirty = true; requestRender(); }
